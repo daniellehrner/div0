@@ -1,0 +1,30 @@
+# Build directories
+/build
+/cmake-build-*/
+
+# CMake generated files
+compile_commands.json
+cmake_test_discovery_*.json
+
+# Fuzzing artifacts
+crash-*
+leak-*
+timeout-*
+/corpus
+
+# IDE files
+.vscode/
+.idea/
+.vs/
+*.swp
+*.swo
+*~
+
+# Misc
+.DS_Store
+.clangd/
+.cache/
+
+# reference implementations
+/references
+/docs

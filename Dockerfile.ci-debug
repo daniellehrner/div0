@@ -1,0 +1,36 @@
+FROM ubuntu:24.04
+
+# Avoid interactive prompts
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Install base dependencies
+RUN apt-get update && apt-get install -y \
+    wget \
+    gnupg \
+    software-properties-common \
+    cmake \
+    ninja-build \
+    git \
+    python3-pip \
+    make \
+    xsltproc \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install LLVM 21
+RUN wget https://apt.llvm.org/llvm.sh && \
+    chmod +x llvm.sh && \
+    ./llvm.sh 21 all && \
+    rm llvm.sh
+
+# Create symlinks for LLVM tools
+RUN ln -sf /usr/bin/clang-21 /usr/bin/clang && \
+    ln -sf /usr/bin/clang++-21 /usr/bin/clang++ && \
+    ln -sf /usr/bin/clang-tidy-21 /usr/bin/clang-tidy && \
+    ln -sf /usr/bin/lld-21 /usr/bin/lld && \
+    ln -sf /usr/bin/ld.lld-21 /usr/bin/ld.lld
+
+# Set compiler
+ENV CC=clang
+ENV CXX=clang++
+
+WORKDIR /workspace

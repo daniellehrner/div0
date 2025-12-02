@@ -1,0 +1,58 @@
+name: 'Setup LLVM'
+description: 'Install LLVM toolchain from apt.llvm.org and configure symlinks'
+
+inputs:
+  version:
+    description: 'LLVM version to install'
+    required: true
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Cache apt packages
+      uses: awalsh128/cache-apt-pkgs-action@v1
+      with:
+        packages: cmake ninja-build ccache xsltproc
+        version: 1.0
+
+    - name: Install LLVM ${{ inputs.version }}
+      shell: bash
+      env:
+        # LLVM APT repository GPG key fingerprint (from https://apt.llvm.org)
+        LLVM_GPG_FINGERPRINT: "6084F3CF814B57C1CF12EFD515CF4D18AF4F7421"
+      run: |
+        # Download and verify GPG key fingerprint before trusting
+        wget -qO /tmp/llvm.key https://apt.llvm.org/llvm-snapshot.gpg.key
+        ACTUAL_FP=$(gpg --show-keys --with-colons /tmp/llvm.key 2>/dev/null | grep '^fpr:' | head -1 | cut -d: -f10)
+        if [ "$ACTUAL_FP" != "$LLVM_GPG_FINGERPRINT" ]; then
+          echo "ERROR: GPG key fingerprint mismatch!"
+          echo "Expected: $LLVM_GPG_FINGERPRINT"
+          echo "Got: $ACTUAL_FP"
+          exit 1
+        fi
+        sudo gpg --dearmor -o /etc/apt/trusted.gpg.d/apt.llvm.org.gpg < /tmp/llvm.key
+        rm /tmp/llvm.key
+
+        sudo add-apt-repository -y "deb https://apt.llvm.org/noble/ llvm-toolchain-noble-${{ inputs.version }} main"
+        sudo apt-get update
+        sudo apt-get install -y \
+          clang-${{ inputs.version }} \
+          clang-tidy-${{ inputs.version }} \
+          clang-format-${{ inputs.version }} \
+          clang-tools-${{ inputs.version }} \
+          libc++-${{ inputs.version }}-dev \
+          libc++abi-${{ inputs.version }}-dev \
+          lld-${{ inputs.version }}
+
+    - name: Set up LLVM symlinks
+      shell: bash
+      run: |
+        sudo ln -sf /usr/bin/clang-${{ inputs.version }} /usr/bin/clang
+        sudo ln -sf /usr/bin/clang++-${{ inputs.version }} /usr/bin/clang++
+        sudo ln -sf /usr/bin/clang-tidy-${{ inputs.version }} /usr/bin/clang-tidy
+        sudo ln -sf /usr/bin/clang-format-${{ inputs.version }} /usr/bin/clang-format
+        sudo ln -sf /usr/bin/run-clang-tidy-${{ inputs.version }} /usr/bin/run-clang-tidy
+        sudo ln -sf /usr/bin/lld-${{ inputs.version }} /usr/bin/lld
+        sudo ln -sf /usr/bin/ld.lld-${{ inputs.version }} /usr/bin/ld.lld
+        sudo ln -sf /usr/bin/clang-tidy-diff-${{ inputs.version }}.py /usr/bin/clang-tidy-diff
+        clang --version

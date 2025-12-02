@@ -1,0 +1,148 @@
+{
+  "version": 6,
+  "cmakeMinimumRequired": {
+    "major": 3,
+    "minor": 28,
+    "patch": 0
+  },
+  "configurePresets": [
+    {
+      "name": "base",
+      "hidden": true,
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/${presetName}",
+      "cacheVariables": {
+        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
+        "CMAKE_C_COMPILER_LAUNCHER": "ccache",
+        "CMAKE_CXX_COMPILER_LAUNCHER": "ccache"
+      }
+    },
+    {
+      "name": "clang-base",
+      "hidden": true,
+      "inherits": "base",
+      "cacheVariables": {
+        "CMAKE_C_COMPILER": "clang",
+        "CMAKE_CXX_COMPILER": "clang++"
+      }
+    },
+    {
+      "name": "debug",
+      "displayName": "Debug",
+      "description": "Debug build with ASan + UBSan (safe by default)",
+      "inherits": "clang-base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "DIV0_BUILD_TESTS": "ON",
+        "DIV0_BUILD_BENCHMARKS": "OFF",
+        "DIV0_ENABLE_CLANG_TIDY": "OFF"
+      }
+    },
+    {
+      "name": "release",
+      "displayName": "Release",
+      "description": "Optimized release build with LTO",
+      "inherits": "clang-base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "DIV0_BUILD_TESTS": "ON",
+        "DIV0_BUILD_BENCHMARKS": "ON",
+        "DIV0_ENABLE_LTO": "ON",
+        "DIV0_ENABLE_CLANG_TIDY": "OFF"
+      }
+    },
+    {
+      "name": "relwithdebinfo",
+      "displayName": "RelWithDebInfo",
+      "description": "Optimized build with debug symbols (for profiling)",
+      "inherits": "clang-base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "RelWithDebInfo",
+        "DIV0_BUILD_TESTS": "ON",
+        "DIV0_BUILD_BENCHMARKS": "ON",
+        "DIV0_ENABLE_CLANG_TIDY": "OFF"
+      }
+    },
+    {
+      "name": "tsan",
+      "displayName": "ThreadSanitizer",
+      "description": "Thread Sanitizer (data races, deadlocks)",
+      "inherits": "clang-base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "TSan",
+        "DIV0_BUILD_TESTS": "ON",
+        "DIV0_BUILD_BENCHMARKS": "OFF",
+        "DIV0_ENABLE_CLANG_TIDY": "OFF"
+      },
+      "environment": {
+        "TSAN_OPTIONS": "second_deadlock_stack=1"
+      }
+    },
+    {
+      "name": "fuzz",
+      "displayName": "Fuzzing",
+      "description": "Fuzzing build with libFuzzer and ASan",
+      "inherits": "base",
+      "cacheVariables": {
+        "CMAKE_C_COMPILER": "$env{CC}",
+        "CMAKE_CXX_COMPILER": "$env{CXX}",
+        "CMAKE_BUILD_TYPE": "Fuzz",
+        "DIV0_BUILD_TESTS": "OFF",
+        "DIV0_BUILD_BENCHMARKS": "OFF",
+        "DIV0_BUILD_FUZZ": "ON",
+        "DIV0_ENABLE_CLANG_TIDY": "OFF"
+      },
+      "environment": {
+        "ASAN_OPTIONS": "detect_leaks=1:symbolize=1:abort_on_error=1"
+      }
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "debug",
+      "configurePreset": "debug"
+    },
+    {
+      "name": "release",
+      "configurePreset": "release"
+    },
+    {
+      "name": "relwithdebinfo",
+      "configurePreset": "relwithdebinfo"
+    },
+    {
+      "name": "tsan",
+      "configurePreset": "tsan"
+    },
+    {
+      "name": "fuzz",
+      "configurePreset": "fuzz"
+    }
+  ],
+  "testPresets": [
+    {
+      "name": "debug",
+      "configurePreset": "debug",
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "release",
+      "configurePreset": "release",
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "tsan",
+      "configurePreset": "tsan",
+      "output": {
+        "outputOnFailure": true
+      },
+      "environment": {
+        "TSAN_OPTIONS": "second_deadlock_stack=1"
+      }
+    }
+  ]
+}

@@ -1,0 +1,10 @@
+# Google C++ Style Guide
+---
+Language: Cpp
+BasedOnStyle: Google
+
+# Customizations
+ColumnLimit: 100  # Google default is 80, this is slightly more lenient
+InsertNewlineAtEOF: true
+IndentCaseLabels: true
+...

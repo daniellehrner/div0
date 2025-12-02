@@ -22,9 +22,8 @@ const Uint256 TEST_S(0x297fb1966a3b6d83ULL, 0xf555c9f3dc64214bULL, 0xecb703304b3
 
 // Benchmark ecrecover - ECDSA signature recovery to address
 static void bm_ecrecover(benchmark::State& state) {
-  Secp256k1Context ctx;
-
   for ([[maybe_unused]] auto _ : state) {
+    const Secp256k1Context ctx;
     auto result = ctx.ecrecover(TEST_HASH, 27, TEST_R, TEST_S);
     benchmark::DoNotOptimize(result);
   }

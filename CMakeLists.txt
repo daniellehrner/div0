@@ -145,6 +145,33 @@ target_include_directories(div0_utils
 )
 
 # ============================================================================
+# Library: div0_rlp
+# ============================================================================
+# RLP (Recursive Length Prefix) encoding and decoding
+
+add_library(div0_rlp STATIC
+    include/div0/rlp/helpers.h
+    include/div0/rlp/encode.h
+    include/div0/rlp/decode.h
+    include/div0/rlp/rlp.h
+    src/rlp/encode.cpp
+    src/rlp/decode.cpp
+)
+
+target_include_directories(div0_rlp
+  PUBLIC
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+    $<INSTALL_INTERFACE:include>
+)
+
+target_link_libraries(div0_rlp
+  PUBLIC
+    div0_types
+)
+
+target_compile_options(div0_rlp PRIVATE ${DIV0_WARNING_FLAGS})
+
+# ============================================================================
 # Library: div0_crypto
 # ============================================================================
 # Cryptographic primitives (Keccak-256, future: secp256k1, BLS)
@@ -337,6 +364,7 @@ message(STATUS "")
 message(STATUS "  Libraries:")
 message(STATUS "    - div0_types     (core types)")
 message(STATUS "    - div0_utils     (utilities)")
+message(STATUS "    - div0_rlp       (RLP encoding/decoding)")
 message(STATUS "    - div0_crypto    (cryptographic primitives)")
 message(STATUS "    - div0_db        (key-value database abstraction)")
 message(STATUS "    - div0_state     (EVM state management)")

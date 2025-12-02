@@ -6,6 +6,7 @@ include(GoogleTest)
 set(TEST_LIBS
   div0_evm
   div0_crypto
+  div0_rlp
   GTest::gtest
   GTest::gtest_main
   GTest::gmock

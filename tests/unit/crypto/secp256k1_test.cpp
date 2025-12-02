@@ -5,6 +5,7 @@
 #include <gtest/gtest.h>
 
 #include <array>
+#include <atomic>
 #include <thread>
 #include <vector>
 
@@ -178,7 +179,7 @@ TEST(Secp256k1Context, MultipleContextsConcurrent) {
 
   std::vector<std::thread> threads;
   threads.reserve(NUM_THREADS);
-  std::vector<bool> results(NUM_THREADS, false);
+  std::array<std::atomic<bool>, NUM_THREADS> results{};
 
   for (int i = 0; i < NUM_THREADS; ++i) {
     threads.emplace_back([&results, i]() {
@@ -189,7 +190,7 @@ TEST(Secp256k1Context, MultipleContextsConcurrent) {
           return;
         }
       }
-      results[static_cast<size_t>(i)] = true;
+      results[static_cast<size_t>(i)].store(true, std::memory_order_relaxed);
     });
   }
 
@@ -198,7 +199,8 @@ TEST(Secp256k1Context, MultipleContextsConcurrent) {
   }
 
   for (int i = 0; i < NUM_THREADS; ++i) {
-    EXPECT_TRUE(results[static_cast<size_t>(i)]) << "Thread " << i << " failed";
+    EXPECT_TRUE(results[static_cast<size_t>(i)].load(std::memory_order_relaxed))
+        << "Thread " << i << " failed";
   }
 }
 

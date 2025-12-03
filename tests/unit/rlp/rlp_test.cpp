@@ -20,9 +20,15 @@ std::vector<uint8_t> hex_to_bytes(std::string_view hex) {
     const auto hi = hex[i];
     const auto lo = hex[i + 1];
     auto nibble = [](char c) -> uint8_t {
-      if (c >= '0' && c <= '9') return static_cast<uint8_t>(c - '0');
-      if (c >= 'a' && c <= 'f') return static_cast<uint8_t>(c - 'a' + 10);
-      if (c >= 'A' && c <= 'F') return static_cast<uint8_t>(c - 'A' + 10);
+      if (c >= '0' && c <= '9') {
+        return static_cast<uint8_t>(c - '0');
+      }
+      if (c >= 'a' && c <= 'f') {
+        return static_cast<uint8_t>(c - 'a' + 10);
+      }
+      if (c >= 'A' && c <= 'F') {
+        return static_cast<uint8_t>(c - 'A' + 10);
+      }
       return 0;
     };
     bytes.push_back(static_cast<uint8_t>((nibble(hi) << 4) | nibble(lo)));
@@ -31,12 +37,13 @@ std::vector<uint8_t> hex_to_bytes(std::string_view hex) {
 }
 
 std::string bytes_to_hex(std::span<const uint8_t> bytes) {
-  static constexpr char kHexChars[] = "0123456789abcdef";
+  static constexpr std::array<char, 17> K_HEX_CHARS = {'0', '1', '2', '3', '4', '5', '6', '7', '8',
+                                                       '9', 'a', 'b', 'c', 'd', 'e', 'f', '\0'};
   std::string result = "0x";
-  result.reserve(bytes.size() * 2 + 2);
-  for (const auto b : bytes) {
-    result += kHexChars[(b >> 4) & 0xF];
-    result += kHexChars[b & 0xF];
+  result.reserve((bytes.size() * 2) + 2);
+  for (const auto byte : bytes) {
+    result += K_HEX_CHARS.at((byte >> 4) & 0xF);
+    result += K_HEX_CHARS.at(byte & 0xF);
   }
   return result;
 }
@@ -68,8 +75,9 @@ class RlpEncodeTest : public ::testing::Test {
   }
 
   static std::vector<uint8_t> encode_string(std::string_view str) {
-    const auto bytes = std::span<const uint8_t>(
-        reinterpret_cast<const uint8_t*>(str.data()), str.size());
+    // NOLINTBEGIN(cppcoreguidelines-pro-type-reinterpret-cast)
+    const auto bytes = std::span(reinterpret_cast<const uint8_t*>(str.data()), str.size());
+    // NOLINTEND(cppcoreguidelines-pro-type-reinterpret-cast)
     return encode_bytes(bytes);
   }
 };
@@ -78,9 +86,7 @@ class RlpEncodeTest : public ::testing::Test {
 // Ethereum RLP Test Vectors - Encoding
 // ===========================================================================
 
-TEST_F(RlpEncodeTest, EmptyString) {
-  EXPECT_EQ(bytes_to_hex(encode_bytes({})), "0x80");
-}
+TEST_F(RlpEncodeTest, EmptyString) { EXPECT_EQ(bytes_to_hex(encode_bytes({})), "0x80"); }
 
 TEST_F(RlpEncodeTest, ByteString00) {
   const std::array<uint8_t, 1> data = {0x00};
@@ -103,53 +109,35 @@ TEST_F(RlpEncodeTest, ShortString_Dog) {
 
 TEST_F(RlpEncodeTest, ShortString_55Bytes) {
   // "Lorem ipsum dolor sit amet, consectetur adipisicing eli" (55 bytes)
-  const std::string_view str =
-      "Lorem ipsum dolor sit amet, consectetur adipisicing eli";
+  const std::string_view str = "Lorem ipsum dolor sit amet, consectetur adipisicing eli";
   EXPECT_EQ(str.size(), 55);
-  EXPECT_EQ(
-      bytes_to_hex(encode_string(str)),
-      "0xb74c6f72656d20697073756d20646f6c6f722073697420616d65742c20636f6e736563746574"
-      "7572206164697069736963696e6720656c69");
+  EXPECT_EQ(bytes_to_hex(encode_string(str)),
+            "0xb74c6f72656d20697073756d20646f6c6f722073697420616d65742c20636f6e736563746574"
+            "7572206164697069736963696e6720656c69");
 }
 
 TEST_F(RlpEncodeTest, LongString_56Bytes) {
   // "Lorem ipsum dolor sit amet, consectetur adipisicing elit" (56 bytes)
-  const std::string_view str =
-      "Lorem ipsum dolor sit amet, consectetur adipisicing elit";
+  const std::string_view str = "Lorem ipsum dolor sit amet, consectetur adipisicing elit";
   EXPECT_EQ(str.size(), 56);
-  EXPECT_EQ(
-      bytes_to_hex(encode_string(str)),
-      "0xb8384c6f72656d20697073756d20646f6c6f722073697420616d65742c20636f6e7365637465"
-      "747572206164697069736963696e6720656c6974");
+  EXPECT_EQ(bytes_to_hex(encode_string(str)),
+            "0xb8384c6f72656d20697073756d20646f6c6f722073697420616d65742c20636f6e7365637465"
+            "747572206164697069736963696e6720656c6974");
 }
 
-TEST_F(RlpEncodeTest, Zero) {
-  EXPECT_EQ(bytes_to_hex(encode_uint64(0)), "0x80");
-}
+TEST_F(RlpEncodeTest, Zero) { EXPECT_EQ(bytes_to_hex(encode_uint64(0)), "0x80"); }
 
-TEST_F(RlpEncodeTest, SmallInt1) {
-  EXPECT_EQ(bytes_to_hex(encode_uint64(1)), "0x01");
-}
+TEST_F(RlpEncodeTest, SmallInt1) { EXPECT_EQ(bytes_to_hex(encode_uint64(1)), "0x01"); }
 
-TEST_F(RlpEncodeTest, SmallInt16) {
-  EXPECT_EQ(bytes_to_hex(encode_uint64(16)), "0x10");
-}
+TEST_F(RlpEncodeTest, SmallInt16) { EXPECT_EQ(bytes_to_hex(encode_uint64(16)), "0x10"); }
 
-TEST_F(RlpEncodeTest, SmallInt79) {
-  EXPECT_EQ(bytes_to_hex(encode_uint64(79)), "0x4f");
-}
+TEST_F(RlpEncodeTest, SmallInt79) { EXPECT_EQ(bytes_to_hex(encode_uint64(79)), "0x4f"); }
 
-TEST_F(RlpEncodeTest, SmallInt127) {
-  EXPECT_EQ(bytes_to_hex(encode_uint64(127)), "0x7f");
-}
+TEST_F(RlpEncodeTest, SmallInt127) { EXPECT_EQ(bytes_to_hex(encode_uint64(127)), "0x7f"); }
 
-TEST_F(RlpEncodeTest, MediumInt128) {
-  EXPECT_EQ(bytes_to_hex(encode_uint64(128)), "0x8180");
-}
+TEST_F(RlpEncodeTest, MediumInt128) { EXPECT_EQ(bytes_to_hex(encode_uint64(128)), "0x8180"); }
 
-TEST_F(RlpEncodeTest, MediumInt1000) {
-  EXPECT_EQ(bytes_to_hex(encode_uint64(1000)), "0x8203e8");
-}
+TEST_F(RlpEncodeTest, MediumInt1000) { EXPECT_EQ(bytes_to_hex(encode_uint64(1000)), "0x8203e8"); }
 
 TEST_F(RlpEncodeTest, MediumInt100000) {
   EXPECT_EQ(bytes_to_hex(encode_uint64(100000)), "0x830186a0");
@@ -168,14 +156,13 @@ TEST_F(RlpEncodeTest, BigInt_15Bytes) {
 
 TEST_F(RlpEncodeTest, BigInt_33Bytes) {
   // 2^256 = 0x010000...0000 (33 bytes including leading 01)
-  const auto bytes = hex_to_bytes(
-      "0x010000000000000000000000000000000000000000000000000000000000000000");
-  std::array<uint8_t, 32> padded{};
+  const auto bytes =
+      hex_to_bytes("0x010000000000000000000000000000000000000000000000000000000000000000");
+  [[maybe_unused]] const std::array<uint8_t, 32> padded{};
   // This is 2^256 which is > max Uint256, so use max Uint256 + 1 representation
   // Actually encode the raw bytes
-  EXPECT_EQ(
-      bytes_to_hex(encode_bytes(bytes)),
-      "0xa1010000000000000000000000000000000000000000000000000000000000000000");
+  EXPECT_EQ(bytes_to_hex(encode_bytes(bytes)),
+            "0xa1010000000000000000000000000000000000000000000000000000000000000000");
 }
 
 TEST_F(RlpEncodeTest, EmptyList) {
@@ -198,12 +185,12 @@ TEST_F(RlpEncodeTest, StringList_DogGodCat) {
   RlpEncoder encoder(buf);
   encoder.start_list(payload_len);
 
-  const auto dog_bytes = std::span<const uint8_t>(
-      reinterpret_cast<const uint8_t*>("dog"), 3);
-  const auto god_bytes = std::span<const uint8_t>(
-      reinterpret_cast<const uint8_t*>("god"), 3);
-  const auto cat_bytes = std::span<const uint8_t>(
-      reinterpret_cast<const uint8_t*>("cat"), 3);
+  // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
+  const auto dog_bytes = std::span<const uint8_t>(reinterpret_cast<const uint8_t*>("dog"), 3);
+  // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
+  const auto god_bytes = std::span<const uint8_t>(reinterpret_cast<const uint8_t*>("god"), 3);
+  // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
+  const auto cat_bytes = std::span<const uint8_t>(reinterpret_cast<const uint8_t*>("cat"), 3);
 
   encoder.encode(dog_bytes);
   encoder.encode(god_bytes);
@@ -217,7 +204,7 @@ TEST_F(RlpEncodeTest, MultiList) {
   // "zw" = 0x827a77
   // [4] = 0xc104
   // 1 = 0x01
-  const size_t inner_payload = 1;  // single byte 4
+  const size_t inner_payload = 1;                                   // single byte 4
   const size_t inner_len = RlpEncoder::list_length(inner_payload);  // 2
 
   const size_t zw_len = 3;  // 0x82 + "zw"
@@ -228,6 +215,7 @@ TEST_F(RlpEncodeTest, MultiList) {
   RlpEncoder encoder(buf);
 
   encoder.start_list(payload_len);
+  // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
   encoder.encode(std::span<const uint8_t>(reinterpret_cast<const uint8_t*>("zw"), 2));
   encoder.start_list(inner_payload);
   encoder.encode(static_cast<uint64_t>(4));
@@ -239,9 +227,9 @@ TEST_F(RlpEncodeTest, MultiList) {
 TEST_F(RlpEncodeTest, ListsOfLists) {
   // [ [ [], [] ], [] ] = 0xc4c2c0c0c0
   const size_t empty_list_len = 1;
-  const size_t inner_payload = empty_list_len + empty_list_len;  // 2
+  const size_t inner_payload = empty_list_len + empty_list_len;     // 2
   const size_t inner_len = RlpEncoder::list_length(inner_payload);  // 3
-  const size_t outer_payload = inner_len + empty_list_len;  // 4
+  const size_t outer_payload = inner_len + empty_list_len;          // 4
 
   std::vector<uint8_t> buf(RlpEncoder::list_length(outer_payload));
   RlpEncoder encoder(buf);
@@ -262,13 +250,13 @@ TEST_F(RlpEncodeTest, ListsOfLists2) {
 
   // Outer list payload = 1 + 2 + 4 = 7
   encoder.start_list(7);
-  encoder.start_list(0);          // []
-  encoder.start_list(1);          // [[]]
-  encoder.start_list(0);          // inner []
-  encoder.start_list(3);          // [ [], [[]] ]
-  encoder.start_list(0);          // []
-  encoder.start_list(1);          // [[]]
-  encoder.start_list(0);          // inner []
+  encoder.start_list(0);  // []
+  encoder.start_list(1);  // [[]]
+  encoder.start_list(0);  // inner []
+  encoder.start_list(3);  // [ [], [[]] ]
+  encoder.start_list(0);  // []
+  encoder.start_list(1);  // [[]]
+  encoder.start_list(0);  // inner []
 
   EXPECT_EQ(bytes_to_hex(buf), "0xc7c0c1c0c3c0c1c0");
 }
@@ -499,7 +487,8 @@ TEST_F(RlpDecodeTest, Invalid_TruncatedShortString) {
 }
 
 TEST_F(RlpDecodeTest, Invalid_TruncatedShortString2) {
-  const auto input = hex_to_bytes("0xa0000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e");
+  const auto input =
+      hex_to_bytes("0xa0000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e");
   RlpDecoder decoder(input);
   const auto result = decoder.decode_bytes();
   EXPECT_FALSE(result.ok());
@@ -566,9 +555,9 @@ TEST_F(RlpDecodeTest, Address_Valid) {
   // Construct expected address from the same bytes
   std::array<uint8_t, 20> addr_bytes{};
   for (size_t i = 0; i < 20; ++i) {
-    addr_bytes[i] = static_cast<uint8_t>(i + 1);
+    addr_bytes.at(i) = static_cast<uint8_t>(i + 1);
   }
-  std::span<const uint8_t, 20> addr_span{addr_bytes};
+  const std::span<const uint8_t, 20> addr_span{addr_bytes};
   const types::Address expected{addr_span};
   EXPECT_EQ(result.value, expected);
 }
@@ -643,11 +632,8 @@ TEST_F(RlpDecodeTest, Roundtrip_Uint64) {
 
 TEST_F(RlpDecodeTest, Roundtrip_Uint256) {
   const std::vector<types::Uint256> test_cases = {
-      types::Uint256{},
-      types::Uint256(1),
-      types::Uint256(127),
-      types::Uint256(128),
-      types::Uint256(UINT64_MAX),
+      types::Uint256{},      types::Uint256(1),          types::Uint256(127),
+      types::Uint256(128),   types::Uint256(UINT64_MAX),
       types::Uint256::max(),  // All 0xFF bytes
   };
 

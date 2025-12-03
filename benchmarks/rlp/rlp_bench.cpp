@@ -120,7 +120,7 @@ static void bm_rlp_encode_address(benchmark::State& state) {
   const auto addr_bytes = random_bytes(20);
   std::array<uint8_t, 20> fixed_bytes{};
   std::copy_n(addr_bytes.begin(), 20, fixed_bytes.begin());
-  std::span<const uint8_t, 20> span{fixed_bytes};
+  const std::span<const uint8_t, 20> span{fixed_bytes};
   const Address addr{span};
   std::vector<uint8_t> buf(21);
 
@@ -238,7 +238,7 @@ static void bm_rlp_decode_address(benchmark::State& state) {
   const auto addr_bytes = random_bytes(20);
   std::array<uint8_t, 20> fixed_bytes{};
   std::copy_n(addr_bytes.begin(), 20, fixed_bytes.begin());
-  std::span<const uint8_t, 20> span{fixed_bytes};
+  const std::span<const uint8_t, 20> span{fixed_bytes};
   const Address addr{span};
   std::vector<uint8_t> encoded(21);
   RlpEncoder encoder(encoded);

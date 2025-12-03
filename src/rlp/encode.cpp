@@ -39,10 +39,7 @@ size_t RlpEncoder::encoded_length(const types::Uint256& value) noexcept {
 
 void RlpEncoder::write_length_bytes(size_t len) noexcept {
   // Write length as big-endian bytes, skipping leading zeros
-  // Use switch for predictable branching
-  const int num_bytes = length_of_length(len);
-
-  switch (num_bytes) {
+  switch (const int num_bytes = length_of_length(len)) {
     case 1:
       write_byte(static_cast<uint8_t>(len));
       break;
@@ -112,12 +109,8 @@ void RlpEncoder::encode(uint64_t value) {
   write_byte(static_cast<uint8_t>(EMPTY_STRING_BYTE + num_bytes));
 
   // Write value as big-endian, skipping leading zeros
-  const uint64_t be_value = __builtin_bswap64(value);
-  // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
-  const auto* ptr = reinterpret_cast<const uint8_t*>(&be_value);
-
-  // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-  write_bytes({ptr + (8 - num_bytes), static_cast<size_t>(num_bytes)});
+  const auto be_bytes = std::bit_cast<std::array<uint8_t, 8>>(__builtin_bswap64(value));
+  write_bytes(std::span{be_bytes}.subspan(static_cast<size_t>(8 - num_bytes)));
 }
 
 void RlpEncoder::encode(const types::Uint256& value) {
@@ -134,14 +127,11 @@ void RlpEncoder::encode(const types::Uint256& value) {
 
   // Convert limbs to big-endian bytes using swap_endian_256
   const auto be_limbs = utils::swap_endian_256(value.data_unsafe());
-
-  // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
-  const auto* be_bytes = reinterpret_cast<const uint8_t*>(be_limbs.data());
+  const auto be_bytes = std::bit_cast<std::array<uint8_t, 32>>(be_limbs);
 
   // Find first non-zero byte (skip leading zeros)
   size_t start = 0;
-  // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-  while (start < 32 && be_bytes[start] == 0) {
+  while (start < 32 && be_bytes.at(start) == 0) {
     ++start;
   }
 
@@ -149,8 +139,7 @@ void RlpEncoder::encode(const types::Uint256& value) {
 
   // Write prefix and data
   write_byte(static_cast<uint8_t>(EMPTY_STRING_BYTE + num_bytes));
-  // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-  write_bytes({be_bytes + start, num_bytes});
+  write_bytes(std::span{be_bytes}.subspan(start));
 }
 
 void RlpEncoder::encode_address(const types::Address& addr) {
@@ -172,16 +161,16 @@ void RlpEncoder::encode_address(const types::Address& addr) {
 
   // Middle 8 bytes from limb[1]
   const uint64_t mid = __builtin_bswap64(addr.limb(1));
-  std::memcpy(bytes.data() + 4, &mid, 8);
+  std::memcpy(&bytes[4], &mid, 8);
 
   // Lower 8 bytes from limb[0]
   const uint64_t low = __builtin_bswap64(addr.limb(0));
-  std::memcpy(bytes.data() + 12, &low, 8);
+  std::memcpy(&bytes[12], &low, 8);
 
   write_bytes(bytes);
 }
 
-void RlpEncoder::start_list(size_t payload_length) {
+void RlpEncoder::start_list(const size_t payload_length) {
   if (payload_length < SMALL_PREFIX_BARRIER) {
     write_byte(static_cast<uint8_t>(EMPTY_LIST_BYTE + payload_length));
     return;

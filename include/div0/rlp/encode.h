@@ -31,7 +31,8 @@ class RlpEncoder {
   // ===========================================================================
 
   /// Compute encoded length for a byte string
-  [[nodiscard]] static constexpr size_t encoded_length(std::span<const uint8_t> data) noexcept {
+  [[nodiscard]] static constexpr size_t encoded_length(
+      const std::span<const uint8_t> data) noexcept {
     const size_t len = data.size();
 
     // Single byte in [0x00, 0x7f] range: encode as itself
@@ -48,14 +49,14 @@ class RlpEncoder {
   }
 
   /// Compute encoded length for uint64
-  [[nodiscard]] static constexpr size_t encoded_length(uint64_t value) noexcept {
+  [[nodiscard]] static constexpr size_t encoded_length(const uint64_t value) noexcept {
     if (value == 0) {
       return 1;  // 0x80 (empty string)
     }
     if (value < 128) {
       return 1;  // single byte
     }
-    const size_t bytes = static_cast<size_t>(byte_length(value));
+    const auto bytes = static_cast<size_t>(byte_length(value));
     return 1 + bytes;  // prefix + value bytes
   }
 
@@ -68,7 +69,7 @@ class RlpEncoder {
   }
 
   /// Compute list header length for a given payload size
-  [[nodiscard]] static constexpr size_t list_header_length(size_t payload_length) noexcept {
+  [[nodiscard]] static constexpr size_t list_header_length(const size_t payload_length) noexcept {
     if (payload_length < SMALL_PREFIX_BARRIER) {
       return 1;
     }
@@ -76,7 +77,7 @@ class RlpEncoder {
   }
 
   /// Compute total list length (header + payload)
-  [[nodiscard]] static constexpr size_t list_length(size_t payload_length) noexcept {
+  [[nodiscard]] static constexpr size_t list_length(const size_t payload_length) noexcept {
     return list_header_length(payload_length) + payload_length;
   }
 
@@ -85,7 +86,7 @@ class RlpEncoder {
   // ===========================================================================
 
   /// Construct encoder with output buffer
-  explicit RlpEncoder(std::span<uint8_t> output) noexcept : buf_(output) {}
+  explicit RlpEncoder(const std::span<uint8_t> output) noexcept : buf_(output) {}
 
   /// Encode a byte string
   void encode(std::span<const uint8_t> data);
@@ -113,14 +114,12 @@ class RlpEncoder {
   size_t pos_ = 0;
 
   /// Write a single byte
-  void write_byte(uint8_t b) noexcept {
-    buf_[pos_++] = b;
-  }
+  void write_byte(uint8_t b) noexcept { buf_[pos_++] = b; }
 
   /// Write multiple bytes
   void write_bytes(std::span<const uint8_t> data) noexcept {
     if (!data.empty()) {
-      std::memcpy(buf_.data() + pos_, data.data(), data.size());
+      std::memcpy(&buf_[pos_], data.data(), data.size());
       pos_ += data.size();
     }
   }

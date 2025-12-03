@@ -47,7 +47,7 @@ struct DecodeResult {
 class RlpDecoder {
  public:
   /// Construct decoder with input buffer
-  explicit RlpDecoder(std::span<const uint8_t> input) noexcept : input_(input) {}
+  explicit RlpDecoder(const std::span<const uint8_t> input) noexcept : input_(input) {}
 
   // ===========================================================================
   // Decoding methods (zero-copy where possible)
@@ -86,9 +86,7 @@ class RlpDecoder {
   void skip_item();
 
   /// Peek at the next prefix byte without consuming it
-  [[nodiscard]] uint8_t peek() const noexcept {
-    return pos_ < input_.size() ? input_[pos_] : 0;
-  }
+  [[nodiscard]] uint8_t peek() const noexcept { return pos_ < input_.size() ? input_[pos_] : 0; }
 
   /// Check if next item is a list
   [[nodiscard]] bool next_is_list() const noexcept { return is_list_prefix(peek()); }

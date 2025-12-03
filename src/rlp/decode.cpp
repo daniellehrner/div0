@@ -1,5 +1,6 @@
 #include "div0/rlp/decode.h"
 
+#include <algorithm>
 #include <bit>
 #include <cstring>
 
@@ -246,7 +247,7 @@ void RlpDecoder::skip_item() {
   // Short string
   if (prefix <= SHORT_STRING_MAX) {
     const size_t len = prefix - EMPTY_STRING_BYTE;
-    pos_ += 1 + len;
+    pos_ = std::min(pos_ + 1 + len, input_.size());
     return;
   }
 
@@ -259,14 +260,14 @@ void RlpDecoder::skip_item() {
     for (int i = 0; i < len_of_len && pos_ < input_.size(); ++i) {
       len = (len << 8) | input_[pos_++];
     }
-    pos_ += len;
+    pos_ = std::min(pos_ + len, input_.size());
     return;
   }
 
   // Short list
   if (prefix <= SHORT_LIST_MAX) {
     const size_t payload_len = prefix - EMPTY_LIST_BYTE;
-    pos_ += 1 + payload_len;
+    pos_ = std::min(pos_ + 1 + payload_len, input_.size());
     return;
   }
 
@@ -278,7 +279,7 @@ void RlpDecoder::skip_item() {
   for (int i = 0; i < len_of_len && pos_ < input_.size(); ++i) {
     payload_len = (payload_len << 8) | input_[pos_++];
   }
-  pos_ += payload_len;
+  pos_ = std::min(pos_ + payload_len, input_.size());
 }
 
 }  // namespace div0::rlp

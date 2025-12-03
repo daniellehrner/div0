@@ -156,11 +156,9 @@ TEST_F(RlpEncodeTest, BigInt_15Bytes) {
 
 TEST_F(RlpEncodeTest, BigInt_33Bytes) {
   // 2^256 = 0x010000...0000 (33 bytes including leading 01)
+  // This is > max Uint256, so encode as raw bytes
   const auto bytes =
       hex_to_bytes("0x010000000000000000000000000000000000000000000000000000000000000000");
-  [[maybe_unused]] const std::array<uint8_t, 32> padded{};
-  // This is 2^256 which is > max Uint256, so use max Uint256 + 1 representation
-  // Actually encode the raw bytes
   EXPECT_EQ(bytes_to_hex(encode_bytes(bytes)),
             "0xa1010000000000000000000000000000000000000000000000000000000000000000");
 }
@@ -649,6 +647,114 @@ TEST_F(RlpDecodeTest, Roundtrip_Uint256) {
     ASSERT_TRUE(result.ok());
     EXPECT_EQ(result.value, original);
   }
+}
+
+// ===========================================================================
+// skip_item bounds checking tests
+// ===========================================================================
+
+TEST_F(RlpDecodeTest, SkipItem_SingleByte) {
+  // Valid single byte - should advance by 1
+  const std::vector<uint8_t> data = {0x42};
+  RlpDecoder decoder(data);
+  decoder.skip_item();
+  EXPECT_FALSE(decoder.has_more());
+}
+
+TEST_F(RlpDecodeTest, SkipItem_ShortString) {
+  // Valid short string "dog" (0x83 + 3 bytes)
+  const std::vector<uint8_t> data = {0x83, 'd', 'o', 'g'};
+  RlpDecoder decoder(data);
+  decoder.skip_item();
+  EXPECT_FALSE(decoder.has_more());
+}
+
+TEST_F(RlpDecodeTest, SkipItem_ShortStringTruncated) {
+  // Short string prefix claims 10 bytes but only 2 available
+  // 0x8a = 0x80 + 10 (claims 10 bytes follow)
+  const std::vector<uint8_t> data = {0x8a, 'a', 'b'};
+  RlpDecoder decoder(data);
+  decoder.skip_item();
+  // Should clamp to end, not go past buffer
+  EXPECT_FALSE(decoder.has_more());
+}
+
+TEST_F(RlpDecodeTest, SkipItem_LongStringTruncated) {
+  // Long string: 0xb8 0x40 claims 64 bytes follow, but only 3 available
+  const std::vector<uint8_t> data = {0xb8, 0x40, 'a', 'b', 'c'};
+  RlpDecoder decoder(data);
+  decoder.skip_item();
+  // Should clamp to end, not go past buffer
+  EXPECT_FALSE(decoder.has_more());
+}
+
+TEST_F(RlpDecodeTest, SkipItem_LongStringTruncatedLength) {
+  // Long string: 0xb9 claims 2-byte length follows, but only 1 byte available
+  const std::vector<uint8_t> data = {0xb9, 0x01};
+  RlpDecoder decoder(data);
+  decoder.skip_item();
+  // Should handle gracefully
+  EXPECT_FALSE(decoder.has_more());
+}
+
+TEST_F(RlpDecodeTest, SkipItem_ShortListTruncated) {
+  // Short list: 0xc5 = 0xc0 + 5 (claims 5 bytes payload)
+  const std::vector<uint8_t> data = {0xc5, 0x01, 0x02};
+  RlpDecoder decoder(data);
+  decoder.skip_item();
+  // Should clamp to end, not go past buffer
+  EXPECT_FALSE(decoder.has_more());
+}
+
+TEST_F(RlpDecodeTest, SkipItem_LongListTruncated) {
+  // Long list: 0xf8 0x80 claims 128 bytes payload, but only a few available
+  const std::vector<uint8_t> data = {0xf8, 0x80, 0x01, 0x02, 0x03};
+  RlpDecoder decoder(data);
+  decoder.skip_item();
+  // Should clamp to end, not go past buffer
+  EXPECT_FALSE(decoder.has_more());
+}
+
+TEST_F(RlpDecodeTest, SkipItem_LongListTruncatedLength) {
+  // Long list: 0xf9 claims 2-byte length follows, but only 1 byte available
+  const std::vector<uint8_t> data = {0xf9, 0x01};
+  RlpDecoder decoder(data);
+  decoder.skip_item();
+  // Should handle gracefully
+  EXPECT_FALSE(decoder.has_more());
+}
+
+TEST_F(RlpDecodeTest, SkipItem_EmptyInput) {
+  // Empty input - skip_item should do nothing
+  const std::vector<uint8_t> data = {};
+  RlpDecoder decoder(data);
+  decoder.skip_item();
+  EXPECT_FALSE(decoder.has_more());
+}
+
+TEST_F(RlpDecodeTest, SkipItem_MultipleItems) {
+  // Multiple valid items: [0x01, 0x02, "dog"]
+  const std::vector<uint8_t> data = {0x01, 0x02, 0x83, 'd', 'o', 'g'};
+  RlpDecoder decoder(data);
+
+  decoder.skip_item();  // skip 0x01
+  EXPECT_TRUE(decoder.has_more());
+
+  decoder.skip_item();  // skip 0x02
+  EXPECT_TRUE(decoder.has_more());
+
+  decoder.skip_item();  // skip "dog"
+  EXPECT_FALSE(decoder.has_more());
+}
+
+TEST_F(RlpDecodeTest, SkipItem_MassiveLength) {
+  // Short string with prefix claiming maximum short length (55 bytes)
+  // 0xb7 = 0x80 + 55, but only 2 bytes follow
+  const std::vector<uint8_t> data = {0xb7, 'a', 'b'};
+  RlpDecoder decoder(data);
+  decoder.skip_item();
+  // Should clamp to end
+  EXPECT_FALSE(decoder.has_more());
 }
 
 // ===========================================================================

@@ -190,6 +190,7 @@ TEST(Secp256k1Context, MultipleContextsConcurrent) {
           return;
         }
       }
+      // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-constant-array-index)
       results[static_cast<size_t>(i)].store(true, std::memory_order_relaxed);
     });
   }
@@ -199,6 +200,7 @@ TEST(Secp256k1Context, MultipleContextsConcurrent) {
   }
 
   for (int i = 0; i < NUM_THREADS; ++i) {
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-constant-array-index)
     EXPECT_TRUE(results[static_cast<size_t>(i)].load(std::memory_order_relaxed))
         << "Thread " << i << " failed";
   }

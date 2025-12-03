@@ -5,6 +5,7 @@
 #include <gtest/gtest.h>
 
 #include <array>
+#include <atomic>
 #include <thread>
 #include <vector>
 
@@ -62,17 +63,18 @@ const types::Uint256 TEST_S(0x297fb1966a3b6d83ULL, 0xf555c9f3dc64214bULL, 0xecb7
 
 TEST(Secp256k1Context, EcrecoverRethVector) {
   const Secp256k1Context ctx;
-  constexpr uint64_t v = 27;
+  constexpr uint64_t V = 27;
 
-  const auto result = ctx.ecrecover(TEST_HASH, v, TEST_R, TEST_S);
+  const auto result = ctx.ecrecover(TEST_HASH, V, TEST_R, TEST_S);
   ASSERT_TRUE(result.has_value());
 
   // Convert address to bytes for comparison
-  constexpr std::array<uint8_t, 20> expected_bytes = {0x9d, 0x8a, 0x62, 0xf6, 0x56, 0xa8, 0xd1,
+  constexpr std::array<uint8_t, 20> EXPECTED_BYTES = {0x9d, 0x8a, 0x62, 0xf6, 0x56, 0xa8, 0xd1,
                                                       0x61, 0x5c, 0x12, 0x94, 0xfd, 0x71, 0xe9,
                                                       0xcf, 0xb3, 0xe4, 0x85, 0x5a, 0x4f};
-  const types::Address expected(expected_bytes);
+  const types::Address expected(EXPECTED_BYTES);
 
+  // NOLINTNEXTLINE(bugprone-unchecked-optional-access)
   EXPECT_EQ(result.value(), expected);
 }
 
@@ -88,6 +90,7 @@ TEST(Secp256k1Context, EcrecoverV28) {
   ASSERT_TRUE(result_27.has_value());
   // With wrong recovery ID, either fails or returns different address
   if (result_28.has_value()) {
+    // NOLINTNEXTLINE(bugprone-unchecked-optional-access)
     EXPECT_NE(result_27.value(), result_28.value());
   }
 }
@@ -110,6 +113,7 @@ TEST(Secp256k1Context, EcrecoverEIP155) {
 
   ASSERT_TRUE(result_pre_eip155.has_value());
   ASSERT_TRUE(result_eip155.has_value());
+  // NOLINTNEXTLINE(bugprone-unchecked-optional-access)
   EXPECT_EQ(result_pre_eip155.value(), result_eip155.value());
 }
 
@@ -175,7 +179,7 @@ TEST(Secp256k1Context, MultipleContextsConcurrent) {
 
   std::vector<std::thread> threads;
   threads.reserve(NUM_THREADS);
-  std::vector<bool> results(NUM_THREADS, false);
+  std::array<std::atomic<bool>, NUM_THREADS> results{};
 
   for (int i = 0; i < NUM_THREADS; ++i) {
     threads.emplace_back([&results, i]() {
@@ -186,7 +190,8 @@ TEST(Secp256k1Context, MultipleContextsConcurrent) {
           return;
         }
       }
-      results[static_cast<size_t>(i)] = true;
+      // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-constant-array-index)
+      results[static_cast<size_t>(i)].store(true, std::memory_order_relaxed);
     });
   }
 
@@ -195,7 +200,9 @@ TEST(Secp256k1Context, MultipleContextsConcurrent) {
   }
 
   for (int i = 0; i < NUM_THREADS; ++i) {
-    EXPECT_TRUE(results[static_cast<size_t>(i)]) << "Thread " << i << " failed";
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-constant-array-index)
+    EXPECT_TRUE(results[static_cast<size_t>(i)].load(std::memory_order_relaxed))
+        << "Thread " << i << " failed";
   }
 }
 

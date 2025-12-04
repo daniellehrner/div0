@@ -43,10 +43,12 @@ class Hash {
       return h;  // Return zero hash for invalid input
     }
     for (size_t i = 0; i < 32; ++i) {
-      const size_t hi_idx = i * 2;
-      const size_t lo_idx = (i * 2) + 1;
       // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-constant-array-index)
-      h.data_[i] = static_cast<uint8_t>((hex_digit(hex[hi_idx]) << 4) | hex_digit(hex[lo_idx]));
+      const uint8_t hi = hex_digit(hex[i * 2]);
+      // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-constant-array-index)
+      const uint8_t lo = hex_digit(hex[(i * 2) + 1]);
+      // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-constant-array-index)
+      h.data_[i] = static_cast<uint8_t>((hi << 4) | lo);
     }
     return h;
   }

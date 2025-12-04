@@ -38,8 +38,8 @@ Nibbles nibbles_slice(const Nibbles& nibbles, size_t start, size_t len) {
     return {};
   }
   const size_t actual_len = std::min(len, nibbles.size() - start);
-  return {nibbles.begin() + static_cast<ptrdiff_t>(start),
-          nibbles.begin() + static_cast<ptrdiff_t>(start + actual_len)};
+  return Nibbles{nibbles.begin() + static_cast<ptrdiff_t>(start),
+                 nibbles.begin() + static_cast<ptrdiff_t>(start + actual_len)};
 }
 
 }  // namespace div0::trie

@@ -243,8 +243,18 @@ add_library(div0_ethereum STATIC
     include/div0/ethereum/roots.h
     include/div0/ethereum/storage_slot.h
     include/div0/ethereum/storage_value.h
+    include/div0/ethereum/bloom.h
+    include/div0/ethereum/receipt.h
+    include/div0/ethereum/transaction/types.h
+    include/div0/ethereum/transaction/legacy_tx.h
+    include/div0/ethereum/transaction/eip2930_tx.h
+    include/div0/ethereum/transaction/eip1559_tx.h
+    include/div0/ethereum/transaction/eip4844_tx.h
+    include/div0/ethereum/transaction/eip7702_tx.h
+    include/div0/ethereum/transaction/transaction.h
     src/ethereum/account.cpp
     src/ethereum/roots.cpp
+    src/ethereum/bloom.cpp
 )
 
 target_include_directories(div0_ethereum
@@ -260,6 +270,13 @@ target_link_libraries(div0_ethereum
   PRIVATE
     div0_rlp
     div0_crypto
+)
+
+# Note: div0_ethereum uses evm::Log from execution_result.h
+# This creates a minor dependency, but it's header-only so we just need the include path
+target_include_directories(div0_ethereum
+  PRIVATE
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
 )
 
 target_compile_options(div0_ethereum PRIVATE ${DIV0_WARNING_FLAGS})

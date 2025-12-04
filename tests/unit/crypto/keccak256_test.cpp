@@ -22,10 +22,10 @@ TEST(Keccak256, EthereumVector_Empty) {
   // This constant appears throughout Ethereum (empty code hash, empty trie, etc.)
   const auto result = keccak256(std::span<const uint8_t>{});
 
-  const auto expected_hash =
+  const auto expected =
       types::Hash::from_hex("c5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470");
 
-  EXPECT_EQ(result, expected_hash);
+  EXPECT_EQ(result, expected);
 }
 
 TEST(Keccak256, EthereumVector_SingleZero) {

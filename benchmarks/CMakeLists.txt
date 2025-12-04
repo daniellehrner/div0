@@ -21,6 +21,7 @@ add_executable(div0_bench
   "crypto/keccak256_bench.cpp"
   "crypto/secp256k1_bench.cpp"
   "rlp/rlp_bench.cpp"
+  "ethereum/bloom_bench.cpp"
 )
 
 # Disable clang-tidy for benchmarks (Google Benchmark macros trigger many warnings)
@@ -33,6 +34,7 @@ target_link_libraries(div0_bench
     div0_evm
     div0_crypto
     div0_rlp
+    div0_ethereum
     benchmark::benchmark
     benchmark::benchmark_main
 )

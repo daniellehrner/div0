@@ -5,6 +5,7 @@
 #include <vector>
 
 #include "div0/types/address.h"
+#include "div0/types/bytes.h"
 #include "div0/types/uint256.h"
 
 namespace div0::evm {
@@ -23,7 +24,7 @@ struct Log {
   std::vector<types::Uint256> topics;
 
   // Non-indexed event parameters (ABI-encoded)
-  std::vector<uint8_t> data;
+  types::Bytes data;
 };
 
 /**
@@ -54,7 +55,7 @@ struct ExecutionResult {
 
   // Output data from RETURN or REVERT opcode.
   // Empty if execution ended via STOP or error.
-  std::vector<uint8_t> return_data;
+  types::Bytes return_data;
 
   // Logs emitted during execution (LOG0-LOG4 opcodes).
   // Only valid if status == Success.

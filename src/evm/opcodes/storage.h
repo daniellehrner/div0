@@ -1,13 +1,13 @@
 #ifndef DIV0_EVM_OPCODES_STORAGE_H
 #define DIV0_EVM_OPCODES_STORAGE_H
 
+#include "div0/ethereum/storage_slot.h"
+#include "div0/ethereum/storage_value.h"
 #include "div0/evm/execution_result.h"
 #include "div0/evm/gas/dynamic_costs.h"
 #include "div0/evm/stack.h"
 #include "div0/state/storage_provider.h"
 #include "div0/types/address.h"
-#include "div0/types/storage_slot.h"
-#include "div0/types/storage_value.h"
 
 namespace div0::evm::opcodes {
 
@@ -23,7 +23,7 @@ namespace div0::evm::opcodes {
     return ExecutionStatus::StackUnderflow;
   }
 
-  const types::StorageSlot slot{stack[0]};
+  const ethereum::StorageSlot slot{stack[0]};
   const auto cost = cost_fn(storage.is_warm(address, slot));
 
   if (gas < cost) [[unlikely]] {
@@ -62,8 +62,8 @@ namespace div0::evm::opcodes {
   gas -= cost;
 
   // Pop key and value, store
-  const types::StorageSlot slot{stack[0]};
-  const types::StorageValue value{stack[1]};
+  const ethereum::StorageSlot slot{stack[0]};
+  const ethereum::StorageValue value{stack[1]};
 
   storage.store(address, slot, value);
 

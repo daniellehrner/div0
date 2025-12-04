@@ -89,14 +89,14 @@ namespace div0::evm::opcodes {
   if (length == 0) {
     // Hash of empty input is a known constant
     // keccak256("") = c5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470
-    hash = crypto::keccak256(std::span<const uint8_t>{});
+    hash = crypto::keccak256(std::span<const uint8_t>{}).to_uint256();
   } else {
     // Expand memory if needed
     memory.expand(offset + length);
 
     // Get span of memory to hash
     const auto data = memory.read_span_unsafe(offset, length);
-    hash = crypto::keccak256(data);
+    hash = crypto::keccak256(data).to_uint256();
   }
 
   // Pop offset and length, push hash

@@ -6,7 +6,7 @@
 #include <cstdint>
 #include <span>
 
-#include "div0/types/uint256.h"
+#include "div0/types/hash.h"
 
 namespace div0::crypto {
 
@@ -21,7 +21,7 @@ namespace div0::crypto {
  *   Keccak256Hasher hasher;
  *   hasher.update(chunk1);
  *   hasher.update(chunk2);
- *   types::Uint256 result = hasher.finalize();
+ *   types::Hash result = hasher.finalize();
  * @endcode
  *
  * THREAD SAFETY:
@@ -66,9 +66,9 @@ class Keccak256Hasher {
    *
    * Automatically resets the hasher for reuse.
    *
-   * @return 256-bit hash as Uint256 (ready for EVM stack)
+   * @return 256-bit hash
    */
-  [[nodiscard]] types::Uint256 finalize() noexcept;
+  [[nodiscard]] types::Hash finalize() noexcept;
 
   /**
    * @brief Reset to initial state (for reuse without reconstruction).
@@ -93,22 +93,21 @@ class Keccak256Hasher {
  * @brief Compute Keccak-256 hash in a single call.
  *
  * Optimal for small inputs where incremental hashing overhead isn't needed.
- * Returns Uint256 directly for use on the EVM stack.
  *
  * @param data Input data to hash
- * @return 256-bit hash as Uint256
+ * @return 256-bit hash
  */
-[[nodiscard]] types::Uint256 keccak256(std::span<const uint8_t> data) noexcept;
+[[nodiscard]] types::Hash keccak256(std::span<const uint8_t> data) noexcept;
 
 /**
  * @brief Compute Keccak-256 hash of a fixed-size array.
  *
  * @tparam N Size of input array
  * @param data Input data to hash
- * @return 256-bit hash as Uint256
+ * @return 256-bit hash
  */
 template <size_t N>
-[[nodiscard]] types::Uint256 keccak256(const std::array<uint8_t, N>& data) noexcept {
+[[nodiscard]] types::Hash keccak256(const std::array<uint8_t, N>& data) noexcept {
   return keccak256(std::span<const uint8_t>(data));
 }
 

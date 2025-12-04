@@ -2,18 +2,16 @@
 
 namespace div0::db {
 
-std::optional<std::string> MemoryDatabase::get(const std::string_view key) const {
-  const auto it = data_.find(std::string(key));
+std::optional<Bytes> MemoryDatabase::get(const Bytes& key) const {
+  const auto it = data_.find(key);
   if (it != data_.end()) {
     return it->second;
   }
   return std::nullopt;
 }
 
-void MemoryDatabase::put(const std::string_view key, const std::string_view value) {
-  data_[std::string(key)] = std::string(value);
-}
+void MemoryDatabase::put(const Bytes& key, const Bytes& value) { data_[key] = value; }
 
-void MemoryDatabase::erase(const std::string_view key) { data_.erase(std::string(key)); }
+void MemoryDatabase::erase(const Bytes& key) { data_.erase(key); }
 
 }  // namespace div0::db

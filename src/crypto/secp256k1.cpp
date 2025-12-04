@@ -119,20 +119,13 @@ std::optional<types::Address> Secp256k1Context::ecrecover(const types::Uint256& 
   }
 
   // Address = last 20 bytes of keccak256(public_key)
-  auto pubkey_hash = keccak256(*pubkey_opt);
+  // Hash is already stored in big-endian order, so we can use it directly
+  const auto pubkey_hash = keccak256(*pubkey_opt);
 
-  // Convert pubkey_hash to big-endian bytes
-  std::array<uint64_t, 4> pubkey_hash_limbs = {pubkey_hash.limb(0), pubkey_hash.limb(1),
-                                               pubkey_hash.limb(2), pubkey_hash.limb(3)};
-  auto pubkey_hash_be = utils::swap_endian_256(pubkey_hash_limbs);
-
-  // Extract last 20 bytes from the 32-byte hash
-  std::array<uint8_t, 32> pubkey_hash_bytes{};
-  std::memcpy(pubkey_hash_bytes.data(), pubkey_hash_be.data(), 32);
-
+  // Extract last 20 bytes from the 32-byte hash (bytes 12-31)
   std::array<uint8_t, 20> addr_bytes{};
   // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-  std::copy_n(pubkey_hash_bytes.begin() + 12, 20, addr_bytes.begin());
+  std::copy_n(pubkey_hash.data() + 12, 20, addr_bytes.begin());
 
   return types::Address(std::span<const uint8_t, 20>(addr_bytes));
 }

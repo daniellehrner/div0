@@ -252,9 +252,22 @@ add_library(div0_ethereum STATIC
     include/div0/ethereum/transaction/eip4844_tx.h
     include/div0/ethereum/transaction/eip7702_tx.h
     include/div0/ethereum/transaction/transaction.h
+    include/div0/ethereum/transaction/rlp.h
+    include/div0/ethereum/transaction/hex.h
+    include/div0/ethereum/transaction/json.h
     src/ethereum/account.cpp
     src/ethereum/roots.cpp
     src/ethereum/bloom.cpp
+    src/ethereum/receipt.cpp
+    src/ethereum/transaction/rlp.cpp
+    src/ethereum/transaction/legacy_tx.cpp
+    src/ethereum/transaction/eip2930_tx.cpp
+    src/ethereum/transaction/eip1559_tx.cpp
+    src/ethereum/transaction/eip4844_tx.cpp
+    src/ethereum/transaction/eip7702_tx.cpp
+    src/ethereum/transaction/transaction.cpp
+    src/ethereum/transaction/hex.cpp
+    src/ethereum/transaction/json.cpp
 )
 
 target_include_directories(div0_ethereum
@@ -267,6 +280,7 @@ target_link_libraries(div0_ethereum
   PUBLIC
     div0_types
     div0_trie
+    simdjson
   PRIVATE
     div0_rlp
     div0_crypto

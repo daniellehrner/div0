@@ -20,21 +20,18 @@ namespace div0::ethereum {
  * RLP encoding: [nonce, gas_price, gas_limit, to, value, data, v, r, s]
  */
 struct LegacyTx {
-  uint64_t nonce{0};
+  // Ordered for optimal memory layout (minimize padding)
   types::Uint256 gas_price;
-  uint64_t gas_limit{0};
-  std::optional<types::Address> to;  // nullopt = contract creation
   types::Uint256 value;
-  types::Bytes data;
-
-  // Signature
-  uint64_t v{0};  // 27/28 or EIP-155 encoded (chain_id * 2 + 35/36)
   types::Uint256 r;
   types::Uint256 s;
-
-  // Cached values (mutable for lazy computation)
-  mutable std::optional<types::Hash> cached_hash_;
-  mutable std::optional<types::Address> cached_sender_;
+  mutable std::optional<types::Hash> cached_hash;
+  uint64_t nonce{0};
+  uint64_t gas_limit{0};
+  uint64_t v{0};  // 27/28 or EIP-155 encoded (chain_id * 2 + 35/36)
+  types::Bytes data;
+  std::optional<types::Address> to;  // nullopt = contract creation
+  mutable std::optional<types::Address> cached_sender;
 
   /**
    * @brief Extract chain_id from EIP-155 v value.

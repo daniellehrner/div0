@@ -7,8 +7,20 @@
 #include "div0/ethereum/bloom.h"
 #include "div0/ethereum/transaction/types.h"
 #include "div0/evm/execution_result.h"
+#include "div0/types/bytes.h"
 
 namespace div0::ethereum {
+
+// Forward declaration
+struct Receipt;
+
+/**
+ * @brief RLP encode a receipt.
+ *
+ * For legacy receipts: RLP([status, cumulative_gas_used, bloom, logs])
+ * For typed receipts: type_byte || RLP([status, cumulative_gas_used, bloom, logs])
+ */
+[[nodiscard]] types::Bytes rlp_encode(const Receipt& receipt);
 
 /**
  * @brief Transaction receipt.
@@ -56,7 +68,7 @@ struct Receipt {
    * @param exec_logs Logs from execution
    * @return Receipt with bloom automatically built
    */
-  [[nodiscard]] static Receipt create_success(TxType tx_type, uint64_t cumulative_gas,
+  [[nodiscard]] static Receipt create_success(const TxType tx_type, const uint64_t cumulative_gas,
                                               std::vector<evm::Log> exec_logs) {
     Receipt receipt;
     receipt.tx_type = tx_type;
@@ -74,7 +86,7 @@ struct Receipt {
    * @param cumulative_gas Cumulative gas used in block up to and including this tx
    * @return Receipt with status=0 and empty logs/bloom
    */
-  [[nodiscard]] static Receipt create_failure(TxType tx_type, uint64_t cumulative_gas) {
+  [[nodiscard]] static Receipt create_failure(const TxType tx_type, const uint64_t cumulative_gas) {
     Receipt receipt;
     receipt.tx_type = tx_type;
     receipt.status = 0;
@@ -86,8 +98,8 @@ struct Receipt {
   [[nodiscard]] bool operator==(const Receipt& other) const noexcept {
     return tx_type == other.tx_type && status == other.status &&
            cumulative_gas_used == other.cumulative_gas_used && bloom == other.bloom &&
-           logs.size() == other.logs.size();
-    // Note: Full log comparison would need Log::operator==
+           logs.size() == other.logs.size() &&
+           std::equal(logs.begin(), logs.end(), other.logs.begin());
   }
 };
 

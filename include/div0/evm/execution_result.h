@@ -25,6 +25,11 @@ struct Log {
 
   // Non-indexed event parameters (ABI-encoded)
   types::Bytes data;
+
+  friend bool operator==(const Log& lhs, const Log& rhs) {
+    return lhs.address == rhs.address && lhs.topics == rhs.topics && lhs.data == rhs.data;
+  }
+  friend bool operator!=(const Log& lhs, const Log& rhs) { return !(lhs == rhs); }
 };
 
 /**

@@ -22,24 +22,21 @@ namespace div0::ethereum {
  *                        gas_limit, to, value, data, access_list, y_parity, r, s])
  */
 struct Eip1559Tx {
-  uint64_t chain_id{1};
-  uint64_t nonce{0};
+  // Ordered for optimal memory layout (minimize padding)
   types::Uint256 max_priority_fee_per_gas;
   types::Uint256 max_fee_per_gas;
-  uint64_t gas_limit{0};
-  std::optional<types::Address> to;  // nullopt = contract creation
   types::Uint256 value;
-  types::Bytes data;
-  AccessList access_list;
-
-  // Signature (EIP-2718 uses y_parity)
-  uint8_t y_parity{0};  // 0 or 1
   types::Uint256 r;
   types::Uint256 s;
-
-  // Cached values (mutable for lazy computation)
-  mutable std::optional<types::Hash> cached_hash_;
-  mutable std::optional<types::Address> cached_sender_;
+  mutable std::optional<types::Hash> cached_hash;
+  uint64_t chain_id{1};
+  uint64_t nonce{0};
+  uint64_t gas_limit{0};
+  types::Bytes data;
+  AccessList access_list;
+  uint8_t y_parity{0};               // 0 or 1
+  std::optional<types::Address> to;  // nullopt = contract creation
+  mutable std::optional<types::Address> cached_sender;
 
   /**
    * @brief Calculate effective gas price given block base fee.

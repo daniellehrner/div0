@@ -6,9 +6,9 @@
 #include <vector>
 
 #include "div0/ethereum/transaction/types.h"
+#include "div0/evm/gas/transaction_costs.h"
 #include "div0/types/address.h"
 #include "div0/types/bytes.h"
-#include "div0/types/bytes32.h"
 #include "div0/types/hash.h"
 #include "div0/types/uint256.h"
 
@@ -27,28 +27,23 @@ namespace div0::ethereum {
  * Note: Blob transactions cannot create contracts (to is required).
  */
 struct Eip4844Tx {
-  uint64_t chain_id{1};
-  uint64_t nonce{0};
+  // Ordered for optimal memory layout (minimize padding)
   types::Uint256 max_priority_fee_per_gas;
   types::Uint256 max_fee_per_gas;
-  uint64_t gas_limit{0};
-  types::Address to;  // Required - blob txs cannot create contracts
   types::Uint256 value;
-  types::Bytes data;
-  AccessList access_list;
-
-  // Blob-specific fields
   types::Uint256 max_fee_per_blob_gas;
-  std::vector<types::Bytes32> blob_versioned_hashes;  // Must not be empty
-
-  // Signature (EIP-2718 uses y_parity)
-  uint8_t y_parity{0};  // 0 or 1
   types::Uint256 r;
   types::Uint256 s;
-
-  // Cached values (mutable for lazy computation)
-  mutable std::optional<types::Hash> cached_hash_;
-  mutable std::optional<types::Address> cached_sender_;
+  mutable std::optional<types::Hash> cached_hash;
+  uint64_t chain_id{1};
+  uint64_t nonce{0};
+  uint64_t gas_limit{0};
+  types::Bytes data;
+  AccessList access_list;
+  std::vector<types::Hash> blob_versioned_hashes;  // Must not be empty
+  uint8_t y_parity{0};                             // 0 or 1
+  types::Address to;                               // Required - blob txs cannot create contracts
+  mutable std::optional<types::Address> cached_sender;
 
   /**
    * @brief Calculate effective gas price given block base fee.
@@ -68,8 +63,7 @@ struct Eip4844Tx {
    * @return blob_count * GAS_PER_BLOB (131072)
    */
   [[nodiscard]] uint64_t blob_gas_used() const noexcept {
-    constexpr uint64_t kGasPerBlob = 131072;  // 2^17
-    return static_cast<uint64_t>(blob_versioned_hashes.size()) * kGasPerBlob;
+    return evm::gas::blob_gas_used(blob_versioned_hashes.size());
   }
 
   /**

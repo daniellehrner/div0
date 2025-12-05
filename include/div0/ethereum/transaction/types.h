@@ -45,17 +45,16 @@ using AccessList = std::vector<AccessListEntry>;
  * Signature message: keccak(0x05 || rlp([chain_id, address, nonce]))
  */
 struct Authorization {
-  uint64_t chain_id{0};  // 0 = any chain
-  types::Address address;
-  uint64_t nonce{0};
-
-  // Signature (y_parity instead of v for EIP-2718 typed txs)
-  uint8_t y_parity{0};
   types::Uint256 r;
   types::Uint256 s;
+  uint64_t chain_id{0};  // 0 = any chain
+  uint64_t nonce{0};
+  // Signature (y_parity instead of v for EIP-2718 typed txs)
+  uint8_t y_parity{0};
+  types::Address address;
 
   // Cached recovered authority address
-  mutable std::optional<types::Address> cached_authority_;
+  mutable std::optional<types::Address> cached_authority;
 
   [[nodiscard]] bool operator==(const Authorization& other) const noexcept {
     return chain_id == other.chain_id && address == other.address && nonce == other.nonce &&

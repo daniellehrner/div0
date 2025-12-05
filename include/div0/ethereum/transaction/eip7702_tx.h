@@ -27,34 +27,27 @@ namespace div0::ethereum {
  * Note: Set Code transactions cannot create contracts (to is required).
  * Note: authorization_list must not be empty.
  *
- * Gas costs:
- * - PER_AUTH_BASE_COST: 12500 per authorization
- * - PER_EMPTY_ACCOUNT_COST: 25000 if authorizing account doesn't exist
+ * Gas costs defined in evm/gas/transaction_costs.h:
+ * - AUTH_TUPLE_GAS: 12500 per authorization
+ * - AUTH_EMPTY_ACCOUNT_GAS: 25000 if authorizing account doesn't exist
  */
 struct Eip7702Tx {
-  uint64_t chain_id{1};
-  uint64_t nonce{0};
+  // Ordered for optimal memory layout (minimize padding)
   types::Uint256 max_priority_fee_per_gas;
   types::Uint256 max_fee_per_gas;
-  uint64_t gas_limit{0};
-  types::Address to;  // Required - cannot create contracts
   types::Uint256 value;
+  types::Uint256 r;
+  types::Uint256 s;
+  mutable std::optional<types::Hash> cached_hash;
+  uint64_t chain_id{1};
+  uint64_t nonce{0};
+  uint64_t gas_limit{0};
   types::Bytes data;
   AccessList access_list;
   AuthorizationList authorization_list;  // Must not be empty
-
-  // Signature (EIP-2718 uses y_parity)
-  uint8_t y_parity{0};  // 0 or 1
-  types::Uint256 r;
-  types::Uint256 s;
-
-  // Cached values (mutable for lazy computation)
-  mutable std::optional<types::Hash> cached_hash_;
-  mutable std::optional<types::Address> cached_sender_;
-
-  // EIP-7702 gas constants
-  static constexpr uint64_t PER_AUTH_BASE_COST = 12500;
-  static constexpr uint64_t PER_EMPTY_ACCOUNT_COST = 25000;
+  uint8_t y_parity{0};                   // 0 or 1
+  types::Address to;                     // Required - cannot create contracts
+  mutable std::optional<types::Address> cached_sender;
 
   /**
    * @brief Calculate effective gas price given block base fee.
@@ -73,7 +66,7 @@ struct Eip7702Tx {
    * @brief Get the recovery id for ECDSA signature recovery.
    * @return 0 or 1 for y-parity
    */
-  [[nodiscard]] int recovery_id() const noexcept { return static_cast<int>(y_parity); }
+  [[nodiscard]] int recovery_id() const noexcept { return (y_parity); }
 
   /**
    * @brief Set Code transactions cannot create contracts.

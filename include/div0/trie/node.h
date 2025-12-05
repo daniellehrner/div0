@@ -26,6 +26,7 @@ using NodeRef = std::variant<types::Bytes, types::Hash>;
 /**
  * @brief Check if a NodeRef is null (represents absence of child).
  */
+// NOLINTNEXTLINE(bugprone-exception-escape)
 [[nodiscard]] inline bool is_null_ref(const NodeRef& ref) noexcept {
   if (const auto* bytes = std::get_if<types::Bytes>(&ref)) {
     return bytes->empty();

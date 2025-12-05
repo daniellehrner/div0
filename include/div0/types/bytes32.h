@@ -21,6 +21,9 @@ namespace div0::types {
  */
 class Bytes32 {
  public:
+  /// Default constructor - creates zero value
+  constexpr Bytes32() noexcept = default;
+
   /// Construct from 32 bytes (copied as-is, assumed big-endian)
   explicit Bytes32(const std::span<const uint8_t, 32> bytes) noexcept {
     std::memcpy(data_.data(), bytes.data(), 32);

@@ -19,9 +19,6 @@ namespace div0::types {
  * Stored as 20 bytes in big-endian order (as used in RLP/transactions).
  * bytes_[0] is the most significant byte.
  *
- * Supports ordered containers (std::map) via operator< and unordered
- * containers (std::unordered_map) via AddressHash.
- *
  * Use for: contract addresses, caller/origin addresses, msg.sender.
  */
 class Address {

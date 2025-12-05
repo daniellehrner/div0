@@ -22,13 +22,10 @@ TEST(Keccak256, EthereumVector_Empty) {
   // This constant appears throughout Ethereum (empty code hash, empty trie, etc.)
   const auto result = keccak256(std::span<const uint8_t>{});
 
-  constexpr auto EXPECTED = types::Uint256(0x7bfad8045d85a470ULL,  // limb 0 (least significant)
-                                           0xe500b653ca82273bULL,  // limb 1
-                                           0x927e7db2dcc703c0ULL,  // limb 2
-                                           0xc5d2460186f7233cULL   // limb 3 (most significant)
-  );
+  const auto expected_hash =
+      types::Hash::from_hex("c5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470");
 
-  EXPECT_EQ(result, EXPECTED);
+  EXPECT_EQ(result, expected_hash);
 }
 
 TEST(Keccak256, EthereumVector_SingleZero) {
@@ -37,10 +34,10 @@ TEST(Keccak256, EthereumVector_SingleZero) {
   const std::array<uint8_t, 1> input = {0x00};
   const auto result = keccak256(std::span<const uint8_t>(input));
 
-  constexpr auto EXPECTED = types::Uint256(0xff96a9e064bcc98aULL, 0x6612f7b477d66591ULL,
-                                           0x36464229828f817dULL, 0xbc36789e7a1e2814ULL);
+  const auto expected =
+      types::Hash::from_hex("bc36789e7a1e281436464229828f817d6612f7b477d66591ff96a9e064bcc98a");
 
-  EXPECT_EQ(result, EXPECTED);
+  EXPECT_EQ(result, expected);
 }
 
 TEST(Keccak256, EthereumVector_FiveZeros) {
@@ -49,10 +46,10 @@ TEST(Keccak256, EthereumVector_FiveZeros) {
   const std::array<uint8_t, 5> input = {0x00, 0x00, 0x00, 0x00, 0x00};
   const auto result = keccak256(std::span<const uint8_t>(input));
 
-  constexpr auto EXPECTED = types::Uint256(0x7d72ce08c1d020ecULL, 0x024ccb0511783544ULL,
-                                           0x4a2080dad19d876aULL, 0xc41589e7559804eaULL);
+  const auto expected =
+      types::Hash::from_hex("c41589e7559804ea4a2080dad19d876a024ccb05117835447d72ce08c1d020ec");
 
-  EXPECT_EQ(result, EXPECTED);
+  EXPECT_EQ(result, expected);
 }
 
 TEST(Keccak256, EthereumVector_TenZeros) {
@@ -61,10 +58,10 @@ TEST(Keccak256, EthereumVector_TenZeros) {
   const std::array<uint8_t, 10> input = {};  // Zero-initialized
   const auto result = keccak256(std::span<const uint8_t>(input));
 
-  constexpr auto EXPECTED = types::Uint256(0x4518f40ffd34b607ULL, 0x4612fbf8b1b4db60ULL,
-                                           0x33429358bf24fdc6ULL, 0x6bd2dd6bd408cbeeULL);
+  const auto expected =
+      types::Hash::from_hex("6bd2dd6bd408cbee33429358bf24fdc64612fbf8b1b4db604518f40ffd34b607");
 
-  EXPECT_EQ(result, EXPECTED);
+  EXPECT_EQ(result, expected);
 }
 
 TEST(Keccak256, EthereumVector_32Zeros) {
@@ -74,10 +71,10 @@ TEST(Keccak256, EthereumVector_32Zeros) {
   const std::array<uint8_t, 32> input = {};  // Zero-initialized
   const auto result = keccak256(std::span<const uint8_t>(input));
 
-  constexpr auto EXPECTED = types::Uint256(0x362f93160ef3e563ULL, 0x4ba6bc95484008f6ULL,
-                                           0xd60345a988386fc8ULL, 0x290decd9548b62a8ULL);
+  const auto expected =
+      types::Hash::from_hex("290decd9548b62a8d60345a988386fc84ba6bc95484008f6362f93160ef3e563");
 
-  EXPECT_EQ(result, EXPECTED);
+  EXPECT_EQ(result, expected);
 }
 
 TEST(Keccak256, EthereumVector_LargeInput) {
@@ -87,10 +84,10 @@ TEST(Keccak256, EthereumVector_LargeInput) {
   std::vector<uint8_t> input(0xFFFFF, 0x00);
   const auto result = keccak256(std::span<const uint8_t>(input));
 
-  constexpr auto EXPECTED = types::Uint256(0x3db0caeb608018faULL, 0x532dea5338e4b9f6ULL,
-                                           0x18560a07f959d23eULL, 0xbe6f1b42b34644f9ULL);
+  const auto expected =
+      types::Hash::from_hex("be6f1b42b34644f918560a07f959d23e532dea5338e4b9f63db0caeb608018fa");
 
-  EXPECT_EQ(result, EXPECTED);
+  EXPECT_EQ(result, expected);
 }
 
 // =============================================================================
@@ -139,9 +136,9 @@ TEST(Keccak256, AvalancheEffect) {
   EXPECT_NE(hash1, hash2);
 
   // Verify 32 zeros matches known Ethereum vector
-  constexpr auto EXPECTED_32_ZEROS = types::Uint256(0x362f93160ef3e563ULL, 0x4ba6bc95484008f6ULL,
-                                                    0xd60345a988386fc8ULL, 0x290decd9548b62a8ULL);
-  EXPECT_EQ(hash1, EXPECTED_32_ZEROS);
+  const auto expected_32_zeros =
+      types::Hash::from_hex("290decd9548b62a8d60345a988386fc84ba6bc95484008f6362f93160ef3e563");
+  EXPECT_EQ(hash1, expected_32_zeros);
 }
 
 // =============================================================================
@@ -153,10 +150,10 @@ TEST(Keccak256Hasher, EmptyFinalize) {
   const auto result = hasher.finalize();
 
   // Must match one-shot empty input
-  constexpr auto EXPECTED_EMPTY = types::Uint256(0x7bfad8045d85a470ULL, 0xe500b653ca82273bULL,
-                                                 0x927e7db2dcc703c0ULL, 0xc5d2460186f7233cULL);
+  const auto expected_empty =
+      types::Hash::from_hex("c5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470");
 
-  EXPECT_EQ(result, EXPECTED_EMPTY);
+  EXPECT_EQ(result, expected_empty);
 }
 
 TEST(Keccak256Hasher, SingleUpdate) {
@@ -166,10 +163,10 @@ TEST(Keccak256Hasher, SingleUpdate) {
   const auto result = hasher.finalize();
 
   // Must match one-shot single zero
-  constexpr auto EXPECTED = types::Uint256(0xff96a9e064bcc98aULL, 0x6612f7b477d66591ULL,
-                                           0x36464229828f817dULL, 0xbc36789e7a1e2814ULL);
+  const auto expected =
+      types::Hash::from_hex("bc36789e7a1e281436464229828f817d6612f7b477d66591ff96a9e064bcc98a");
 
-  EXPECT_EQ(result, EXPECTED);
+  EXPECT_EQ(result, expected);
 }
 
 TEST(Keccak256Hasher, MultipleUpdates) {
@@ -183,10 +180,10 @@ TEST(Keccak256Hasher, MultipleUpdates) {
   const auto result = hasher.finalize();
 
   // Must match one-shot 10 zeros
-  constexpr auto EXPECTED = types::Uint256(0x4518f40ffd34b607ULL, 0x4612fbf8b1b4db60ULL,
-                                           0x33429358bf24fdc6ULL, 0x6bd2dd6bd408cbeeULL);
+  const auto expected =
+      types::Hash::from_hex("6bd2dd6bd408cbee33429358bf24fdc64612fbf8b1b4db604518f40ffd34b607");
 
-  EXPECT_EQ(result, EXPECTED);
+  EXPECT_EQ(result, expected);
 }
 
 TEST(Keccak256Hasher, ByteByByteUpdate) {
@@ -201,10 +198,10 @@ TEST(Keccak256Hasher, ByteByByteUpdate) {
   const auto result = hasher.finalize();
 
   // Must match one-shot 5 zeros
-  constexpr auto EXPECTED = types::Uint256(0x7d72ce08c1d020ecULL, 0x024ccb0511783544ULL,
-                                           0x4a2080dad19d876aULL, 0xc41589e7559804eaULL);
+  const auto expected =
+      types::Hash::from_hex("c41589e7559804ea4a2080dad19d876a024ccb05117835447d72ce08c1d020ec");
 
-  EXPECT_EQ(result, EXPECTED);
+  EXPECT_EQ(result, expected);
 }
 
 TEST(Keccak256Hasher, ReuseAfterFinalize) {
@@ -241,10 +238,10 @@ TEST(Keccak256Hasher, ExplicitReset) {
   const auto result = hasher.finalize();
 
   // Should match clean single-zero hash
-  constexpr auto EXPECTED = types::Uint256(0xff96a9e064bcc98aULL, 0x6612f7b477d66591ULL,
-                                           0x36464229828f817dULL, 0xbc36789e7a1e2814ULL);
+  const auto expected =
+      types::Hash::from_hex("bc36789e7a1e281436464229828f817d6612f7b477d66591ff96a9e064bcc98a");
 
-  EXPECT_EQ(result, EXPECTED);
+  EXPECT_EQ(result, expected);
 }
 
 // =============================================================================
@@ -293,10 +290,10 @@ TEST(Keccak256, EmptyUpdate) {
   const auto result = hasher.finalize();
 
   // Should still be empty hash
-  constexpr auto EXPECTED_EMPTY = types::Uint256(0x7bfad8045d85a470ULL, 0xe500b653ca82273bULL,
-                                                 0x927e7db2dcc703c0ULL, 0xc5d2460186f7233cULL);
+  const auto expected_empty =
+      types::Hash::from_hex("c5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470");
 
-  EXPECT_EQ(result, EXPECTED_EMPTY);
+  EXPECT_EQ(result, expected_empty);
 }
 
 TEST(Keccak256, ArrayTemplateOverload) {
@@ -305,10 +302,10 @@ TEST(Keccak256, ArrayTemplateOverload) {
   const auto result = keccak256(input);
 
   // Should match 10 zeros
-  constexpr auto EXPECTED = types::Uint256(0x4518f40ffd34b607ULL, 0x4612fbf8b1b4db60ULL,
-                                           0x33429358bf24fdc6ULL, 0x6bd2dd6bd408cbeeULL);
+  const auto expected =
+      types::Hash::from_hex("6bd2dd6bd408cbee33429358bf24fdc64612fbf8b1b4db604518f40ffd34b607");
 
-  EXPECT_EQ(result, EXPECTED);
+  EXPECT_EQ(result, expected);
 }
 
 TEST(Keccak256, BlockBoundaryInputs) {
@@ -320,8 +317,27 @@ TEST(Keccak256, BlockBoundaryInputs) {
     const auto result2 = keccak256(std::span<const uint8_t>(input));
 
     EXPECT_EQ(result1, result2) << "Non-deterministic for size " << size;
-    EXPECT_NE(result1, types::Uint256(0)) << "Zero hash for size " << size;
+    EXPECT_FALSE(result1.is_zero()) << "Zero hash for size " << size;
   }
+}
+
+// =============================================================================
+// Conversion to Uint256 (for EVM stack operations)
+// =============================================================================
+
+TEST(Keccak256, ToUint256Conversion) {
+  const auto hash = keccak256(std::span<const uint8_t>{});
+  const auto uint256 = hash.to_uint256();
+
+  // Empty hash as Uint256 (little-endian limbs)
+  constexpr auto EXPECTED_UINT256 =
+      types::Uint256(0x7bfad8045d85a470ULL,  // limb 0 (least significant)
+                     0xe500b653ca82273bULL,  // limb 1
+                     0x927e7db2dcc703c0ULL,  // limb 2
+                     0xc5d2460186f7233cULL   // limb 3 (most significant)
+      );
+
+  EXPECT_EQ(uint256, EXPECTED_UINT256);
 }
 
 }  // namespace div0::crypto

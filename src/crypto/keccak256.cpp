@@ -4,8 +4,6 @@
 #include <cassert>
 #include <cstring>
 
-#include "div0/utils/bytes.h"
-
 // XKCP C headers - extern "C" prevents C++ name mangling
 extern "C" {
 #include "KeccakSponge.h"
@@ -30,23 +28,6 @@ inline auto* sponge(uint8_t* storage) noexcept {
   // NOLINTNEXTLINE(misc-const-correctness) - need non-const for sponge modification
   void* ptr = storage;
   return static_cast<KeccakWidth1600_SpongeInstance*>(ptr);
-}
-
-/**
- * @brief Convert 32 big-endian bytes to Uint256 (little-endian limbs).
- *
- * Keccak outputs bytes in big-endian order (byte[0] is most significant).
- * Uint256 stores limbs in little-endian order (data_[0] is least significant).
- */
-[[nodiscard]] types::Uint256 bytes_to_uint256(const uint8_t* bytes) noexcept {
-  // Read 32 bytes as 4 uint64_t (in big-endian byte order)
-  std::array<uint64_t, 4> raw{};
-  std::memcpy(raw.data(), bytes, 32);
-
-  // Swap byte order and reverse limb order
-  const auto swapped = utils::swap_endian_256(raw);
-
-  return types::Uint256(swapped);
 }
 
 }  // namespace
@@ -80,18 +61,17 @@ void Keccak256Hasher::update(std::span<const uint8_t> data) noexcept {
   assert(result == 0 && "Keccak absorb failed");
 }
 
-types::Uint256 Keccak256Hasher::finalize() noexcept {
-  constexpr size_t HASH_SIZE = 32;  // 256 bits
-  std::array<uint8_t, HASH_SIZE> output{};
+types::Hash Keccak256Hasher::finalize() noexcept {
+  std::array<uint8_t, types::Hash::SIZE> output{};
 
   [[maybe_unused]] const int result =
-      KeccakWidth1600_SpongeSqueeze(sponge(state_storage_.data()), output.data(), HASH_SIZE);
+      KeccakWidth1600_SpongeSqueeze(sponge(state_storage_.data()), output.data(), output.size());
   assert(result == 0 && "Keccak squeeze failed");
 
   // Reset for reuse
   reset();
 
-  return bytes_to_uint256(output.data());
+  return types::Hash(output);
 }
 
 void Keccak256Hasher::reset() noexcept {
@@ -104,7 +84,7 @@ void Keccak256Hasher::reset() noexcept {
 // One-Shot API
 // ============================================================================
 
-types::Uint256 keccak256(std::span<const uint8_t> data) noexcept {
+types::Hash keccak256(std::span<const uint8_t> data) noexcept {
   Keccak256Hasher hasher;
   hasher.update(data);
   return hasher.finalize();

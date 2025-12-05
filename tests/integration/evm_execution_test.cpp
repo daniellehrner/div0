@@ -101,7 +101,7 @@ TEST_F(EvmExecutionTest, AdditionAndStoreResult) {
 
   // Verify storage: slot 0 should contain 5
   const auto stored = storage_.load(types::Address(types::Uint256::zero()),
-                                    types::StorageSlot(types::Uint256::zero()));
+                                    ethereum::StorageSlot(types::Uint256::zero()));
   EXPECT_EQ(stored.get(), types::Uint256(5));
 }
 
@@ -124,7 +124,7 @@ TEST_F(EvmExecutionTest, MultiplicationAndStoreResult) {
 
   // Verify storage: slot 0 should contain 42
   const auto stored = storage_.load(types::Address(types::Uint256::zero()),
-                                    types::StorageSlot(types::Uint256::zero()));
+                                    ethereum::StorageSlot(types::Uint256::zero()));
   EXPECT_EQ(stored.get(), types::Uint256(42));
 }
 

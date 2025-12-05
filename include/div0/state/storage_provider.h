@@ -1,9 +1,9 @@
 #ifndef DIV0_STATE_STORAGE_PROVIDER_H
 #define DIV0_STATE_STORAGE_PROVIDER_H
 
+#include "div0/ethereum/storage_slot.h"
+#include "div0/ethereum/storage_value.h"
 #include "div0/types/address.h"
-#include "div0/types/storage_slot.h"
-#include "div0/types/storage_value.h"
 
 namespace div0::state {
 /**
@@ -29,7 +29,7 @@ class StorageProvider {
    * @param slot Storage slot key
    * @return Value at the slot (0 if not found)
    */
-  virtual types::StorageValue load(types::Address address, types::StorageSlot slot) = 0;
+  virtual ethereum::StorageValue load(types::Address address, ethereum::StorageSlot slot) = 0;
 
   /**
    * @brief Store a value in a storage slot (SSTORE).
@@ -38,10 +38,10 @@ class StorageProvider {
    * @param slot Storage slot key
    * @param value Value to store
    */
-  virtual void store(types::Address address, types::StorageSlot slot,
-                     types::StorageValue value) = 0;
+  virtual void store(types::Address address, ethereum::StorageSlot slot,
+                     ethereum::StorageValue value) = 0;
 
-  virtual bool is_warm(types::Address address, types::StorageSlot slot) = 0;
+  virtual bool is_warm(types::Address address, ethereum::StorageSlot slot) = 0;
 
   virtual void begin_transaction() = 0;
 };

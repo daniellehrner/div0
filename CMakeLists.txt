@@ -111,10 +111,11 @@ endif()
 
 add_library(div0_types STATIC
     include/div0/types/address.h
+    include/div0/types/bytes.h
     include/div0/types/bytes32.h
-    include/div0/types/storage_slot.h
-    include/div0/types/storage_value.h
+    include/div0/types/hash.h
     include/div0/types/uint256.h
+    src/types/hash.cpp
     src/types/uint256_divmod.cpp
     src/types/uint256_signed.cpp
     src/types/uint256_exp.cpp
@@ -201,6 +202,69 @@ target_link_libraries(div0_crypto
 target_compile_options(div0_crypto PRIVATE ${DIV0_WARNING_FLAGS})
 
 # ============================================================================
+# Library: div0_trie
+# ============================================================================
+# Merkle Patricia Trie implementation
+
+add_library(div0_trie STATIC
+    include/div0/trie/nibbles.h
+    include/div0/trie/hex_prefix.h
+    include/div0/trie/node.h
+    include/div0/trie/mpt.h
+    src/trie/nibbles.cpp
+    src/trie/hex_prefix.cpp
+    src/trie/node.cpp
+    src/trie/mpt.cpp
+)
+
+target_include_directories(div0_trie
+  PUBLIC
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+    $<INSTALL_INTERFACE:include>
+)
+
+target_link_libraries(div0_trie
+  PUBLIC
+    div0_types
+  PRIVATE
+    div0_rlp
+    div0_crypto
+)
+
+target_compile_options(div0_trie PRIVATE ${DIV0_WARNING_FLAGS})
+
+# ============================================================================
+# Library: div0_ethereum
+# ============================================================================
+# Ethereum-specific consensus types and utilities
+
+add_library(div0_ethereum STATIC
+    include/div0/ethereum/account.h
+    include/div0/ethereum/roots.h
+    include/div0/ethereum/storage_slot.h
+    include/div0/ethereum/storage_value.h
+    src/ethereum/account.cpp
+    src/ethereum/roots.cpp
+)
+
+target_include_directories(div0_ethereum
+  PUBLIC
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+    $<INSTALL_INTERFACE:include>
+)
+
+target_link_libraries(div0_ethereum
+  PUBLIC
+    div0_types
+    div0_trie
+  PRIVATE
+    div0_rlp
+    div0_crypto
+)
+
+target_compile_options(div0_ethereum PRIVATE ${DIV0_WARNING_FLAGS})
+
+# ============================================================================
 # Library: div0_db
 # ============================================================================
 # Generic key-value database abstraction
@@ -244,6 +308,7 @@ target_include_directories(div0_state
 target_link_libraries(div0_state
   PUBLIC
     div0_types
+    div0_ethereum
     div0_utils
     div0_db
 )
@@ -366,6 +431,8 @@ message(STATUS "    - div0_types     (core types)")
 message(STATUS "    - div0_utils     (utilities)")
 message(STATUS "    - div0_rlp       (RLP encoding/decoding)")
 message(STATUS "    - div0_crypto    (cryptographic primitives)")
+message(STATUS "    - div0_trie      (Merkle Patricia Trie)")
+message(STATUS "    - div0_ethereum  (Ethereum consensus types)")
 message(STATUS "    - div0_db        (key-value database abstraction)")
 message(STATUS "    - div0_state     (EVM state management)")
 message(STATUS "    - div0_evm       (EVM interpreter)")

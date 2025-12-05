@@ -3,7 +3,6 @@
 
 #include <memory>
 #include <span>
-#include <vector>
 
 #include "div0/evm/call_frame.h"
 #include "div0/evm/call_frame_pool.h"
@@ -107,7 +106,7 @@ class EVM {
                            const FrameResult& result);
 
   /// Return data from last CALL/CREATE (for RETURNDATASIZE/COPY)
-  std::vector<uint8_t> return_data_;
+  types::Bytes return_data_;
 
   state::StateContext& state_context_;
   Fork fork_;

@@ -5,6 +5,7 @@
 
 #include "div0/db/memory_database.h"
 #include "div0/state/storage_provider.h"
+#include "div0/types/bytes.h"
 
 namespace div0::state {
 
@@ -19,23 +20,24 @@ class MemoryStorageProvider : public StorageProvider {
   MemoryStorageProvider& operator=(const MemoryStorageProvider& other) = delete;
   MemoryStorageProvider& operator=(MemoryStorageProvider&& other) noexcept = delete;
 
-  types::StorageValue load(types::Address address, types::StorageSlot slot) override;
+  ethereum::StorageValue load(types::Address address, ethereum::StorageSlot slot) override;
 
-  void store(types::Address address, types::StorageSlot slot, types::StorageValue value) override;
+  void store(types::Address address, ethereum::StorageSlot slot,
+             ethereum::StorageValue value) override;
 
-  [[nodiscard]] bool is_warm(types::Address address, types::StorageSlot slot) override;
+  [[nodiscard]] bool is_warm(types::Address address, ethereum::StorageSlot slot) override;
 
   void begin_transaction() override;
 
  private:
   // Serialization helpers
-  [[nodiscard]] static std::string encode_uint256(const types::Uint256& value);
-  [[nodiscard]] static types::Uint256 decode_uint256(std::string_view data);
-  [[nodiscard]] static std::string make_storage_key(const types::Address& address,
-                                                    const types::StorageSlot& slot);
+  [[nodiscard]] static types::Bytes encode_uint256(const types::Uint256& value);
+  [[nodiscard]] static types::Uint256 decode_uint256(const types::Bytes& data);
+  [[nodiscard]] static types::Bytes make_storage_key(const types::Address& address,
+                                                     const ethereum::StorageSlot& slot);
 
   db::Database& database_;
-  std::unordered_set<std::string> warm_slots_;
+  std::unordered_set<types::Bytes> warm_slots_;
 };
 
 }  // namespace div0::state

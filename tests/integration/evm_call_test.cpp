@@ -120,7 +120,7 @@ TEST_F(EvmCallTest, CallToEmptyCodeSucceeds) {
   EXPECT_EQ(result.status, ExecutionStatus::Success);
 
   // CALL to empty code should succeed (push 1)
-  const auto stored = storage_.load(caller_addr_, types::StorageSlot(types::Uint256::zero()));
+  const auto stored = storage_.load(caller_addr_, ethereum::StorageSlot(types::Uint256::zero()));
   EXPECT_EQ(stored.get(), types::Uint256(1));
 }
 
@@ -155,7 +155,7 @@ TEST_F(EvmCallTest, CallToCodeThatStops) {
 
   EXPECT_EQ(result.status, ExecutionStatus::Success);
 
-  const auto stored = storage_.load(caller_addr_, types::StorageSlot(types::Uint256::zero()));
+  const auto stored = storage_.load(caller_addr_, ethereum::StorageSlot(types::Uint256::zero()));
   EXPECT_EQ(stored.get(), types::Uint256(1));
 }
 
@@ -194,7 +194,7 @@ TEST_F(EvmCallTest, CallToCodeThatWritesStorage) {
   EXPECT_EQ(result.status, ExecutionStatus::Success);
 
   // Callee wrote to its own storage (callee_addr_, slot 0)
-  const auto stored = storage_.load(callee_addr_, types::StorageSlot(types::Uint256::zero()));
+  const auto stored = storage_.load(callee_addr_, ethereum::StorageSlot(types::Uint256::zero()));
   EXPECT_EQ(stored.get(), types::Uint256(42));
 }
 
@@ -241,7 +241,7 @@ TEST_F(EvmCallTest, CallToCodeThatFails) {
   // Caller should succeed, but CALL returns 0 (failure)
   EXPECT_EQ(result.status, ExecutionStatus::Success);
 
-  const auto stored = storage_.load(caller_addr_, types::StorageSlot(types::Uint256::zero()));
+  const auto stored = storage_.load(caller_addr_, ethereum::StorageSlot(types::Uint256::zero()));
   EXPECT_EQ(stored.get(), types::Uint256::zero());
 }
 
@@ -371,11 +371,11 @@ TEST_F(EvmCallTest, NestedCallSucceeds) {
   EXPECT_EQ(result.status, ExecutionStatus::Success);
 
   // Both caller and callee should have stored success (1)
-  const auto caller_stored = storage_.load(caller_addr_, types::StorageSlot(types::Uint256(1)));
+  const auto caller_stored = storage_.load(caller_addr_, ethereum::StorageSlot(types::Uint256(1)));
   EXPECT_EQ(caller_stored.get(), types::Uint256(1));
 
   const auto callee_stored =
-      storage_.load(callee_addr_, types::StorageSlot(types::Uint256::zero()));
+      storage_.load(callee_addr_, ethereum::StorageSlot(types::Uint256::zero()));
   EXPECT_EQ(callee_stored.get(), types::Uint256(1));
 }
 

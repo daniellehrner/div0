@@ -2,9 +2,9 @@
 #define DIV0_STATE_MEMORY_CODE_PROVIDER_H
 
 #include <unordered_map>
-#include <vector>
 
 #include "div0/state/code_provider.h"
+#include "div0/types/bytes.h"
 
 namespace div0::state {
 
@@ -48,12 +48,12 @@ class MemoryCodeProvider final : public CodeProvider {
   }
 
   /// Set code for an address (for test setup)
-  void set_code(const types::Address& address, std::vector<uint8_t> code) {
+  void set_code(const types::Address& address, types::Bytes code) {
     code_[address] = std::move(code);
   }
 
  private:
-  std::unordered_map<types::Address, std::vector<uint8_t>, types::AddressHash> code_;
+  std::unordered_map<types::Address, types::Bytes, types::AddressHash> code_;
 };
 
 }  // namespace div0::state

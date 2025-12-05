@@ -5,6 +5,8 @@ include(GoogleTest)
 # Common test dependencies
 set(TEST_LIBS
   div0_evm
+  div0_ethereum
+  div0_trie
   div0_crypto
   div0_rlp
   GTest::gtest

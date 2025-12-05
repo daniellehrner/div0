@@ -146,28 +146,8 @@ void RlpEncoder::encode_address(const types::Address& addr) {
   // Address is always 20 bytes, prefix is 0x94 (0x80 + 20)
   write_byte(0x94);
 
-  // Address stores limbs in little-endian order
-  // limb[2] has upper 32 bits (bytes 0-3 in big-endian output)
-  // limb[1] has middle 64 bits (bytes 4-11)
-  // limb[0] has lower 64 bits (bytes 12-19)
-  std::array<uint8_t, 20> bytes{};
-
-  // Upper 4 bytes from limb[2] (only lower 32 bits used)
-  const auto upper = static_cast<uint32_t>(addr.limb(2));
-  bytes[0] = static_cast<uint8_t>(upper >> 24);
-  bytes[1] = static_cast<uint8_t>(upper >> 16);
-  bytes[2] = static_cast<uint8_t>(upper >> 8);
-  bytes[3] = static_cast<uint8_t>(upper);
-
-  // Middle 8 bytes from limb[1]
-  const uint64_t mid = __builtin_bswap64(addr.limb(1));
-  std::memcpy(&bytes[4], &mid, 8);
-
-  // Lower 8 bytes from limb[0]
-  const uint64_t low = __builtin_bswap64(addr.limb(0));
-  std::memcpy(&bytes[12], &low, 8);
-
-  write_bytes(bytes);
+  // Address is already stored in big-endian order
+  write_bytes(addr.span());
 }
 
 void RlpEncoder::start_list(const size_t payload_length) {

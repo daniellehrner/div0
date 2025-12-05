@@ -1,8 +1,7 @@
 #ifndef DIV0_DB_MEMORY_DATABASE_H
 #define DIV0_DB_MEMORY_DATABASE_H
 
-#include <string>
-#include <unordered_map>
+#include <map>
 
 #include "div0/db/database.h"
 
@@ -11,7 +10,7 @@ namespace div0::db {
 /**
  * @brief In-memory key-value database for testing.
  *
- * Simple std::unordered_map-based implementation.
+ * Simple std::map-based implementation.
  * Not thread-safe. Not persistent.
  */
 class MemoryDatabase : public Database {
@@ -25,14 +24,14 @@ class MemoryDatabase : public Database {
   MemoryDatabase& operator=(const MemoryDatabase& other) = delete;
   MemoryDatabase& operator=(MemoryDatabase&& other) noexcept = delete;
 
-  [[nodiscard]] std::optional<std::string> get(std::string_view key) const override;
+  [[nodiscard]] std::optional<Bytes> get(const Bytes& key) const override;
 
-  void put(std::string_view key, std::string_view value) override;
+  void put(const Bytes& key, const Bytes& value) override;
 
-  void erase(std::string_view key) override;
+  void erase(const Bytes& key) override;
 
  private:
-  std::unordered_map<std::string, std::string> data_;
+  std::map<Bytes, Bytes> data_;
 };
 
 }  // namespace div0::db

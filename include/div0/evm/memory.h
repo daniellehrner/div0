@@ -3,8 +3,8 @@
 
 #include <cstdint>
 #include <span>
-#include <vector>
 
+#include "div0/types/bytes.h"
 #include "div0/types/uint256.h"
 
 namespace div0::evm {
@@ -178,7 +178,7 @@ class Memory {
 
  private:
   /// Underlying storage (zero-filled on expand)
-  std::vector<uint8_t> data_;
+  types::Bytes data_;
 
   /// Logical size (word-aligned high-water mark for gas calculations)
   uint64_t size_{0};

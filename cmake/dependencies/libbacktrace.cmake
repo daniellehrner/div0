@@ -1,0 +1,75 @@
+# libbacktrace.cmake - Stack trace library with DWARF support
+#
+# libbacktrace is a library to produce symbolic backtraces.
+# It uses DWARF debug info and provides async-signal-safe stack traces.
+#
+# Source: https://github.com/ianlancetaylor/libbacktrace
+
+include(FetchContent)
+
+FetchContent_Declare(
+    libbacktrace
+    GIT_REPOSITORY https://github.com/ianlancetaylor/libbacktrace.git
+    GIT_TAG        b9e40069c0b47a722286b94eb5231f7f05c08713
+    EXCLUDE_FROM_ALL
+)
+
+# Fetch the content (populates libbacktrace_SOURCE_DIR)
+FetchContent_MakeAvailable(libbacktrace)
+
+# libbacktrace uses autotools, but we can build it directly with CMake
+# by compiling the required source files
+set(LIBBACKTRACE_SOURCES
+    ${libbacktrace_SOURCE_DIR}/backtrace.c
+    ${libbacktrace_SOURCE_DIR}/simple.c
+    ${libbacktrace_SOURCE_DIR}/dwarf.c
+    ${libbacktrace_SOURCE_DIR}/elf.c
+    ${libbacktrace_SOURCE_DIR}/mmapio.c
+    ${libbacktrace_SOURCE_DIR}/mmap.c
+    ${libbacktrace_SOURCE_DIR}/posix.c
+    ${libbacktrace_SOURCE_DIR}/fileline.c
+    ${libbacktrace_SOURCE_DIR}/state.c
+    ${libbacktrace_SOURCE_DIR}/sort.c
+)
+
+add_library(libbacktrace STATIC ${LIBBACKTRACE_SOURCES})
+
+# Generate config.h for libbacktrace
+file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/libbacktrace-config)
+file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/libbacktrace-config/config.h
+"/* Generated config.h for libbacktrace */
+#define HAVE_DL_ITERATE_PHDR 1
+#define HAVE_FCNTL 1
+#define HAVE_LINK_H 1
+#define HAVE_MMAP 1
+#define HAVE_DECL_STRNLEN 1
+#define HAVE_STDINT_H 1
+#define HAVE_GETIPINFO 1
+#define BACKTRACE_ELF_SIZE 64
+")
+
+# Generate backtrace-supported.h
+file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/libbacktrace-config/backtrace-supported.h
+"/* Generated backtrace-supported.h */
+#define BACKTRACE_SUPPORTED 1
+#define BACKTRACE_USES_MALLOC 0
+#define BACKTRACE_SUPPORTS_THREADS 1
+#define BACKTRACE_SUPPORTS_DATA 1
+")
+
+target_include_directories(libbacktrace
+  PUBLIC
+    ${libbacktrace_SOURCE_DIR}
+    ${CMAKE_CURRENT_BINARY_DIR}/libbacktrace-config
+)
+
+# Disable warnings for third-party code
+target_compile_options(libbacktrace PRIVATE -w)
+
+# Required for DWARF parsing
+target_compile_definitions(libbacktrace PRIVATE
+  HAVE_CONFIG_H
+  _GNU_SOURCE
+)
+
+message(STATUS "libbacktrace: Stack trace symbolization library")

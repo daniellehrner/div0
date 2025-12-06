@@ -99,3 +99,7 @@ See [fuzz/README.md](fuzz/README.md) for detailed fuzzing documentation.
 - `relwithdebinfo` - Optimized with debug symbols (profiling)
 - `tsan` - Thread sanitizer
 - `fuzz` - Fuzzing with libFuzzer
+
+## Debugging
+
+See [docs/core_dumps.md](docs/core_dumps.md) for crash debugging with stack traces and core dumps.

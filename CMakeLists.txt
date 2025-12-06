@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.28)
-project(div0 VERSION 0.1.0 LANGUAGES CXX)
+project(div0 VERSION 0.1.0 LANGUAGES C CXX)
 
 # ============================================================================
 # Project Configuration
@@ -102,6 +102,18 @@ if(DIV0_ENABLE_LTO AND CMAKE_BUILD_TYPE STREQUAL "Release")
   else()
     message(WARNING "LTO requested but not supported: ${IPO_ERROR}")
   endif()
+endif()
+
+# ============================================================================
+# Debug Symbols in Release Builds
+# ============================================================================
+# Add debug symbols to Release builds for crash debugging.
+# This enables human-readable stack traces from the crash handler
+# without significantly impacting performance.
+
+if(CMAKE_BUILD_TYPE STREQUAL "Release")
+  add_compile_options(-g)
+  message(STATUS "Debug symbols enabled in Release build")
 endif()
 
 # ============================================================================
@@ -394,20 +406,63 @@ target_link_libraries(div0_evm
 target_compile_options(div0_evm PRIVATE ${DIV0_WARNING_FLAGS})
 
 # ============================================================================
+# Library: div0_cli
+# ============================================================================
+# CLI commands (t8n, t9n, b11r) - NOT a public API
+
+# Generate version.h from template
+configure_file(
+    src/cli/version.h.in
+    ${CMAKE_CURRENT_BINARY_DIR}/generated/version.h
+    @ONLY
+)
+
+add_library(div0_cli STATIC
+    src/cli/crash_handler.cpp
+    src/cli/t8n/t8n_command.cpp
+)
+
+target_include_directories(div0_cli
+  PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/cli
+    ${CMAKE_CURRENT_BINARY_DIR}/generated
+)
+
+target_link_libraries(div0_cli
+  PUBLIC
+    div0_evm
+    div0_trie
+    CLI11::CLI11
+  PRIVATE
+    libbacktrace
+)
+
+target_compile_options(div0_cli PRIVATE ${DIV0_WARNING_FLAGS})
+
+# ============================================================================
 # Main Executable: div0
 # ============================================================================
-# Links all libraries together
+# CLI application with subcommands
 # Skip when fuzzing - libFuzzer provides its own main()
 
 if(NOT DIV0_BUILD_FUZZ)
-  add_executable(div0 main.cpp)
+  add_executable(div0 src/cli/main.cpp)
+
+  target_include_directories(div0
+    PRIVATE
+      ${CMAKE_CURRENT_SOURCE_DIR}/src/cli
+      ${CMAKE_CURRENT_BINARY_DIR}/generated
+  )
 
   target_link_libraries(div0
     PRIVATE
-      div0_evm
+      div0_cli
   )
 
   target_compile_options(div0 PRIVATE ${DIV0_WARNING_FLAGS})
+
+  # Export symbols for readable stack traces in crash handler
+  target_link_options(div0 PRIVATE -rdynamic)
 endif()
 
 # ============================================================================
@@ -467,6 +522,7 @@ message(STATUS "    - div0_ethereum  (Ethereum consensus types)")
 message(STATUS "    - div0_db        (key-value database abstraction)")
 message(STATUS "    - div0_state     (EVM state management)")
 message(STATUS "    - div0_evm       (EVM interpreter)")
+message(STATUS "    - div0_cli       (CLI commands)")
 message(STATUS "")
 message(STATUS "  Build tests:       ${DIV0_BUILD_TESTS}")
 message(STATUS "  Build benchmarks:  ${DIV0_BUILD_BENCHMARKS}")

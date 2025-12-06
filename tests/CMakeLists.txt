@@ -4,6 +4,7 @@ include(GoogleTest)
 
 # Common test dependencies
 set(TEST_LIBS
+  div0_cli
   div0_evm
   div0_ethereum
   div0_trie
@@ -23,6 +24,7 @@ file(GLOB_RECURSE UNIT_TEST_SOURCES "unit/*.cpp")
 
 add_executable(div0_unit_tests ${UNIT_TEST_SOURCES})
 target_link_libraries(div0_unit_tests PRIVATE ${TEST_LIBS})
+target_include_directories(div0_unit_tests PRIVATE ${CMAKE_SOURCE_DIR}/src/cli)
 
 gtest_discover_tests(div0_unit_tests
   WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}

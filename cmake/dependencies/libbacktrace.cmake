@@ -34,6 +34,13 @@ set(LIBBACKTRACE_SOURCES
 
 add_library(libbacktrace STATIC ${LIBBACKTRACE_SOURCES})
 
+# Detect ELF size based on pointer size (32-bit vs 64-bit)
+if(CMAKE_SIZEOF_VOID_P EQUAL 8)
+  set(BACKTRACE_ELF_SIZE 64)
+else()
+  set(BACKTRACE_ELF_SIZE 32)
+endif()
+
 # Generate config.h for libbacktrace
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/libbacktrace-config)
 file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/libbacktrace-config/config.h
@@ -45,7 +52,7 @@ file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/libbacktrace-config/config.h
 #define HAVE_DECL_STRNLEN 1
 #define HAVE_STDINT_H 1
 #define HAVE_GETIPINFO 1
-#define BACKTRACE_ELF_SIZE 64
+#define BACKTRACE_ELF_SIZE ${BACKTRACE_ELF_SIZE}
 ")
 
 # Generate backtrace-supported.h

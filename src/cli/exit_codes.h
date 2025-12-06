@@ -3,6 +3,8 @@
 #ifndef DIV0_CLI_EXIT_CODES_H
 #define DIV0_CLI_EXIT_CODES_H
 
+#include <cstdint>
+
 namespace div0::cli {
 
 /**
@@ -10,7 +12,7 @@ namespace div0::cli {
  *
  * Following conventions from other Ethereum execution clients.
  */
-enum class ExitCode : int {
+enum class ExitCode : std::uint8_t {
   Success = 0,
   GeneralError = 1,
   EvmError = 2,

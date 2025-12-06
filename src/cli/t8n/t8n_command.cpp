@@ -10,9 +10,7 @@ namespace div0::cli {
 
 void setup_t8n_command(CLI::App& app, T8nOptions& opts) {
   // ===========================================================================
-  // INPUT OPTIONS  In bash completion, you have access to COMP_WORDS (all words typed so far) and
-  // COMP_CWORD (current word index). So you check if a subcommand name appears in the words:
-
+  // INPUT OPTIONS
   // ===========================================================================
 
   app.add_option("--input.alloc", opts.input_alloc, "Input allocations file (or 'stdin')")

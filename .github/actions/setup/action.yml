@@ -18,8 +18,9 @@ runs:
     - name: Install CMake 4.x from Kitware
       shell: bash
       run: |
-        # Remove pre-installed cmake
+        # Remove any pre-installed cmake (apt, /usr/local, or elsewhere)
         sudo apt-get remove -y cmake cmake-data 2>/dev/null || true
+        sudo rm -f /usr/local/bin/cmake /usr/local/bin/ctest /usr/local/bin/cpack
 
         # Add Kitware APT repository for CMake 4.x
         test -f /usr/share/doc/kitware-archive-keyring/copyright || \
@@ -29,6 +30,10 @@ runs:
           sudo tee /etc/apt/sources.list.d/kitware.list >/dev/null
         sudo apt-get update
         sudo apt-get install -y kitware-archive-keyring cmake
+
+        # Refresh shell's command hash and verify version
+        hash -r
+        which cmake
         cmake --version
 
     - name: Install LLVM ${{ inputs.version }}

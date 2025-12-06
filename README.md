@@ -13,14 +13,23 @@ brew install cmake ninja ccache llvm lld
 sudo ln -s /opt/homebrew/opt/llvm/bin/run-clang-tidy /usr/local/bin/run-clang-tidy
 ```
 
-### Ubuntu
+### Ubuntu 24.04
 
 ```bash
 # Remove default LLVM 18
 sudo apt remove -y clang-18 llvm-18 lld-18
 
 # Install base tools
-sudo apt install cmake ninja-build ccache xsltproc wget gpg
+sudo apt install ninja-build ccache xsltproc wget gpg
+
+# Install CMake 4.x from Kitware APT repository (Ubuntu's default is too old)
+test -f /usr/share/doc/kitware-archive-keyring/copyright || \
+  wget -O - https://apt.kitware.com/keys/kitware-archive-latest.asc 2>/dev/null | \
+  gpg --dearmor - | sudo tee /usr/share/keyrings/kitware-archive-keyring.gpg >/dev/null
+echo 'deb [signed-by=/usr/share/keyrings/kitware-archive-keyring.gpg] https://apt.kitware.com/ubuntu/ noble main' | \
+  sudo tee /etc/apt/sources.list.d/kitware.list >/dev/null
+sudo apt update
+sudo apt install kitware-archive-keyring cmake
 
 # Add LLVM repository (for latest clang/clang-tidy)
 LLVM_VERSION=21

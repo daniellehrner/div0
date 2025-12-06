@@ -1,5 +1,5 @@
-name: 'Setup LLVM'
-description: 'Install LLVM toolchain from apt.llvm.org and configure symlinks'
+name: 'Setup Build Environment'
+description: 'Install CMake 4.x from Kitware and LLVM toolchain from apt.llvm.org'
 
 inputs:
   version:
@@ -12,8 +12,26 @@ runs:
     - name: Cache apt packages
       uses: awalsh128/cache-apt-pkgs-action@v1
       with:
-        packages: cmake ninja-build ccache xsltproc
+        packages: ninja-build ccache xsltproc
         version: 1.0
+
+    - name: Install CMake 4.x from Kitware
+      shell: bash
+      run: |
+        # Remove any pre-installed cmake from /usr/local (GitHub runners install it there)
+        sudo rm -f /usr/local/bin/cmake /usr/local/bin/ctest /usr/local/bin/cpack
+
+        # Add Kitware APT repository for CMake 4.x
+        test -f /usr/share/doc/kitware-archive-keyring/copyright || \
+          wget -O - https://apt.kitware.com/keys/kitware-archive-latest.asc 2>/dev/null | \
+          gpg --dearmor - | sudo tee /usr/share/keyrings/kitware-archive-keyring.gpg >/dev/null
+        echo 'deb [signed-by=/usr/share/keyrings/kitware-archive-keyring.gpg] https://apt.kitware.com/ubuntu/ noble main' | \
+          sudo tee /etc/apt/sources.list.d/kitware.list >/dev/null
+        sudo apt-get update
+        sudo apt-get install -y kitware-archive-keyring cmake
+
+        # Refresh shell's command hash and verify version
+        hash -r
 
     - name: Install LLVM ${{ inputs.version }}
       shell: bash

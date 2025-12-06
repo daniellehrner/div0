@@ -18,6 +18,9 @@ runs:
     - name: Install CMake 4.x from Kitware
       shell: bash
       run: |
+        # Remove pre-installed cmake
+        sudo apt-get remove -y cmake cmake-data 2>/dev/null || true
+
         # Add Kitware APT repository for CMake 4.x
         test -f /usr/share/doc/kitware-archive-keyring/copyright || \
           wget -O - https://apt.kitware.com/keys/kitware-archive-latest.asc 2>/dev/null | \

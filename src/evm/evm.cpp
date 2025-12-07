@@ -6,8 +6,8 @@
 #include <stack>
 
 #include "div0/evm/gas/dynamic_costs.h"
+#include "div0/evm/opcodes.h"
 #include "gas/static_costs.h"
-#include "opcodes.h"
 #include "opcodes/arithmetic.h"
 #include "opcodes/call.h"
 #include "opcodes/comparison.h"
@@ -153,6 +153,11 @@ ExecutionResult EVM::execute(const ExecutionEnvironment& env) {
   CallFrame* frame = frame_pool_->rent_frame();
   init_root_frame(*frame, env);
 
+  // Trace frame entry for root frame
+  if (tracer_) [[unlikely]] {
+    tracer_->trace_frame_enter(*frame);
+  }
+
   // Frame stack for nested calls (parent frames waiting for child to return)
   std::stack<CallFrame*> frame_stack;
 
@@ -165,6 +170,9 @@ ExecutionResult EVM::execute(const ExecutionEnvironment& env) {
 
   // Handle top-level successful completion (Stop or Return)
   auto handle_top_level_success = [&](const FrameResult& result) -> ExecutionResult {
+    if (tracer_) [[unlikely]] {
+      tracer_->trace_frame_exit(*frame);
+    }
     const uint64_t gas_used = initial_gas - frame->gas;
     auto return_data = (result.action == FrameResult::Action::Return)
                            ? extract_return_data(*frame, result)
@@ -175,6 +183,9 @@ ExecutionResult EVM::execute(const ExecutionEnvironment& env) {
 
   // Handle top-level revert
   auto handle_top_level_revert = [&](const FrameResult& result) -> ExecutionResult {
+    if (tracer_) [[unlikely]] {
+      tracer_->trace_frame_exit(*frame);
+    }
     const uint64_t gas_used = initial_gas - frame->gas;
     auto revert_data = extract_return_data(*frame, result);
     release_frame_resources();
@@ -183,6 +194,9 @@ ExecutionResult EVM::execute(const ExecutionEnvironment& env) {
 
   // Handle top-level error
   auto handle_top_level_error = [&](const FrameResult& result) -> ExecutionResult {
+    if (tracer_) [[unlikely]] {
+      tracer_->trace_frame_exit(*frame);
+    }
     const uint64_t gas_used = initial_gas - frame->gas;
     release_frame_resources();
     return make_error_result(result.error_status, gas_used);
@@ -190,16 +204,28 @@ ExecutionResult EVM::execute(const ExecutionEnvironment& env) {
 
   // Handle child frame completion (success or revert) - returns to parent
   auto handle_child_completion = [&](const FrameResult& result) {
+    // Trace child frame exit before releasing resources
+    if (tracer_) [[unlikely]] {
+      tracer_->trace_frame_exit(*frame);
+    }
     const CallFrame* child = frame;
     frame = frame_stack.top();
     frame_stack.pop();
     frame->gas += child->gas;  // Refund unused gas
     handle_child_return(*frame, *child, result);
     release_frame_resources();
+    // Trace parent frame reenter after child returns
+    if (tracer_) [[unlikely]] {
+      tracer_->trace_frame_reenter(*frame);
+    }
   };
 
   // Handle child frame error - returns to parent with failure
   auto handle_child_error = [&]() {
+    // Trace child frame exit before releasing resources
+    if (tracer_) [[unlikely]] {
+      tracer_->trace_frame_exit(*frame);
+    }
     frame = frame_stack.top();
     frame_stack.pop();
     // Child consumed all its gas on error (no refund)
@@ -208,6 +234,10 @@ ExecutionResult EVM::execute(const ExecutionEnvironment& env) {
       (void)frame->stack->push(types::Uint256::zero());
     }
     release_frame_resources();
+    // Trace parent frame reenter after child error
+    if (tracer_) [[unlikely]] {
+      tracer_->trace_frame_reenter(*frame);
+    }
   };
 
   // Handle pending child call/create
@@ -220,6 +250,10 @@ ExecutionResult EVM::execute(const ExecutionEnvironment& env) {
     frame_stack.push(frame);
     frame = pending_frame_;
     pending_frame_ = nullptr;
+    // Trace child frame entry
+    if (tracer_) [[unlikely]] {
+      tracer_->trace_frame_enter(*frame);
+    }
     return std::nullopt;
   };
 
@@ -305,95 +339,95 @@ FrameResult EVM::execute_frame(CallFrame& frame) {
     if (!dispatches_initialized.load(std::memory_order_relaxed)) {
       // Initialize Shanghai (base fork)
       dispatch_shanghai.fill(&&op_invalid);
-      dispatch_shanghai[op(Opcode::Stop)] = &&op_stop;
-      dispatch_shanghai[op(Opcode::Add)] = &&op_add;
-      dispatch_shanghai[op(Opcode::Mul)] = &&op_mul;
-      dispatch_shanghai[op(Opcode::Sub)] = &&op_sub;
-      dispatch_shanghai[op(Opcode::Div)] = &&op_div;
-      dispatch_shanghai[op(Opcode::SDiv)] = &&op_sdiv;
-      dispatch_shanghai[op(Opcode::Mod)] = &&op_mod;
-      dispatch_shanghai[op(Opcode::SMod)] = &&op_smod;
-      dispatch_shanghai[op(Opcode::AddMod)] = &&op_addmod;
-      dispatch_shanghai[op(Opcode::MulMod)] = &&op_mulmod;
-      dispatch_shanghai[op(Opcode::Exp)] = &&op_exp;
-      dispatch_shanghai[op(Opcode::SignExtend)] = &&op_signextend;
-      dispatch_shanghai[op(Opcode::Lt)] = &&op_lt;
-      dispatch_shanghai[op(Opcode::Gt)] = &&op_gt;
-      dispatch_shanghai[op(Opcode::Eq)] = &&op_eq;
-      dispatch_shanghai[op(Opcode::IsZero)] = &&op_is_zero;
-      dispatch_shanghai[op(Opcode::Sha3)] = &&op_sha3;
-      dispatch_shanghai[op(Opcode::MLoad)] = &&op_mload;
-      dispatch_shanghai[op(Opcode::MStore)] = &&op_mstore;
-      dispatch_shanghai[op(Opcode::MStore8)] = &&op_mstore8;
-      dispatch_shanghai[op(Opcode::SLoad)] = &&op_sload;
-      dispatch_shanghai[op(Opcode::SStore)] = &&op_sstore;
-      dispatch_shanghai[op(Opcode::MSize)] = &&op_msize;
-      dispatch_shanghai[op(Opcode::Push0)] = &&op_push0;
-      dispatch_shanghai[op(Opcode::Push1)] = &&op_push1;
-      dispatch_shanghai[op(Opcode::Push2)] = &&op_push2;
-      dispatch_shanghai[op(Opcode::Push3)] = &&op_push3;
-      dispatch_shanghai[op(Opcode::Push4)] = &&op_push4;
-      dispatch_shanghai[op(Opcode::Push5)] = &&op_push5;
-      dispatch_shanghai[op(Opcode::Push6)] = &&op_push6;
-      dispatch_shanghai[op(Opcode::Push7)] = &&op_push7;
-      dispatch_shanghai[op(Opcode::Push8)] = &&op_push8;
-      dispatch_shanghai[op(Opcode::Push9)] = &&op_push9;
-      dispatch_shanghai[op(Opcode::Push10)] = &&op_push10;
-      dispatch_shanghai[op(Opcode::Push11)] = &&op_push11;
-      dispatch_shanghai[op(Opcode::Push12)] = &&op_push12;
-      dispatch_shanghai[op(Opcode::Push13)] = &&op_push13;
-      dispatch_shanghai[op(Opcode::Push14)] = &&op_push14;
-      dispatch_shanghai[op(Opcode::Push15)] = &&op_push15;
-      dispatch_shanghai[op(Opcode::Push16)] = &&op_push16;
-      dispatch_shanghai[op(Opcode::Push17)] = &&op_push17;
-      dispatch_shanghai[op(Opcode::Push18)] = &&op_push18;
-      dispatch_shanghai[op(Opcode::Push19)] = &&op_push19;
-      dispatch_shanghai[op(Opcode::Push20)] = &&op_push20;
-      dispatch_shanghai[op(Opcode::Push21)] = &&op_push21;
-      dispatch_shanghai[op(Opcode::Push22)] = &&op_push22;
-      dispatch_shanghai[op(Opcode::Push23)] = &&op_push23;
-      dispatch_shanghai[op(Opcode::Push24)] = &&op_push24;
-      dispatch_shanghai[op(Opcode::Push25)] = &&op_push25;
-      dispatch_shanghai[op(Opcode::Push26)] = &&op_push26;
-      dispatch_shanghai[op(Opcode::Push27)] = &&op_push27;
-      dispatch_shanghai[op(Opcode::Push28)] = &&op_push28;
-      dispatch_shanghai[op(Opcode::Push29)] = &&op_push29;
-      dispatch_shanghai[op(Opcode::Push30)] = &&op_push30;
-      dispatch_shanghai[op(Opcode::Push31)] = &&op_push31;
-      dispatch_shanghai[op(Opcode::Push32)] = &&op_push32;
-      dispatch_shanghai[op(Opcode::Dup1)] = &&op_dup1;
-      dispatch_shanghai[op(Opcode::Dup2)] = &&op_dup2;
-      dispatch_shanghai[op(Opcode::Dup3)] = &&op_dup3;
-      dispatch_shanghai[op(Opcode::Dup4)] = &&op_dup4;
-      dispatch_shanghai[op(Opcode::Dup5)] = &&op_dup5;
-      dispatch_shanghai[op(Opcode::Dup6)] = &&op_dup6;
-      dispatch_shanghai[op(Opcode::Dup7)] = &&op_dup7;
-      dispatch_shanghai[op(Opcode::Dup8)] = &&op_dup8;
-      dispatch_shanghai[op(Opcode::Dup9)] = &&op_dup9;
-      dispatch_shanghai[op(Opcode::Dup10)] = &&op_dup10;
-      dispatch_shanghai[op(Opcode::Dup11)] = &&op_dup11;
-      dispatch_shanghai[op(Opcode::Dup12)] = &&op_dup12;
-      dispatch_shanghai[op(Opcode::Dup13)] = &&op_dup13;
-      dispatch_shanghai[op(Opcode::Dup14)] = &&op_dup14;
-      dispatch_shanghai[op(Opcode::Dup15)] = &&op_dup15;
-      dispatch_shanghai[op(Opcode::Dup16)] = &&op_dup16;
-      dispatch_shanghai[op(Opcode::Swap1)] = &&op_swap1;
-      dispatch_shanghai[op(Opcode::Swap2)] = &&op_swap2;
-      dispatch_shanghai[op(Opcode::Swap3)] = &&op_swap3;
-      dispatch_shanghai[op(Opcode::Swap4)] = &&op_swap4;
-      dispatch_shanghai[op(Opcode::Swap5)] = &&op_swap5;
-      dispatch_shanghai[op(Opcode::Swap6)] = &&op_swap6;
-      dispatch_shanghai[op(Opcode::Swap7)] = &&op_swap7;
-      dispatch_shanghai[op(Opcode::Swap8)] = &&op_swap8;
-      dispatch_shanghai[op(Opcode::Swap9)] = &&op_swap9;
-      dispatch_shanghai[op(Opcode::Swap10)] = &&op_swap10;
-      dispatch_shanghai[op(Opcode::Swap11)] = &&op_swap11;
-      dispatch_shanghai[op(Opcode::Swap12)] = &&op_swap12;
-      dispatch_shanghai[op(Opcode::Swap13)] = &&op_swap13;
-      dispatch_shanghai[op(Opcode::Swap14)] = &&op_swap14;
-      dispatch_shanghai[op(Opcode::Swap15)] = &&op_swap15;
-      dispatch_shanghai[op(Opcode::Swap16)] = &&op_swap16;
-      dispatch_shanghai[op(Opcode::Call)] = &&op_call;
+      dispatch_shanghai[op::STOP] = &&op_stop;
+      dispatch_shanghai[op::ADD] = &&op_add;
+      dispatch_shanghai[op::MUL] = &&op_mul;
+      dispatch_shanghai[op::SUB] = &&op_sub;
+      dispatch_shanghai[op::DIV] = &&op_div;
+      dispatch_shanghai[op::SDIV] = &&op_sdiv;
+      dispatch_shanghai[op::MOD] = &&op_mod;
+      dispatch_shanghai[op::SMOD] = &&op_smod;
+      dispatch_shanghai[op::ADDMOD] = &&op_addmod;
+      dispatch_shanghai[op::MULMOD] = &&op_mulmod;
+      dispatch_shanghai[op::EXP] = &&op_exp;
+      dispatch_shanghai[op::SIGNEXTEND] = &&op_signextend;
+      dispatch_shanghai[op::LT] = &&op_lt;
+      dispatch_shanghai[op::GT] = &&op_gt;
+      dispatch_shanghai[op::EQ] = &&op_eq;
+      dispatch_shanghai[op::ISZERO] = &&op_is_zero;
+      dispatch_shanghai[op::KECCAK256] = &&op_sha3;
+      dispatch_shanghai[op::MLOAD] = &&op_mload;
+      dispatch_shanghai[op::MSTORE] = &&op_mstore;
+      dispatch_shanghai[op::MSTORE8] = &&op_mstore8;
+      dispatch_shanghai[op::SLOAD] = &&op_sload;
+      dispatch_shanghai[op::SSTORE] = &&op_sstore;
+      dispatch_shanghai[op::MSIZE] = &&op_msize;
+      dispatch_shanghai[op::PUSH0] = &&op_push0;
+      dispatch_shanghai[op::PUSH1] = &&op_push1;
+      dispatch_shanghai[op::PUSH2] = &&op_push2;
+      dispatch_shanghai[op::PUSH3] = &&op_push3;
+      dispatch_shanghai[op::PUSH4] = &&op_push4;
+      dispatch_shanghai[op::PUSH5] = &&op_push5;
+      dispatch_shanghai[op::PUSH6] = &&op_push6;
+      dispatch_shanghai[op::PUSH7] = &&op_push7;
+      dispatch_shanghai[op::PUSH8] = &&op_push8;
+      dispatch_shanghai[op::PUSH9] = &&op_push9;
+      dispatch_shanghai[op::PUSH10] = &&op_push10;
+      dispatch_shanghai[op::PUSH11] = &&op_push11;
+      dispatch_shanghai[op::PUSH12] = &&op_push12;
+      dispatch_shanghai[op::PUSH13] = &&op_push13;
+      dispatch_shanghai[op::PUSH14] = &&op_push14;
+      dispatch_shanghai[op::PUSH15] = &&op_push15;
+      dispatch_shanghai[op::PUSH16] = &&op_push16;
+      dispatch_shanghai[op::PUSH17] = &&op_push17;
+      dispatch_shanghai[op::PUSH18] = &&op_push18;
+      dispatch_shanghai[op::PUSH19] = &&op_push19;
+      dispatch_shanghai[op::PUSH20] = &&op_push20;
+      dispatch_shanghai[op::PUSH21] = &&op_push21;
+      dispatch_shanghai[op::PUSH22] = &&op_push22;
+      dispatch_shanghai[op::PUSH23] = &&op_push23;
+      dispatch_shanghai[op::PUSH24] = &&op_push24;
+      dispatch_shanghai[op::PUSH25] = &&op_push25;
+      dispatch_shanghai[op::PUSH26] = &&op_push26;
+      dispatch_shanghai[op::PUSH27] = &&op_push27;
+      dispatch_shanghai[op::PUSH28] = &&op_push28;
+      dispatch_shanghai[op::PUSH29] = &&op_push29;
+      dispatch_shanghai[op::PUSH30] = &&op_push30;
+      dispatch_shanghai[op::PUSH31] = &&op_push31;
+      dispatch_shanghai[op::PUSH32] = &&op_push32;
+      dispatch_shanghai[op::DUP1] = &&op_dup1;
+      dispatch_shanghai[op::DUP2] = &&op_dup2;
+      dispatch_shanghai[op::DUP3] = &&op_dup3;
+      dispatch_shanghai[op::DUP4] = &&op_dup4;
+      dispatch_shanghai[op::DUP5] = &&op_dup5;
+      dispatch_shanghai[op::DUP6] = &&op_dup6;
+      dispatch_shanghai[op::DUP7] = &&op_dup7;
+      dispatch_shanghai[op::DUP8] = &&op_dup8;
+      dispatch_shanghai[op::DUP9] = &&op_dup9;
+      dispatch_shanghai[op::DUP10] = &&op_dup10;
+      dispatch_shanghai[op::DUP11] = &&op_dup11;
+      dispatch_shanghai[op::DUP12] = &&op_dup12;
+      dispatch_shanghai[op::DUP13] = &&op_dup13;
+      dispatch_shanghai[op::DUP14] = &&op_dup14;
+      dispatch_shanghai[op::DUP15] = &&op_dup15;
+      dispatch_shanghai[op::DUP16] = &&op_dup16;
+      dispatch_shanghai[op::SWAP1] = &&op_swap1;
+      dispatch_shanghai[op::SWAP2] = &&op_swap2;
+      dispatch_shanghai[op::SWAP3] = &&op_swap3;
+      dispatch_shanghai[op::SWAP4] = &&op_swap4;
+      dispatch_shanghai[op::SWAP5] = &&op_swap5;
+      dispatch_shanghai[op::SWAP6] = &&op_swap6;
+      dispatch_shanghai[op::SWAP7] = &&op_swap7;
+      dispatch_shanghai[op::SWAP8] = &&op_swap8;
+      dispatch_shanghai[op::SWAP9] = &&op_swap9;
+      dispatch_shanghai[op::SWAP10] = &&op_swap10;
+      dispatch_shanghai[op::SWAP11] = &&op_swap11;
+      dispatch_shanghai[op::SWAP12] = &&op_swap12;
+      dispatch_shanghai[op::SWAP13] = &&op_swap13;
+      dispatch_shanghai[op::SWAP14] = &&op_swap14;
+      dispatch_shanghai[op::SWAP15] = &&op_swap15;
+      dispatch_shanghai[op::SWAP16] = &&op_swap16;
+      dispatch_shanghai[op::CALL] = &&op_call;
 
       // Cancun inherits Shanghai opcodes
       dispatch_cancun = dispatch_shanghai;
@@ -457,11 +491,21 @@ FrameResult EVM::execute_frame(CallFrame& frame) {
   }                                     \
   goto* active_dispatch_[code[pc++]]
 
-#define OPCODE_HANDLER(name, func, opcode_enum)                                            \
-  op_##name : status = func(stack, gas, schedule_->static_costs[op(Opcode::opcode_enum)]); \
-  if (status != ExecutionStatus::Success) [[unlikely]] {                                   \
-    return FrameResult::error(status);                                                     \
-  }                                                                                        \
+// Macro for traced opcode handlers with static gas cost
+#define OPCODE_HANDLER(name, func, opcode_const)                         \
+  op_##name : {                                                          \
+    const uint64_t gas_cost = schedule_->static_costs[op::opcode_const]; \
+    if (tracer_) [[unlikely]] {                                          \
+      tracer_->trace_pre_execution(frame);                               \
+    }                                                                    \
+    status = func(stack, gas, gas_cost);                                 \
+    if (tracer_) [[unlikely]] {                                          \
+      tracer_->trace_post_execution(frame, status, gas_cost);            \
+    }                                                                    \
+    if (status != ExecutionStatus::Success) [[unlikely]] {               \
+      return FrameResult::error(status);                                 \
+    }                                                                    \
+  }                                                                      \
   DISPATCH_NEXT();
 
   // Start execution
@@ -471,179 +515,262 @@ op_stop:
   return FrameResult::stop();
 
   // Arithmetic opcodes
-  OPCODE_HANDLER(add, opcodes::add, Add)
-  OPCODE_HANDLER(mul, opcodes::mul, Mul)
-  OPCODE_HANDLER(sub, opcodes::sub, Sub)
-  OPCODE_HANDLER(div, opcodes::div, Div)
-  OPCODE_HANDLER(sdiv, opcodes::sdiv, SDiv)
-  OPCODE_HANDLER(mod, opcodes::mod, Mod)
-  OPCODE_HANDLER(smod, opcodes::smod, SMod)
-  OPCODE_HANDLER(addmod, opcodes::addmod, AddMod)
-  OPCODE_HANDLER(mulmod, opcodes::mulmod, MulMod)
-  OPCODE_HANDLER(signextend, opcodes::signextend, SignExtend)
+  OPCODE_HANDLER(add, opcodes::add, ADD)
+  OPCODE_HANDLER(mul, opcodes::mul, MUL)
+  OPCODE_HANDLER(sub, opcodes::sub, SUB)
+  OPCODE_HANDLER(div, opcodes::div, DIV)
+  OPCODE_HANDLER(sdiv, opcodes::sdiv, SDIV)
+  OPCODE_HANDLER(mod, opcodes::mod, MOD)
+  OPCODE_HANDLER(smod, opcodes::smod, SMOD)
+  OPCODE_HANDLER(addmod, opcodes::addmod, ADDMOD)
+  OPCODE_HANDLER(mulmod, opcodes::mulmod, MULMOD)
+  OPCODE_HANDLER(signextend, opcodes::signextend, SIGNEXTEND)
 
-op_exp:
+op_exp: {
+  // EXP has dynamic gas cost, computed inside the opcode
+  if (tracer_) [[unlikely]] {
+    tracer_->trace_pre_execution(frame);
+  }
+  const uint64_t gas_before = gas;
   status = opcodes::exp(stack, gas, schedule_->exp);
+  if (tracer_) [[unlikely]] {
+    tracer_->trace_post_execution(frame, status, gas_before - gas);
+  }
   if (status != ExecutionStatus::Success) [[unlikely]] {
     return FrameResult::error(status);
   }
+}
   DISPATCH_NEXT();
 
   // Comparison opcodes
-  OPCODE_HANDLER(lt, opcodes::lt, Lt)
-  OPCODE_HANDLER(gt, opcodes::gt, Gt)
-  OPCODE_HANDLER(eq, opcodes::eq, Eq)
-  OPCODE_HANDLER(is_zero, opcodes::is_zero, IsZero)
+  OPCODE_HANDLER(lt, opcodes::lt, LT)
+  OPCODE_HANDLER(gt, opcodes::gt, GT)
+  OPCODE_HANDLER(eq, opcodes::eq, EQ)
+  OPCODE_HANDLER(is_zero, opcodes::is_zero, ISZERO)
 
-op_sha3:
-  status = opcodes::keccak256(stack, gas, schedule_->static_costs[op(Opcode::Sha3)],
+op_sha3: {
+  // SHA3 has dynamic gas cost (base + per-word + memory expansion)
+  if (tracer_) [[unlikely]] {
+    tracer_->trace_pre_execution(frame);
+  }
+  const uint64_t gas_before = gas;
+  status = opcodes::keccak256(stack, gas, schedule_->static_costs[op::KECCAK256],
                               schedule_->sha3_word_cost, schedule_->memory_access, memory);
+  if (tracer_) [[unlikely]] {
+    tracer_->trace_post_execution(frame, status, gas_before - gas);
+  }
   if (status != ExecutionStatus::Success) [[unlikely]] {
     return FrameResult::error(status);
   }
+}
   DISPATCH_NEXT();
 
-#define MEMORY_OPCODE_HANDLER(name, func, opcode_enum)                                    \
-  op_##name : status = func(stack, gas, schedule_->static_costs[op(Opcode::opcode_enum)], \
-                            schedule_->memory_access, memory);                            \
-  if (status != ExecutionStatus::Success) [[unlikely]] {                                  \
-    return FrameResult::error(status);                                                    \
-  }                                                                                       \
+// Memory opcodes have dynamic gas (base + expansion)
+#define MEMORY_OPCODE_HANDLER(name, func, opcode_const)                                            \
+  op_##name : {                                                                                    \
+    if (tracer_) [[unlikely]] {                                                                    \
+      tracer_->trace_pre_execution(frame);                                                         \
+    }                                                                                              \
+    const uint64_t gas_before = gas;                                                               \
+    status = func(stack, gas, schedule_->static_costs[op::opcode_const], schedule_->memory_access, \
+                  memory);                                                                         \
+    if (tracer_) [[unlikely]] {                                                                    \
+      tracer_->trace_post_execution(frame, status, gas_before - gas);                              \
+    }                                                                                              \
+    if (status != ExecutionStatus::Success) [[unlikely]] {                                         \
+      return FrameResult::error(status);                                                           \
+    }                                                                                              \
+  }                                                                                                \
   DISPATCH_NEXT();
 
-  MEMORY_OPCODE_HANDLER(mload, opcodes::mload, MLoad)
-  MEMORY_OPCODE_HANDLER(mstore, opcodes::mstore, MStore)
-  MEMORY_OPCODE_HANDLER(mstore8, opcodes::mstore8, MStore8)
+  MEMORY_OPCODE_HANDLER(mload, opcodes::mload, MLOAD)
+  MEMORY_OPCODE_HANDLER(mstore, opcodes::mstore, MSTORE)
+  MEMORY_OPCODE_HANDLER(mstore8, opcodes::mstore8, MSTORE8)
 
 #undef MEMORY_OPCODE_HANDLER
 
-op_msize:
-  status = opcodes::msize(stack, gas, schedule_->static_costs[op(Opcode::MSize)], memory);
+op_msize: {
+  if (tracer_) [[unlikely]] {
+    tracer_->trace_pre_execution(frame);
+  }
+  const uint64_t gas_cost = schedule_->static_costs[op::MSIZE];
+  status = opcodes::msize(stack, gas, gas_cost, memory);
+  if (tracer_) [[unlikely]] {
+    tracer_->trace_post_execution(frame, status, gas_cost);
+  }
   if (status != ExecutionStatus::Success) [[unlikely]] {
     return FrameResult::error(status);
   }
+}
   DISPATCH_NEXT();
 
-op_sload:
+op_sload: {
+  if (tracer_) [[unlikely]] {
+    tracer_->trace_pre_execution(frame);
+  }
+  // SLOAD has dynamic gas cost (cold vs warm access)
+  const uint64_t gas_before = gas;
   status = opcodes::sload(frame.address, stack, gas, state_context_.storage, schedule_->sload);
+  if (tracer_) [[unlikely]] {
+    tracer_->trace_post_execution(frame, status, gas_before - gas);
+  }
   if (status != ExecutionStatus::Success) [[unlikely]] {
     return FrameResult::error(status);
   }
+}
   DISPATCH_NEXT();
 
-op_sstore:
+op_sstore: {
+  if (tracer_) [[unlikely]] {
+    tracer_->trace_pre_execution(frame);
+  }
   if (frame.is_static) [[unlikely]] {
     return FrameResult::error(ExecutionStatus::WriteProtection);
   }
+  // SSTORE has dynamic gas cost (cold vs warm, original vs current value)
+  const uint64_t gas_before = gas;
   status = opcodes::sstore(frame.address, stack, gas, state_context_.storage, schedule_->sstore);
+  if (tracer_) [[unlikely]] {
+    tracer_->trace_post_execution(frame, status, gas_before - gas);
+  }
   if (status != ExecutionStatus::Success) [[unlikely]] {
     return FrameResult::error(status);
   }
+}
   DISPATCH_NEXT();
 
   // PUSH0: push zero onto stack
-  OPCODE_HANDLER(push0, opcodes::push0, Push0)
+  OPCODE_HANDLER(push0, opcodes::push0, PUSH0)
 
 // PUSH1-32: push N bytes from bytecode onto stack
-#define PUSH_N_HANDLER(n, opcode_enum)                                                      \
-  op_push##n : status = opcodes::push_n<n>(                                                 \
-                   stack, gas, schedule_->static_costs[op(Opcode::opcode_enum)], code, pc); \
-  if (status != ExecutionStatus::Success) [[unlikely]] {                                    \
-    return FrameResult::error(status);                                                      \
-  }                                                                                         \
+#define PUSH_N_HANDLER(n, opcode_const)                                  \
+  op_push##n : {                                                         \
+    if (tracer_) [[unlikely]] {                                          \
+      tracer_->trace_pre_execution(frame);                               \
+    }                                                                    \
+    const uint64_t gas_cost = schedule_->static_costs[op::opcode_const]; \
+    status = opcodes::push_n<n>(stack, gas, gas_cost, code, pc);         \
+    if (tracer_) [[unlikely]] {                                          \
+      tracer_->trace_post_execution(frame, status, gas_cost);            \
+    }                                                                    \
+    if (status != ExecutionStatus::Success) [[unlikely]] {               \
+      return FrameResult::error(status);                                 \
+    }                                                                    \
+  }                                                                      \
   DISPATCH_NEXT();
 
-  PUSH_N_HANDLER(1, Push1)
-  PUSH_N_HANDLER(2, Push2)
-  PUSH_N_HANDLER(3, Push3)
-  PUSH_N_HANDLER(4, Push4)
-  PUSH_N_HANDLER(5, Push5)
-  PUSH_N_HANDLER(6, Push6)
-  PUSH_N_HANDLER(7, Push7)
-  PUSH_N_HANDLER(8, Push8)
-  PUSH_N_HANDLER(9, Push9)
-  PUSH_N_HANDLER(10, Push10)
-  PUSH_N_HANDLER(11, Push11)
-  PUSH_N_HANDLER(12, Push12)
-  PUSH_N_HANDLER(13, Push13)
-  PUSH_N_HANDLER(14, Push14)
-  PUSH_N_HANDLER(15, Push15)
-  PUSH_N_HANDLER(16, Push16)
-  PUSH_N_HANDLER(17, Push17)
-  PUSH_N_HANDLER(18, Push18)
-  PUSH_N_HANDLER(19, Push19)
-  PUSH_N_HANDLER(20, Push20)
-  PUSH_N_HANDLER(21, Push21)
-  PUSH_N_HANDLER(22, Push22)
-  PUSH_N_HANDLER(23, Push23)
-  PUSH_N_HANDLER(24, Push24)
-  PUSH_N_HANDLER(25, Push25)
-  PUSH_N_HANDLER(26, Push26)
-  PUSH_N_HANDLER(27, Push27)
-  PUSH_N_HANDLER(28, Push28)
-  PUSH_N_HANDLER(29, Push29)
-  PUSH_N_HANDLER(30, Push30)
-  PUSH_N_HANDLER(31, Push31)
-  PUSH_N_HANDLER(32, Push32)
+  PUSH_N_HANDLER(1, PUSH1)
+  PUSH_N_HANDLER(2, PUSH2)
+  PUSH_N_HANDLER(3, PUSH3)
+  PUSH_N_HANDLER(4, PUSH4)
+  PUSH_N_HANDLER(5, PUSH5)
+  PUSH_N_HANDLER(6, PUSH6)
+  PUSH_N_HANDLER(7, PUSH7)
+  PUSH_N_HANDLER(8, PUSH8)
+  PUSH_N_HANDLER(9, PUSH9)
+  PUSH_N_HANDLER(10, PUSH10)
+  PUSH_N_HANDLER(11, PUSH11)
+  PUSH_N_HANDLER(12, PUSH12)
+  PUSH_N_HANDLER(13, PUSH13)
+  PUSH_N_HANDLER(14, PUSH14)
+  PUSH_N_HANDLER(15, PUSH15)
+  PUSH_N_HANDLER(16, PUSH16)
+  PUSH_N_HANDLER(17, PUSH17)
+  PUSH_N_HANDLER(18, PUSH18)
+  PUSH_N_HANDLER(19, PUSH19)
+  PUSH_N_HANDLER(20, PUSH20)
+  PUSH_N_HANDLER(21, PUSH21)
+  PUSH_N_HANDLER(22, PUSH22)
+  PUSH_N_HANDLER(23, PUSH23)
+  PUSH_N_HANDLER(24, PUSH24)
+  PUSH_N_HANDLER(25, PUSH25)
+  PUSH_N_HANDLER(26, PUSH26)
+  PUSH_N_HANDLER(27, PUSH27)
+  PUSH_N_HANDLER(28, PUSH28)
+  PUSH_N_HANDLER(29, PUSH29)
+  PUSH_N_HANDLER(30, PUSH30)
+  PUSH_N_HANDLER(31, PUSH31)
+  PUSH_N_HANDLER(32, PUSH32)
 
 #undef PUSH_N_HANDLER
 
-#define DUP_N_HANDLER(n, opcode_enum)                                                              \
-  op_dup##n : status =                                                                             \
-                  opcodes::dup_n(stack, gas, schedule_->static_costs[op(Opcode::opcode_enum)], n); \
-  if (status != ExecutionStatus::Success) [[unlikely]] {                                           \
-    return FrameResult::error(status);                                                             \
-  }                                                                                                \
+#define DUP_N_HANDLER(n, opcode_const)                                   \
+  op_dup##n : {                                                          \
+    if (tracer_) [[unlikely]] {                                          \
+      tracer_->trace_pre_execution(frame);                               \
+    }                                                                    \
+    const uint64_t gas_cost = schedule_->static_costs[op::opcode_const]; \
+    status = opcodes::dup_n(stack, gas, gas_cost, n);                    \
+    if (tracer_) [[unlikely]] {                                          \
+      tracer_->trace_post_execution(frame, status, gas_cost);            \
+    }                                                                    \
+    if (status != ExecutionStatus::Success) [[unlikely]] {               \
+      return FrameResult::error(status);                                 \
+    }                                                                    \
+  }                                                                      \
   DISPATCH_NEXT();
 
-  DUP_N_HANDLER(1, Dup1)
-  DUP_N_HANDLER(2, Dup2)
-  DUP_N_HANDLER(3, Dup3)
-  DUP_N_HANDLER(4, Dup4)
-  DUP_N_HANDLER(5, Dup5)
-  DUP_N_HANDLER(6, Dup6)
-  DUP_N_HANDLER(7, Dup7)
-  DUP_N_HANDLER(8, Dup8)
-  DUP_N_HANDLER(9, Dup9)
-  DUP_N_HANDLER(10, Dup10)
-  DUP_N_HANDLER(11, Dup11)
-  DUP_N_HANDLER(12, Dup12)
-  DUP_N_HANDLER(13, Dup13)
-  DUP_N_HANDLER(14, Dup14)
-  DUP_N_HANDLER(15, Dup15)
-  DUP_N_HANDLER(16, Dup16)
+  DUP_N_HANDLER(1, DUP1)
+  DUP_N_HANDLER(2, DUP2)
+  DUP_N_HANDLER(3, DUP3)
+  DUP_N_HANDLER(4, DUP4)
+  DUP_N_HANDLER(5, DUP5)
+  DUP_N_HANDLER(6, DUP6)
+  DUP_N_HANDLER(7, DUP7)
+  DUP_N_HANDLER(8, DUP8)
+  DUP_N_HANDLER(9, DUP9)
+  DUP_N_HANDLER(10, DUP10)
+  DUP_N_HANDLER(11, DUP11)
+  DUP_N_HANDLER(12, DUP12)
+  DUP_N_HANDLER(13, DUP13)
+  DUP_N_HANDLER(14, DUP14)
+  DUP_N_HANDLER(15, DUP15)
+  DUP_N_HANDLER(16, DUP16)
 
 #undef DUP_N_HANDLER
 
-#define SWAP_N_HANDLER(n, opcode_enum)                                                             \
-  op_swap##n                                                                                       \
-      : status = opcodes::swap_n(stack, gas, schedule_->static_costs[op(Opcode::opcode_enum)], n); \
-  if (status != ExecutionStatus::Success) [[unlikely]] {                                           \
-    return FrameResult::error(status);                                                             \
-  }                                                                                                \
+#define SWAP_N_HANDLER(n, opcode_const)                                  \
+  op_swap##n : {                                                         \
+    if (tracer_) [[unlikely]] {                                          \
+      tracer_->trace_pre_execution(frame);                               \
+    }                                                                    \
+    const uint64_t gas_cost = schedule_->static_costs[op::opcode_const]; \
+    status = opcodes::swap_n(stack, gas, gas_cost, n);                   \
+    if (tracer_) [[unlikely]] {                                          \
+      tracer_->trace_post_execution(frame, status, gas_cost);            \
+    }                                                                    \
+    if (status != ExecutionStatus::Success) [[unlikely]] {               \
+      return FrameResult::error(status);                                 \
+    }                                                                    \
+  }                                                                      \
   DISPATCH_NEXT();
 
-  SWAP_N_HANDLER(1, Swap1)
-  SWAP_N_HANDLER(2, Swap2)
-  SWAP_N_HANDLER(3, Swap3)
-  SWAP_N_HANDLER(4, Swap4)
-  SWAP_N_HANDLER(5, Swap5)
-  SWAP_N_HANDLER(6, Swap6)
-  SWAP_N_HANDLER(7, Swap7)
-  SWAP_N_HANDLER(8, Swap8)
-  SWAP_N_HANDLER(9, Swap9)
-  SWAP_N_HANDLER(10, Swap10)
-  SWAP_N_HANDLER(11, Swap11)
-  SWAP_N_HANDLER(12, Swap12)
-  SWAP_N_HANDLER(13, Swap13)
-  SWAP_N_HANDLER(14, Swap14)
-  SWAP_N_HANDLER(15, Swap15)
-  SWAP_N_HANDLER(16, Swap16)
+  SWAP_N_HANDLER(1, SWAP1)
+  SWAP_N_HANDLER(2, SWAP2)
+  SWAP_N_HANDLER(3, SWAP3)
+  SWAP_N_HANDLER(4, SWAP4)
+  SWAP_N_HANDLER(5, SWAP5)
+  SWAP_N_HANDLER(6, SWAP6)
+  SWAP_N_HANDLER(7, SWAP7)
+  SWAP_N_HANDLER(8, SWAP8)
+  SWAP_N_HANDLER(9, SWAP9)
+  SWAP_N_HANDLER(10, SWAP10)
+  SWAP_N_HANDLER(11, SWAP11)
+  SWAP_N_HANDLER(12, SWAP12)
+  SWAP_N_HANDLER(13, SWAP13)
+  SWAP_N_HANDLER(14, SWAP14)
+  SWAP_N_HANDLER(15, SWAP15)
+  SWAP_N_HANDLER(16, SWAP16)
 
 #undef SWAP_N_HANDLER
 
   // CALL opcode - creates a child call frame
 op_call: {
+  if (tracer_) [[unlikely]] {
+    tracer_->trace_pre_execution(frame);
+  }
+  // CALL has dynamic gas cost
+  const uint64_t gas_before = gas;
   auto setup = opcodes::prepare_call(stack, gas, memory, state_context_.accounts, frame.is_static,
                                      frame.depth, schedule_->memory_access);
 
@@ -651,11 +778,23 @@ op_call: {
   // fail the call (return 0) but continue execution. prepare_call() already
   // pushed 0 onto the stack, so we just continue to the next opcode.
   if (setup.status == ExecutionStatus::CallDepthExceeded) [[unlikely]] {
+    if (tracer_) [[unlikely]] {
+      tracer_->trace_post_execution(frame, setup.status, gas_before - gas);
+    }
     DISPATCH_NEXT();
   }
 
   if (setup.status != ExecutionStatus::Success) [[unlikely]] {
+    if (tracer_) [[unlikely]] {
+      tracer_->trace_post_execution(frame, setup.status, gas_before - gas);
+    }
     return FrameResult::error(setup.status);
+  }
+
+  // Trace CALL post-execution before creating child frame
+  // Note: The actual child execution is traced separately via trace_frame_enter
+  if (tracer_) [[unlikely]] {
+    tracer_->trace_post_execution(frame, ExecutionStatus::Success, gas_before - gas);
   }
 
   // Store output location in parent frame (for when child returns)

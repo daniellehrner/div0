@@ -44,8 +44,9 @@ std::map<types::Uint256, types::Uint256> convert_storage(
 
 /// Serialize a single receipt to JSON
 void serialize_receipt(std::ostream& ss, const ethereum::Receipt& receipt,
-                       const std::string& indent) {
+                       const types::Hash& tx_hash, const std::string& indent) {
   ss << indent << "{\n";
+  ss << indent << "  \"transactionHash\": \"" << encode_hash(tx_hash) << "\",\n";
   ss << indent << "  \"type\": \"" << encode_uint64(static_cast<uint64_t>(receipt.tx_type))
      << "\",\n";
   ss << indent << "  \"status\": \"" << encode_uint64(receipt.status) << "\",\n";
@@ -58,10 +59,10 @@ void serialize_receipt(std::ostream& ss, const ethereum::Receipt& receipt,
 
 /// Serialize receipts array to JSON
 void serialize_receipts(std::ostream& ss, const std::vector<ethereum::Receipt>& receipts,
-                        const std::string& indent) {
+                        const std::vector<types::Hash>& tx_hashes, const std::string& indent) {
   ss << indent << "\"receipts\": [\n";
   for (size_t i = 0; i < receipts.size(); ++i) {
-    serialize_receipt(ss, receipts[i], indent + "  ");
+    serialize_receipt(ss, receipts[i], tx_hashes[i], indent + "  ");
     if (i + 1 < receipts.size()) {
       ss << ",";
     }
@@ -122,7 +123,7 @@ void serialize_result_fields(std::ostream& ss, const T8nResult& result, const st
   }
 
   ss << ",\n";
-  serialize_receipts(ss, result.receipts, indent);
+  serialize_receipts(ss, result.receipts, result.tx_hashes, indent);
   serialize_rejected(ss, result.rejected, indent);
 }
 
@@ -199,6 +200,7 @@ types::Bytes encode_tx_body(const std::vector<ethereum::Transaction>& txs) {
 T8nResult compute_result(const T8nState& state, const ExecutionOutput& exec_output) {
   T8nResult result;
   result.receipts = exec_output.receipts;
+  result.tx_hashes = exec_output.tx_hashes;
   result.rejected = exec_output.rejected;
   result.gas_used = exec_output.gas_used;
   result.blob_gas_used = exec_output.blob_gas_used;

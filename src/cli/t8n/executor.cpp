@@ -2,10 +2,17 @@
 
 #include "t8n/executor.h"
 
+#include <fstream>
+#include <iomanip>
+#include <sstream>
+
+#include "div0/ethereum/transaction/hex.h"
 #include "div0/ethereum/transaction/rlp.h"
 #include "div0/evm/block_context.h"
 #include "div0/evm/evm.h"
 #include "div0/evm/execution_environment.h"
+#include "div0/evm/streaming_tracer.h"
+#include "div0/log/log.h"
 
 namespace div0::cli {
 
@@ -45,7 +52,8 @@ evm::BlockContext build_block_context(const EnvInput& env,
 ExecutionOutput execute_transactions(T8nState& state, const std::vector<ethereum::Transaction>& txs,
                                      const EnvInput& env, evm::Fork fork,
                                      [[maybe_unused]] uint64_t chain_id,
-                                     crypto::Secp256k1Context& secp_ctx) {
+                                     crypto::Secp256k1Context& secp_ctx,
+                                     const TraceConfig& trace_config) {
   ExecutionOutput output;
 
   // Build block context
@@ -58,6 +66,7 @@ ExecutionOutput execute_transactions(T8nState& state, const std::vector<ethereum
   const auto base_fee = env.base_fee.value_or(types::Uint256::zero());
 
   uint64_t cumulative_gas = 0;
+  auto& logger = log::t8n();
 
   for (size_t i = 0; i < txs.size(); ++i) {
     const auto& tx = txs[i];
@@ -81,8 +90,8 @@ ExecutionOutput execute_transactions(T8nState& state, const std::vector<ethereum
       // Contract creation - code is in tx data, to address is zero for now
       // CREATE address computation will be added when we implement ethereum library
       to_address = types::Address(types::Uint256::zero());
-      const auto input = tx.data();
-      code = {input.data(), input.size()};
+      const auto input_data = tx.data();
+      code = {input_data.data(), input_data.size()};
     } else {
       // Message call - get code from state
       to_address = *to_opt;
@@ -95,7 +104,7 @@ ExecutionOutput execute_transactions(T8nState& state, const std::vector<ethereum
     const auto gas_price = get_effective_gas_price(tx, base_fee);
     const auto gas_limit = tx.gas_limit();
     const auto& value = tx.value();
-    const auto input = tx.data();
+    const auto input_data = tx.data();
 
     // Get blob hashes if this is a blob transaction (convert Hash to Uint256)
     std::vector<types::Uint256> blob_hash_storage;
@@ -114,13 +123,41 @@ ExecutionOutput execute_transactions(T8nState& state, const std::vector<ethereum
         .call = {.value = value,
                  .gas = gas_limit,
                  .code = code,
-                 .input = {input.data(), input.size()},
+                 .input = {input_data.data(), input_data.size()},
                  .caller = sender,
                  .address = to_address,
                  .is_static = false}};
 
+    // Compute tx hash (needed for receipts and trace filename)
+    const auto tx_hash = ethereum::tx_hash(tx);
+
+    // Set up tracer if enabled
+    std::unique_ptr<std::ofstream> trace_file;
+    std::unique_ptr<evm::StreamingTracer> tracer;
+    if (trace_config.enabled) {
+      const auto tx_hash_hex = ethereum::hex::encode_hash(tx_hash);
+
+      // Create trace file: trace-{index}-{hash}.jsonl
+      const std::string trace_path =
+          trace_config.output_dir + "/trace-" + std::to_string(i) + "-" + tx_hash_hex + ".jsonl";
+
+      trace_file = std::make_unique<std::ofstream>(trace_path);
+      if (trace_file->is_open()) {
+        logger.info("Created tracing-file: {}", trace_path);
+        tracer = std::make_unique<evm::StreamingTracer>(*trace_file, trace_config.tracer_config);
+        evm.set_tracer(tracer.get());
+      } else {
+        logger.warn("Failed to create trace file: {}", trace_path);
+      }
+    }
+
     // Execute transaction
     const auto result = evm.execute(exec_env);
+
+    // Clear tracer after execution
+    if (tracer) {
+      evm.set_tracer(nullptr);
+    }
 
     // Update cumulative gas
     cumulative_gas += result.gas_used;
@@ -134,6 +171,7 @@ ExecutionOutput execute_transactions(T8nState& state, const std::vector<ethereum
     }
 
     output.receipts.push_back(std::move(receipt));
+    output.tx_hashes.push_back(tx_hash);
     output.executed_txs.push_back(tx);
     output.gas_used += result.gas_used;
 

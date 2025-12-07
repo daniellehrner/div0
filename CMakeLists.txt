@@ -374,7 +374,7 @@ add_library(div0_evm STATIC
     include/div0/evm/gas/schedule.h
     src/evm/evm.cpp
     src/evm/memory.cpp
-    src/evm/opcodes.h
+    include/div0/evm/opcodes.h
     src/evm/opcodes/arithmetic.h
     include/div0/evm/forks.h
     src/evm/gas/static_costs.h
@@ -391,6 +391,10 @@ add_library(div0_evm STATIC
     include/div0/evm/stack_pool.h
     include/div0/evm/memory_pool.h
     include/div0/evm/call_params.h
+    include/div0/evm/tracer.h
+    include/div0/evm/tracer_config.h
+    include/div0/evm/streaming_tracer.h
+    src/evm/streaming_tracer.cpp
 )
 
 target_include_directories(div0_evm

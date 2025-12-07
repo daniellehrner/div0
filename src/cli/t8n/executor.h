@@ -11,10 +11,23 @@
 #include "div0/ethereum/receipt.h"
 #include "div0/ethereum/transaction/transaction.h"
 #include "div0/evm/forks.h"
+#include "div0/evm/tracer_config.h"
+#include "div0/types/hash.h"
 #include "t8n/input.h"
 #include "t8n/state_builder.h"
 
 namespace div0::cli {
+
+// =============================================================================
+// TRACE CONFIG
+// =============================================================================
+
+/// Trace configuration for transaction execution
+struct TraceConfig {
+  bool enabled = false;
+  std::string output_dir = ".";  // Directory for trace files
+  evm::TracerConfig tracer_config{};
+};
 
 // =============================================================================
 // RESULT TYPES
@@ -30,6 +43,7 @@ struct RejectedTx {
 struct ExecutionOutput {
   std::vector<ethereum::Transaction> executed_txs;
   std::vector<ethereum::Receipt> receipts;
+  std::vector<types::Hash> tx_hashes;  // Transaction hashes (same order as receipts)
   std::vector<RejectedTx> rejected;
   uint64_t gas_used{0};
   uint64_t blob_gas_used{0};
@@ -54,12 +68,14 @@ struct ExecutionOutput {
 /// @param fork EVM fork rules
 /// @param chain_id Chain ID for transaction validation
 /// @param secp_ctx Secp256k1 context for signature recovery
+/// @param trace_config Optional trace configuration
 /// @return Execution output with receipts and rejected transactions
 [[nodiscard]] ExecutionOutput execute_transactions(T8nState& state,
                                                    const std::vector<ethereum::Transaction>& txs,
                                                    const EnvInput& env, evm::Fork fork,
                                                    uint64_t chain_id,
-                                                   crypto::Secp256k1Context& secp_ctx);
+                                                   crypto::Secp256k1Context& secp_ctx,
+                                                   const TraceConfig& trace_config = {});
 
 }  // namespace div0::cli
 

@@ -28,8 +28,8 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size) {
   div0::evm::EVM evm(state_context, div0::evm::Fork::Shanghai);
 
   // Set up execution environment
-  constexpr div0::evm::BlockContext BLOCK_CTX{};
-  const div0::evm::ExecutionEnvironment env{.block = &BLOCK_CTX,
+  const div0::evm::BlockContext block_ctx{};
+  const div0::evm::ExecutionEnvironment env{.block = &block_ctx,
                                             .tx = {},
                                             .call = {.value = div0::types::Uint256::zero(),
                                                      .gas = 1000000,

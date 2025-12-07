@@ -2,6 +2,7 @@
 #define DIV0_EVM_BLOCK_CONTEXT_H
 
 #include <cstdint>
+#include <functional>
 
 #include "div0/types/address.h"
 #include "div0/types/uint256.h"
@@ -12,10 +13,9 @@ namespace div0::evm {
  * @brief Callback for lazy BLOCKHASH lookup.
  *
  * Returns the hash for the given block number, or zero if outside
- * the 256-block window. Block processor implements this and passes
- * a pointer to its hash cache via user_data.
+ * the 256-block window.
  */
-using GetBlockHashFn = types::Uint256 (*)(uint64_t block_number, void* user_data);
+using GetBlockHashFn = std::function<types::Uint256(uint64_t block_number)>;
 
 /**
  * @brief Block-level context for EVM execution.
@@ -40,10 +40,9 @@ struct BlockContext {
 
   types::Address coinbase;  // COINBASE opcode (0x41)
 
-  // Lookup for BLOCKHASH opcode (0x40).
-  // Called with block number, returns hash or zero if out of range.
-  GetBlockHashFn get_block_hash{nullptr};
-  void* block_hash_user_data{nullptr};
+  /// Lookup for BLOCKHASH opcode (0x40).
+  /// Returns hash for block number, or zero if out of range.
+  GetBlockHashFn get_block_hash;
 };
 
 }  // namespace div0::evm

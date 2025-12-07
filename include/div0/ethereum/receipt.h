@@ -15,6 +15,20 @@ namespace div0::ethereum {
 struct Receipt;
 
 /**
+ * @brief RLP encode a single log entry.
+ *
+ * Log: [address, [topic1, topic2, ...], data]
+ */
+[[nodiscard]] types::Bytes rlp_encode(const evm::Log& log);
+
+/**
+ * @brief RLP encode a list of logs.
+ *
+ * Returns RLP([log1, log2, ...])
+ */
+[[nodiscard]] types::Bytes rlp_encode_logs(const std::vector<evm::Log>& logs);
+
+/**
  * @brief RLP encode a receipt.
  *
  * For legacy receipts: RLP([status, cumulative_gas_used, bloom, logs])

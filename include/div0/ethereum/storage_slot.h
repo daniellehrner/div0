@@ -24,6 +24,10 @@ class StorageSlot {
     return value_ == other.value_;
   }
 
+  [[nodiscard]] constexpr bool operator<(const StorageSlot& other) const noexcept {
+    return value_ < other.value_;
+  }
+
  private:
   types::Uint256 value_;
 };

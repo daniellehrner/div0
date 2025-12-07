@@ -151,12 +151,13 @@ TEST(SetupT8nCommandTest, ParsesTraceFlags) {
 // run_t8n Tests
 // =============================================================================
 
-TEST(RunT8nTest, ReturnsGeneralErrorNotImplemented) {
-  const T8nOptions opts;
+TEST(RunT8nTest, ReturnsConfigErrorForInvalidFork) {
+  T8nOptions opts;
+  opts.fork = "InvalidForkName";
 
-  // Currently returns GeneralError because it's not yet implemented
+  // Invalid fork name should return ConfigError
   const int result = run_t8n(opts);
-  EXPECT_EQ(result, static_cast<int>(ExitCode::GeneralError));
+  EXPECT_EQ(result, static_cast<int>(ExitCode::ConfigError));
 }
 
 // =============================================================================

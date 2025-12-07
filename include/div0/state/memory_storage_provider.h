@@ -1,6 +1,7 @@
 #ifndef DIV0_STATE_MEMORY_STORAGE_PROVIDER_H
 #define DIV0_STATE_MEMORY_STORAGE_PROVIDER_H
 
+#include <map>
 #include <unordered_set>
 
 #include "div0/db/memory_database.h"
@@ -8,6 +9,10 @@
 #include "div0/types/bytes.h"
 
 namespace div0::state {
+
+/// Storage entry: address -> slot -> value
+using StorageMap =
+    std::map<types::Address, std::map<ethereum::StorageSlot, ethereum::StorageValue>>;
 
 class MemoryStorageProvider : public StorageProvider {
  public:
@@ -29,6 +34,10 @@ class MemoryStorageProvider : public StorageProvider {
 
   void begin_transaction() override;
 
+  /// Get all stored slots
+  /// Returns a map of address -> (slot -> value) for all non-zero storage
+  [[nodiscard]] const StorageMap& storage() const { return storage_; }
+
  private:
   // Serialization helpers
   [[nodiscard]] static types::Bytes encode_uint256(const types::Uint256& value);
@@ -38,6 +47,7 @@ class MemoryStorageProvider : public StorageProvider {
 
   db::Database& database_;
   std::unordered_set<types::Bytes> warm_slots_;
+  StorageMap storage_;  // In-memory copy for iteration
 };
 
 }  // namespace div0::state

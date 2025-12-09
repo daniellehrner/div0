@@ -2,6 +2,10 @@
 # Check headers in include/ and src/ (not system headers, _deps, or build directories)
 HeaderFilterRegex: '.*/(include|src)/div0/.*'
 
+# Note: clang-analyzer-optin.cplusplus.UninitializedObject is disabled due to
+# false positives from spdlog's bundled fmt library template instantiations.
+# Similar coverage is provided by cppcoreguidelines-pro-type-member-init.
+
 Checks: >
   bugprone-*,
   clang-analyzer-*,
@@ -19,7 +23,8 @@ Checks: >
   -readability-identifier-length,
   -readability-function-cognitive-complexity,
   -readability-isolate-declaration,
-  -bugprone-easily-swappable-parameters
+  -bugprone-easily-swappable-parameters,
+  -clang-analyzer-optin.cplusplus.UninitializedObject
 
 CheckOptions:
   # Traditional C Style naming conventions

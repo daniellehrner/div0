@@ -42,8 +42,7 @@ class EvmCallTest : public ::testing::Test {
       .blob_base_fee = types::Uint256::zero(),
       .prev_randao = types::Uint256::zero(),
       .coinbase = types::Address(types::Uint256::zero()),
-      .get_block_hash = nullptr,
-      .block_hash_user_data = nullptr,
+      .get_block_hash = {},
   };
 
   ExecutionEnvironment make_env(std::span<const uint8_t> code, uint64_t gas) {

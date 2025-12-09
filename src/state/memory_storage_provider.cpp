@@ -30,6 +30,20 @@ void MemoryStorageProvider::store(types::Address address, ethereum::StorageSlot 
   warm_slots_.insert(key);
 
   database_.put(key, encode_uint256(value.get()));
+
+  // Track in storage map for iteration
+  if (value.get().is_zero()) {
+    // Remove zero values
+    auto addr_it = storage_.find(address);
+    if (addr_it != storage_.end()) {
+      addr_it->second.erase(slot);
+      if (addr_it->second.empty()) {
+        storage_.erase(addr_it);
+      }
+    }
+  } else {
+    storage_[address][slot] = value;
+  }
 }
 
 bool MemoryStorageProvider::is_warm(types::Address address, ethereum::StorageSlot slot) {

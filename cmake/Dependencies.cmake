@@ -30,6 +30,12 @@ include(dependencies/CLI11)
 include(dependencies/simdjson)
 
 # ============================================================================
+# Logging
+# ============================================================================
+
+include(dependencies/spdlog)
+
+# ============================================================================
 # Debugging
 # ============================================================================
 
@@ -49,4 +55,5 @@ message(STATUS "  - XKCP       : Keccak cryptographic primitives")
 message(STATUS "  - secp256k1  : ECDSA signature recovery")
 message(STATUS "  - CLI11      : Command-line parser")
 message(STATUS "  - simdjson   : JSON parser")
+message(STATUS "  - spdlog     : Logging library")
 message(STATUS "  - libbacktrace : Stack trace symbolization")

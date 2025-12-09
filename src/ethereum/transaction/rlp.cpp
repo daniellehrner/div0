@@ -251,4 +251,13 @@ std::optional<std::optional<types::Address>> rlp_decode_optional_address(RlpDeco
   return std::nullopt;  // Invalid length
 }
 
+// =============================================================================
+// Unified Transaction RLP Encoding
+// =============================================================================
+
+types::Bytes rlp_encode(const Transaction& tx) {
+  return std::visit([](const auto& tx_data) -> types::Bytes { return rlp_encode(tx_data); },
+                    tx.variant());
+}
+
 }  // namespace div0::ethereum

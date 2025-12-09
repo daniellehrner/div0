@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 4.2)
+cmake_minimum_required(VERSION 4.0)
 project(div0 VERSION 0.1.0 LANGUAGES C CXX)
 
 # ============================================================================
@@ -145,17 +145,26 @@ target_compile_options(div0_types PRIVATE ${DIV0_WARNING_FLAGS})
 # ============================================================================
 # Library: div0_utils
 # ============================================================================
-# Utility functions like byte manipulation
+# Utility functions like byte manipulation and hex encoding/decoding
 
-add_library(div0_utils INTERFACE
+add_library(div0_utils STATIC
     include/div0/utils/bytes.h
+    include/div0/utils/hex.h
+    src/utils/hex.cpp
 )
 
 target_include_directories(div0_utils
-  INTERFACE
+  PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
     $<INSTALL_INTERFACE:include>
 )
+
+target_link_libraries(div0_utils
+  PUBLIC
+    div0_types
+)
+
+target_compile_options(div0_utils PRIVATE ${DIV0_WARNING_FLAGS})
 
 # ============================================================================
 # Library: div0_rlp
@@ -252,6 +261,7 @@ target_compile_options(div0_trie PRIVATE ${DIV0_WARNING_FLAGS})
 
 add_library(div0_ethereum STATIC
     include/div0/ethereum/account.h
+    include/div0/ethereum/eip1559.h
     include/div0/ethereum/roots.h
     include/div0/ethereum/storage_slot.h
     include/div0/ethereum/storage_value.h
@@ -265,10 +275,11 @@ add_library(div0_ethereum STATIC
     include/div0/ethereum/transaction/eip7702_tx.h
     include/div0/ethereum/transaction/transaction.h
     include/div0/ethereum/transaction/rlp.h
-    include/div0/ethereum/transaction/hex.h
     include/div0/ethereum/transaction/json.h
     src/ethereum/account.cpp
+    src/ethereum/eip1559.cpp
     src/ethereum/roots.cpp
+    src/ethereum/storage_slot.cpp
     src/ethereum/bloom.cpp
     src/ethereum/receipt.cpp
     src/ethereum/transaction/rlp.cpp
@@ -278,7 +289,6 @@ add_library(div0_ethereum STATIC
     src/ethereum/transaction/eip4844_tx.cpp
     src/ethereum/transaction/eip7702_tx.cpp
     src/ethereum/transaction/transaction.cpp
-    src/ethereum/transaction/hex.cpp
     src/ethereum/transaction/json.cpp
 )
 
@@ -291,6 +301,7 @@ target_include_directories(div0_ethereum
 target_link_libraries(div0_ethereum
   PUBLIC
     div0_types
+    div0_utils
     div0_trie
     simdjson
   PRIVATE
@@ -339,6 +350,7 @@ add_library(div0_state STATIC
     include/div0/state/memory_storage_provider.h
     src/state/memory_storage_provider.cpp
     include/div0/state/memory_account_provider.h
+    src/state/memory_account_provider.cpp
     include/div0/state/memory_code_provider.h
 )
 
@@ -420,6 +432,10 @@ configure_file(
 add_library(div0_cli STATIC
     src/cli/crash_handler.cpp
     src/cli/t8n/t8n_command.cpp
+    src/cli/t8n/input.cpp
+    src/cli/t8n/state_builder.cpp
+    src/cli/t8n/executor.cpp
+    src/cli/t8n/output.cpp
 )
 
 target_include_directories(div0_cli
@@ -433,6 +449,7 @@ target_link_libraries(div0_cli
     div0_evm
     div0_trie
     CLI11::CLI11
+    spdlog::spdlog_header_only
   PRIVATE
     libbacktrace
 )

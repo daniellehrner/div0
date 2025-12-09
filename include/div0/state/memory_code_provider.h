@@ -39,6 +39,14 @@ class MemoryCodeProvider final : public CodeProvider {
     return it->second;
   }
 
+  [[nodiscard]] std::span<const uint8_t> get_code(const types::Address& address) const {
+    auto it = code_.find(address);
+    if (it == code_.end()) {
+      return {};
+    }
+    return it->second;
+  }
+
   [[nodiscard]] size_t get_code_size(const types::Address& address) override {
     auto it = code_.find(address);
     if (it == code_.end()) {
@@ -50,6 +58,12 @@ class MemoryCodeProvider final : public CodeProvider {
   /// Set code for an address (for test setup)
   void set_code(const types::Address& address, types::Bytes code) {
     code_[address] = std::move(code);
+  }
+
+  /// Get all stored code
+  [[nodiscard]] const std::unordered_map<types::Address, types::Bytes, types::AddressHash>& code()
+      const {
+    return code_;
   }
 
  private:

@@ -13,7 +13,7 @@ static constexpr Uint256 MINUS_ONE = Uint256(~0ULL, ~0ULL, ~0ULL, ~0ULL);
 Uint256 Uint256::sdiv(const Uint256& a, const Uint256& b) noexcept {
   // Division by zero returns 0 (EVM semantics)
   if (b.is_zero()) [[unlikely]] {
-    return Uint256(0);
+    return {0};
   }
 
   // Special case: MIN_VALUE / -1 would overflow (result > MAX_POSITIVE)
@@ -38,7 +38,7 @@ Uint256 Uint256::sdiv(const Uint256& a, const Uint256& b) noexcept {
     if (a_neg != b_neg) {
       return Uint256(q).negate();
     }
-    return Uint256(q);
+    return {q};
   }
 
   // Perform unsigned division for multi-limb case
@@ -51,7 +51,7 @@ Uint256 Uint256::sdiv(const Uint256& a, const Uint256& b) noexcept {
 Uint256 Uint256::smod(const Uint256& a, const Uint256& b) noexcept {
   // Modulo by zero returns 0 (EVM semantics)
   if (b.is_zero()) [[unlikely]] {
-    return Uint256(0);
+    return {0};
   }
 
   // Get signs
@@ -70,7 +70,7 @@ Uint256 Uint256::smod(const Uint256& a, const Uint256& b) noexcept {
     if (a_neg) {
       return Uint256(r).negate();
     }
-    return Uint256(r);
+    return {r};
   }
 
   // Perform unsigned modulo for multi-limb case

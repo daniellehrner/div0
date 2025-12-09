@@ -10,6 +10,7 @@
 #define DIV0_VERSION_MINOR @PROJECT_VERSION_MINOR@
 #define DIV0_VERSION_PATCH @PROJECT_VERSION_PATCH@
 
-#define DIV0_VERSION_STRING "div0/@PROJECT_VERSION@"
+// Match geth's format for execution-spec-tests compatibility
+#define DIV0_VERSION_STRING "evm version @PROJECT_VERSION@-div0"
 
 #endif  // DIV0_CLI_VERSION_H

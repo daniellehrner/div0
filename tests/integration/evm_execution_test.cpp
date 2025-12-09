@@ -38,8 +38,7 @@ class EvmExecutionTest : public ::testing::Test {
       .blob_base_fee = types::Uint256::zero(),
       .prev_randao = types::Uint256::zero(),
       .coinbase = types::Address(types::Uint256::zero()),
-      .get_block_hash = nullptr,
-      .block_hash_user_data = nullptr,
+      .get_block_hash = {},
   };
 
   // Helper to create ExecutionEnvironment from code and gas

@@ -77,7 +77,8 @@ class Uint256 {
    *
    * @param value Value for bits 0-63
    */
-  constexpr explicit Uint256(const uint64_t value) { data_[0] = value; }
+  // NOLINTNEXTLINE(google-explicit-constructor) - widening conversion is safe
+  constexpr Uint256(const uint64_t value) { data_[0] = value; }
 
   /**
    * @brief Construct from four 64-bit limbs.
@@ -104,8 +105,8 @@ class Uint256 {
     data_[3] = value[3];
   }
 
-  constexpr static Uint256 zero() { return Uint256(0); }
-  constexpr static Uint256 one() { return Uint256(1); }
+  constexpr static Uint256 zero() { return {0}; }
+  constexpr static Uint256 one() { return {1}; }
   constexpr static Uint256 max() { return Uint256(~0ULL, ~0ULL, ~0ULL, ~0ULL); }
 
   // ============================================================================
@@ -307,7 +308,7 @@ class Uint256 {
     // If any upper limbs are set, or low limb >= 256, result is 0
     if (shift.data_[1] != 0 || shift.data_[2] != 0 || shift.data_[3] != 0 ||
         shift.data_[0] >= 256) {
-      return Uint256(0);
+      return {0};
     }
 
     const auto s = static_cast<unsigned>(shift.data_[0]);
@@ -349,7 +350,7 @@ class Uint256 {
     // If any upper limbs are set, or low limb >= 256, result is 0
     if (shift.data_[1] != 0 || shift.data_[2] != 0 || shift.data_[3] != 0 ||
         shift.data_[0] >= 256) {
-      return Uint256(0);
+      return {0};
     }
 
     const auto s = static_cast<unsigned>(shift.data_[0]);
@@ -715,7 +716,7 @@ class Uint256 {
 
   [[gnu::always_inline]] Uint256 operator<<(const unsigned shift) const noexcept {
     if (shift >= 256) {
-      return Uint256(0);
+      return {0};
     }
 
     if (shift == 0) {
@@ -747,7 +748,7 @@ class Uint256 {
 
   [[gnu::always_inline]] Uint256 operator>>(const unsigned shift) const noexcept {
     if (shift >= 256) {
-      return Uint256(0);
+      return {0};
     }
 
     if (shift == 0) {

@@ -60,6 +60,7 @@ struct TxDecodeResult {
 [[nodiscard]] types::Bytes rlp_encode(const Eip1559Tx& tx);
 [[nodiscard]] types::Bytes rlp_encode(const Eip4844Tx& tx);
 [[nodiscard]] types::Bytes rlp_encode(const Eip7702Tx& tx);
+[[nodiscard]] types::Bytes rlp_encode(const Transaction& tx);
 
 // =============================================================================
 // Decoding - From RLP bytes

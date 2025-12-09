@@ -110,7 +110,7 @@ int run_t8n(const T8nOptions& opts) {
   crypto::Secp256k1Context secp_ctx;
 
   // Build trace config from options
-  TraceConfig trace_config{
+  const TraceConfig trace_config{
       .enabled = opts.trace,
       .output_dir = opts.output_basedir,
       .tracer_config = {.memory = opts.trace_memory, .return_data = opts.trace_returndata}};

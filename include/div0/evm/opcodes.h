@@ -16,6 +16,7 @@ struct Opcode {
 };
 
 /// All 256 opcodes indexed by value for O(1) lookup
+// NOLINTBEGIN(modernize-use-designated-initializers) - positional init clearer for dense table
 inline constexpr std::array<Opcode, 256> OPCODES = {{
     // 0x00 - 0x0F: Stop and Arithmetic
     {0x00, "STOP"},
@@ -305,6 +306,7 @@ inline constexpr std::array<Opcode, 256> OPCODES = {{
     {0xFE, "INVALID"},
     {0xFF, "SELFDESTRUCT"},
 }};
+// NOLINTEND(modernize-use-designated-initializers)
 
 // Named constants for convenient access
 namespace op {
@@ -462,6 +464,7 @@ inline constexpr const Opcode& SELFDESTRUCT = OPCODES[0xFF];
 
 /// Get the human-readable name for an opcode byte (O(1) lookup)
 constexpr const char* opcode_name(uint8_t opcode) {
+  // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-constant-array-index) - array indexed by uint8_t
   const char* name = OPCODES[opcode].name;
   return name != nullptr ? name : "INVALID";
 }

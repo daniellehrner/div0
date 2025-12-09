@@ -144,6 +144,8 @@ void StreamingTracer::trace_account_creation_result(
 // PRIVATE HELPERS
 // ===========================================================================
 
+// NOLINTBEGIN(modernize-raw-string-literal) - JSON format requires escaped quotes
+
 void StreamingTracer::write_trace_line(const CallFrame& frame, uint64_t gas_cost) {
   // EIP-3155 format using PRE-EXECUTION state (captured in trace_pre_execution)
   // {"pc":0,"op":96,"gas":"0x...","gasCost":"0x...","memSize":0,"stack":[...],"depth":1,"opName":"PUSH1"}
@@ -182,5 +184,7 @@ void StreamingTracer::write_trace_line(const CallFrame& frame, uint64_t gas_cost
 
   output_ << "}\n";
 }
+
+// NOLINTEND(modernize-raw-string-literal)
 
 }  // namespace div0::evm

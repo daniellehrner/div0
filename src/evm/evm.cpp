@@ -154,7 +154,7 @@ ExecutionResult EVM::execute(const ExecutionEnvironment& env) {
   init_root_frame(*frame, env);
 
   // Trace frame entry for root frame
-  if (tracer_) [[unlikely]] {
+  if (tracer_ != nullptr) [[unlikely]] {
     tracer_->trace_frame_enter(*frame);
   }
 
@@ -170,7 +170,7 @@ ExecutionResult EVM::execute(const ExecutionEnvironment& env) {
 
   // Handle top-level successful completion (Stop or Return)
   auto handle_top_level_success = [&](const FrameResult& result) -> ExecutionResult {
-    if (tracer_) [[unlikely]] {
+    if (tracer_ != nullptr) [[unlikely]] {
       tracer_->trace_frame_exit(*frame);
     }
     const uint64_t gas_used = initial_gas - frame->gas;
@@ -183,7 +183,7 @@ ExecutionResult EVM::execute(const ExecutionEnvironment& env) {
 
   // Handle top-level revert
   auto handle_top_level_revert = [&](const FrameResult& result) -> ExecutionResult {
-    if (tracer_) [[unlikely]] {
+    if (tracer_ != nullptr) [[unlikely]] {
       tracer_->trace_frame_exit(*frame);
     }
     const uint64_t gas_used = initial_gas - frame->gas;
@@ -194,7 +194,7 @@ ExecutionResult EVM::execute(const ExecutionEnvironment& env) {
 
   // Handle top-level error
   auto handle_top_level_error = [&](const FrameResult& result) -> ExecutionResult {
-    if (tracer_) [[unlikely]] {
+    if (tracer_ != nullptr) [[unlikely]] {
       tracer_->trace_frame_exit(*frame);
     }
     const uint64_t gas_used = initial_gas - frame->gas;
@@ -205,7 +205,7 @@ ExecutionResult EVM::execute(const ExecutionEnvironment& env) {
   // Handle child frame completion (success or revert) - returns to parent
   auto handle_child_completion = [&](const FrameResult& result) {
     // Trace child frame exit before releasing resources
-    if (tracer_) [[unlikely]] {
+    if (tracer_ != nullptr) [[unlikely]] {
       tracer_->trace_frame_exit(*frame);
     }
     const CallFrame* child = frame;
@@ -215,7 +215,7 @@ ExecutionResult EVM::execute(const ExecutionEnvironment& env) {
     handle_child_return(*frame, *child, result);
     release_frame_resources();
     // Trace parent frame reenter after child returns
-    if (tracer_) [[unlikely]] {
+    if (tracer_ != nullptr) [[unlikely]] {
       tracer_->trace_frame_reenter(*frame);
     }
   };
@@ -223,7 +223,7 @@ ExecutionResult EVM::execute(const ExecutionEnvironment& env) {
   // Handle child frame error - returns to parent with failure
   auto handle_child_error = [&]() {
     // Trace child frame exit before releasing resources
-    if (tracer_) [[unlikely]] {
+    if (tracer_ != nullptr) [[unlikely]] {
       tracer_->trace_frame_exit(*frame);
     }
     frame = frame_stack.top();
@@ -235,7 +235,7 @@ ExecutionResult EVM::execute(const ExecutionEnvironment& env) {
     }
     release_frame_resources();
     // Trace parent frame reenter after child error
-    if (tracer_) [[unlikely]] {
+    if (tracer_ != nullptr) [[unlikely]] {
       tracer_->trace_frame_reenter(*frame);
     }
   };
@@ -251,7 +251,7 @@ ExecutionResult EVM::execute(const ExecutionEnvironment& env) {
     frame = pending_frame_;
     pending_frame_ = nullptr;
     // Trace child frame entry
-    if (tracer_) [[unlikely]] {
+    if (tracer_ != nullptr) [[unlikely]] {
       tracer_->trace_frame_enter(*frame);
     }
     return std::nullopt;
@@ -495,11 +495,11 @@ FrameResult EVM::execute_frame(CallFrame& frame) {
 #define OPCODE_HANDLER(name, func, opcode_const)                         \
   op_##name : {                                                          \
     const uint64_t gas_cost = schedule_->static_costs[op::opcode_const]; \
-    if (tracer_) [[unlikely]] {                                          \
+    if (tracer_ != nullptr) [[unlikely]] {                               \
       tracer_->trace_pre_execution(frame);                               \
     }                                                                    \
     status = func(stack, gas, gas_cost);                                 \
-    if (tracer_) [[unlikely]] {                                          \
+    if (tracer_ != nullptr) [[unlikely]] {                               \
       tracer_->trace_post_execution(frame, status, gas_cost);            \
     }                                                                    \
     if (status != ExecutionStatus::Success) [[unlikely]] {               \
@@ -528,12 +528,12 @@ op_stop:
 
 op_exp: {
   // EXP has dynamic gas cost, computed inside the opcode
-  if (tracer_) [[unlikely]] {
+  if (tracer_ != nullptr) [[unlikely]] {
     tracer_->trace_pre_execution(frame);
   }
   const uint64_t gas_before = gas;
   status = opcodes::exp(stack, gas, schedule_->exp);
-  if (tracer_) [[unlikely]] {
+  if (tracer_ != nullptr) [[unlikely]] {
     tracer_->trace_post_execution(frame, status, gas_before - gas);
   }
   if (status != ExecutionStatus::Success) [[unlikely]] {
@@ -550,13 +550,13 @@ op_exp: {
 
 op_sha3: {
   // SHA3 has dynamic gas cost (base + per-word + memory expansion)
-  if (tracer_) [[unlikely]] {
+  if (tracer_ != nullptr) [[unlikely]] {
     tracer_->trace_pre_execution(frame);
   }
   const uint64_t gas_before = gas;
   status = opcodes::keccak256(stack, gas, schedule_->static_costs[op::KECCAK256],
                               schedule_->sha3_word_cost, schedule_->memory_access, memory);
-  if (tracer_) [[unlikely]] {
+  if (tracer_ != nullptr) [[unlikely]] {
     tracer_->trace_post_execution(frame, status, gas_before - gas);
   }
   if (status != ExecutionStatus::Success) [[unlikely]] {
@@ -568,13 +568,13 @@ op_sha3: {
 // Memory opcodes have dynamic gas (base + expansion)
 #define MEMORY_OPCODE_HANDLER(name, func, opcode_const)                                            \
   op_##name : {                                                                                    \
-    if (tracer_) [[unlikely]] {                                                                    \
+    if (tracer_ != nullptr) [[unlikely]] {                                                         \
       tracer_->trace_pre_execution(frame);                                                         \
     }                                                                                              \
     const uint64_t gas_before = gas;                                                               \
     status = func(stack, gas, schedule_->static_costs[op::opcode_const], schedule_->memory_access, \
                   memory);                                                                         \
-    if (tracer_) [[unlikely]] {                                                                    \
+    if (tracer_ != nullptr) [[unlikely]] {                                                         \
       tracer_->trace_post_execution(frame, status, gas_before - gas);                              \
     }                                                                                              \
     if (status != ExecutionStatus::Success) [[unlikely]] {                                         \
@@ -590,12 +590,12 @@ op_sha3: {
 #undef MEMORY_OPCODE_HANDLER
 
 op_msize: {
-  if (tracer_) [[unlikely]] {
+  if (tracer_ != nullptr) [[unlikely]] {
     tracer_->trace_pre_execution(frame);
   }
   const uint64_t gas_cost = schedule_->static_costs[op::MSIZE];
   status = opcodes::msize(stack, gas, gas_cost, memory);
-  if (tracer_) [[unlikely]] {
+  if (tracer_ != nullptr) [[unlikely]] {
     tracer_->trace_post_execution(frame, status, gas_cost);
   }
   if (status != ExecutionStatus::Success) [[unlikely]] {
@@ -605,13 +605,13 @@ op_msize: {
   DISPATCH_NEXT();
 
 op_sload: {
-  if (tracer_) [[unlikely]] {
+  if (tracer_ != nullptr) [[unlikely]] {
     tracer_->trace_pre_execution(frame);
   }
   // SLOAD has dynamic gas cost (cold vs warm access)
   const uint64_t gas_before = gas;
   status = opcodes::sload(frame.address, stack, gas, state_context_.storage, schedule_->sload);
-  if (tracer_) [[unlikely]] {
+  if (tracer_ != nullptr) [[unlikely]] {
     tracer_->trace_post_execution(frame, status, gas_before - gas);
   }
   if (status != ExecutionStatus::Success) [[unlikely]] {
@@ -621,7 +621,7 @@ op_sload: {
   DISPATCH_NEXT();
 
 op_sstore: {
-  if (tracer_) [[unlikely]] {
+  if (tracer_ != nullptr) [[unlikely]] {
     tracer_->trace_pre_execution(frame);
   }
   if (frame.is_static) [[unlikely]] {
@@ -630,7 +630,7 @@ op_sstore: {
   // SSTORE has dynamic gas cost (cold vs warm, original vs current value)
   const uint64_t gas_before = gas;
   status = opcodes::sstore(frame.address, stack, gas, state_context_.storage, schedule_->sstore);
-  if (tracer_) [[unlikely]] {
+  if (tracer_ != nullptr) [[unlikely]] {
     tracer_->trace_post_execution(frame, status, gas_before - gas);
   }
   if (status != ExecutionStatus::Success) [[unlikely]] {
@@ -645,12 +645,12 @@ op_sstore: {
 // PUSH1-32: push N bytes from bytecode onto stack
 #define PUSH_N_HANDLER(n, opcode_const)                                  \
   op_push##n : {                                                         \
-    if (tracer_) [[unlikely]] {                                          \
+    if (tracer_ != nullptr) [[unlikely]] {                               \
       tracer_->trace_pre_execution(frame);                               \
     }                                                                    \
     const uint64_t gas_cost = schedule_->static_costs[op::opcode_const]; \
     status = opcodes::push_n<n>(stack, gas, gas_cost, code, pc);         \
-    if (tracer_) [[unlikely]] {                                          \
+    if (tracer_ != nullptr) [[unlikely]] {                               \
       tracer_->trace_post_execution(frame, status, gas_cost);            \
     }                                                                    \
     if (status != ExecutionStatus::Success) [[unlikely]] {               \
@@ -696,12 +696,12 @@ op_sstore: {
 
 #define DUP_N_HANDLER(n, opcode_const)                                   \
   op_dup##n : {                                                          \
-    if (tracer_) [[unlikely]] {                                          \
+    if (tracer_ != nullptr) [[unlikely]] {                               \
       tracer_->trace_pre_execution(frame);                               \
     }                                                                    \
     const uint64_t gas_cost = schedule_->static_costs[op::opcode_const]; \
     status = opcodes::dup_n(stack, gas, gas_cost, n);                    \
-    if (tracer_) [[unlikely]] {                                          \
+    if (tracer_ != nullptr) [[unlikely]] {                               \
       tracer_->trace_post_execution(frame, status, gas_cost);            \
     }                                                                    \
     if (status != ExecutionStatus::Success) [[unlikely]] {               \
@@ -731,12 +731,12 @@ op_sstore: {
 
 #define SWAP_N_HANDLER(n, opcode_const)                                  \
   op_swap##n : {                                                         \
-    if (tracer_) [[unlikely]] {                                          \
+    if (tracer_ != nullptr) [[unlikely]] {                               \
       tracer_->trace_pre_execution(frame);                               \
     }                                                                    \
     const uint64_t gas_cost = schedule_->static_costs[op::opcode_const]; \
     status = opcodes::swap_n(stack, gas, gas_cost, n);                   \
-    if (tracer_) [[unlikely]] {                                          \
+    if (tracer_ != nullptr) [[unlikely]] {                               \
       tracer_->trace_post_execution(frame, status, gas_cost);            \
     }                                                                    \
     if (status != ExecutionStatus::Success) [[unlikely]] {               \
@@ -766,7 +766,7 @@ op_sstore: {
 
   // CALL opcode - creates a child call frame
 op_call: {
-  if (tracer_) [[unlikely]] {
+  if (tracer_ != nullptr) [[unlikely]] {
     tracer_->trace_pre_execution(frame);
   }
   // CALL has dynamic gas cost
@@ -778,14 +778,14 @@ op_call: {
   // fail the call (return 0) but continue execution. prepare_call() already
   // pushed 0 onto the stack, so we just continue to the next opcode.
   if (setup.status == ExecutionStatus::CallDepthExceeded) [[unlikely]] {
-    if (tracer_) [[unlikely]] {
+    if (tracer_ != nullptr) [[unlikely]] {
       tracer_->trace_post_execution(frame, setup.status, gas_before - gas);
     }
     DISPATCH_NEXT();
   }
 
   if (setup.status != ExecutionStatus::Success) [[unlikely]] {
-    if (tracer_) [[unlikely]] {
+    if (tracer_ != nullptr) [[unlikely]] {
       tracer_->trace_post_execution(frame, setup.status, gas_before - gas);
     }
     return FrameResult::error(setup.status);
@@ -793,7 +793,7 @@ op_call: {
 
   // Trace CALL post-execution before creating child frame
   // Note: The actual child execution is traced separately via trace_frame_enter
-  if (tracer_) [[unlikely]] {
+  if (tracer_ != nullptr) [[unlikely]] {
     tracer_->trace_post_execution(frame, ExecutionStatus::Success, gas_before - gas);
   }
 

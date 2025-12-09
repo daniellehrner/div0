@@ -53,9 +53,7 @@ std::string escape_json_string(const std::string& str) {
         if (static_cast<unsigned char>(c) < 0x20) {
           // Control characters: encode as \u00XX
           result += "\\u00";
-          static constexpr char hex_chars[] = "0123456789abcdef";
-          result += hex_chars[(static_cast<unsigned char>(c) >> 4) & 0xF];
-          result += hex_chars[static_cast<unsigned char>(c) & 0xF];
+          result += hex::encode_byte(static_cast<uint8_t>(c));
         } else {
           result += c;
         }

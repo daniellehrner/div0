@@ -5,15 +5,15 @@ namespace div0::types {
 Uint256 Uint256::exp(const Uint256& base, const Uint256& exponent) noexcept {
   // Special cases for quick exit
   if (exponent.is_zero()) {
-    return Uint256(1);  // x^0 = 1
+    return {1};  // x^0 = 1
   }
 
   if (base.is_zero()) {
-    return Uint256(0);  // 0^n = 0 (for n > 0)
+    return {0};  // 0^n = 0 (for n > 0)
   }
 
   if (base == Uint256(1)) {
-    return Uint256(1);  // 1^n = 1
+    return {1};  // 1^n = 1
   }
 
   // Optimization: if base is even and exponent is large, result will overflow to 0
@@ -22,7 +22,7 @@ Uint256 Uint256::exp(const Uint256& base, const Uint256& exponent) noexcept {
   // For base divisible by 2, any exponent > 255 gives 0
   if ((base.data_[0] & 1) == 0 && (exponent.data_[0] > 255 || exponent.data_[1] != 0 ||
                                    exponent.data_[2] != 0 || exponent.data_[3] != 0)) {
-    return Uint256(0);
+    return {0};
   }
 
   // Binary exponentiation (square-and-multiply)

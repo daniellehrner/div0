@@ -2,6 +2,7 @@
 
 #include "t8n/output.h"
 
+#include <filesystem>
 #include <fstream>
 #include <iostream>
 #include <sstream>
@@ -10,19 +11,50 @@
 #include "div0/ethereum/account.h"
 #include "div0/ethereum/receipt.h"
 #include "div0/ethereum/roots.h"
-#include "div0/ethereum/transaction/hex.h"
 #include "div0/ethereum/transaction/rlp.h"
 #include "div0/trie/mpt.h"
+#include "div0/utils/hex.h"
 
 namespace div0::cli {
 
-using ethereum::hex::encode_address;
-using ethereum::hex::encode_bytes;
-using ethereum::hex::encode_hash;
-using ethereum::hex::encode_uint256;
-using ethereum::hex::encode_uint64;
-
 namespace {
+
+/// Escape a string for JSON output
+/// Handles: \\ \" \n \r \t and control characters
+std::string escape_json_string(const std::string& str) {
+  std::string result;
+  result.reserve(str.size() + 8);  // Reserve extra space for escapes
+
+  for (const char c : str) {
+    switch (c) {
+      case '"':
+        result += "\\\"";
+        break;
+      case '\\':
+        result += "\\\\";
+        break;
+      case '\n':
+        result += "\\n";
+        break;
+      case '\r':
+        result += "\\r";
+        break;
+      case '\t':
+        result += "\\t";
+        break;
+      default:
+        if (static_cast<unsigned char>(c) < 0x20) {
+          // Control characters: encode as \u00XX
+          result += "\\u00";
+          result += hex::encode_byte(static_cast<uint8_t>(c));
+        } else {
+          result += c;
+        }
+        break;
+    }
+  }
+  return result;
+}
 
 /// Convert StorageSlot/StorageValue map to Uint256 map for compute_storage_root
 std::map<types::Uint256, types::Uint256> convert_storage(
@@ -42,17 +74,57 @@ std::map<types::Uint256, types::Uint256> convert_storage(
 
 // NOLINTBEGIN(modernize-raw-string-literal) - JSON serialization requires escaped quotes
 
+/// Serialize a single log entry to JSON
+void serialize_log(std::ostream& ss, const evm::Log& log, const std::string& indent) {
+  ss << indent << "{\n";
+  ss << indent << "  \"address\": \"" << hex::encode_address(log.address) << "\",\n";
+
+  // Topics array
+  ss << indent << "  \"topics\": [";
+  if (!log.topics.empty()) {
+    ss << "\n";
+    for (size_t i = 0; i < log.topics.size(); ++i) {
+      // Encode Uint256 as 64-char hex with leading zeros
+      ss << indent << "    \"" << hex::encode_uint256_padded(log.topics[i]) << "\"";
+      if (i + 1 < log.topics.size()) {
+        ss << ",";
+      }
+      ss << "\n";
+    }
+    ss << indent << "  ";
+  }
+  ss << "],\n";
+
+  ss << indent << "  \"data\": \"" << hex::encode_bytes(log.data) << "\"\n";
+  ss << indent << "}";
+}
+
 /// Serialize a single receipt to JSON
 void serialize_receipt(std::ostream& ss, const ethereum::Receipt& receipt,
                        const std::string& indent) {
   ss << indent << "{\n";
-  ss << indent << "  \"type\": \"" << encode_uint64(static_cast<uint64_t>(receipt.tx_type))
+  ss << indent << "  \"type\": \"" << hex::encode_uint64(static_cast<uint64_t>(receipt.tx_type))
      << "\",\n";
-  ss << indent << "  \"status\": \"" << encode_uint64(receipt.status) << "\",\n";
-  ss << indent << "  \"cumulativeGasUsed\": \"" << encode_uint64(receipt.cumulative_gas_used)
+  ss << indent << "  \"status\": \"" << hex::encode_uint64(receipt.status) << "\",\n";
+  ss << indent << "  \"cumulativeGasUsed\": \"" << hex::encode_uint64(receipt.cumulative_gas_used)
      << "\",\n";
-  ss << indent << "  \"logsBloom\": \"" << encode_bytes(receipt.bloom.span()) << "\",\n";
-  ss << indent << "  \"logs\": []";  // TODO: serialize logs if needed
+  ss << indent << "  \"logsBloom\": \"" << hex::encode_bytes(receipt.bloom.span()) << "\",\n";
+
+  // Logs array
+  ss << indent << "  \"logs\": ";
+  if (receipt.logs.empty()) {
+    ss << "null";
+  } else {
+    ss << "[\n";
+    for (size_t i = 0; i < receipt.logs.size(); ++i) {
+      serialize_log(ss, receipt.logs[i], indent + "    ");
+      if (i + 1 < receipt.logs.size()) {
+        ss << ",";
+      }
+      ss << "\n";
+    }
+    ss << indent << "  ]";
+  }
   ss << "\n" << indent << "}";
 }
 
@@ -79,7 +151,8 @@ void serialize_rejected(std::ostream& ss, const std::vector<RejectedTx>& rejecte
   ss << ",\n" << indent << "\"rejected\": [\n";
   for (size_t i = 0; i < rejected.size(); ++i) {
     const auto& rej = rejected[i];
-    ss << indent << "  {\"index\": " << rej.index << ", \"error\": \"" << rej.error << "\"}";
+    ss << indent << "  {\"index\": " << rej.index << ", \"error\": \""
+       << escape_json_string(rej.error) << "\"}";
     if (i + 1 < rejected.size()) {
       ss << ",";
     }
@@ -90,35 +163,37 @@ void serialize_rejected(std::ostream& ss, const std::vector<RejectedTx>& rejecte
 
 /// Serialize result fields to JSON (core fields without outer braces)
 void serialize_result_fields(std::ostream& ss, const T8nResult& result, const std::string& indent) {
-  ss << indent << "\"stateRoot\": \"" << encode_hash(result.state_root) << "\",\n";
-  ss << indent << "\"txRoot\": \"" << encode_hash(result.tx_root) << "\",\n";
-  ss << indent << "\"receiptsRoot\": \"" << encode_hash(result.receipts_root) << "\",\n";
-  ss << indent << "\"logsHash\": \"" << encode_hash(result.logs_hash) << "\",\n";
-  ss << indent << "\"logsBloom\": \"" << encode_bytes(result.logs_bloom.span()) << "\",\n";
-  ss << indent << "\"gasUsed\": \"" << encode_uint64(result.gas_used) << "\"";
+  ss << indent << "\"stateRoot\": \"" << hex::encode_hash(result.state_root) << "\",\n";
+  ss << indent << "\"txRoot\": \"" << hex::encode_hash(result.tx_root) << "\",\n";
+  ss << indent << "\"receiptsRoot\": \"" << hex::encode_hash(result.receipts_root) << "\",\n";
+  ss << indent << "\"logsHash\": \"" << hex::encode_hash(result.logs_hash) << "\",\n";
+  ss << indent << "\"logsBloom\": \"" << hex::encode_bytes(result.logs_bloom.span()) << "\",\n";
+  ss << indent << "\"gasUsed\": \"" << hex::encode_uint64(result.gas_used) << "\"";
 
   if (result.blob_gas_used > 0) {
-    ss << ",\n" << indent << "\"blobGasUsed\": \"" << encode_uint64(result.blob_gas_used) << "\"";
+    ss << ",\n"
+       << indent << "\"blobGasUsed\": \"" << hex::encode_uint64(result.blob_gas_used) << "\"";
   }
 
   // Additional fields for blockchain tests
   if (result.current_difficulty) {
     ss << ",\n"
-       << indent << "\"currentDifficulty\": \"" << encode_uint256(*result.current_difficulty)
+       << indent << "\"currentDifficulty\": \"" << hex::encode_uint256(*result.current_difficulty)
        << "\"";
   }
   if (result.current_base_fee) {
     ss << ",\n"
-       << indent << "\"currentBaseFee\": \"" << encode_uint256(*result.current_base_fee) << "\"";
+       << indent << "\"currentBaseFee\": \"" << hex::encode_uint256(*result.current_base_fee)
+       << "\"";
   }
   if (result.withdrawals_root) {
     ss << ",\n"
-       << indent << "\"withdrawalsRoot\": \"" << encode_hash(*result.withdrawals_root) << "\"";
+       << indent << "\"withdrawalsRoot\": \"" << hex::encode_hash(*result.withdrawals_root) << "\"";
   }
   if (result.current_excess_blob_gas) {
     ss << ",\n"
-       << indent << "\"currentExcessBlobGas\": \"" << encode_uint64(*result.current_excess_blob_gas)
-       << "\"";
+       << indent << "\"currentExcessBlobGas\": \""
+       << hex::encode_uint64(*result.current_excess_blob_gas) << "\"";
   }
 
   ss << ",\n";
@@ -131,24 +206,24 @@ void serialize_account(std::ostream& ss, const types::Address& address,
                        const state::AccountData& data, const T8nState& state,
                        const std::map<ethereum::StorageSlot, ethereum::StorageValue>* storage,
                        const std::string& indent) {
-  ss << indent << "\"" << encode_address(address) << "\": {\n";
-  ss << indent << "  \"balance\": \"" << encode_uint256(data.balance) << "\"";
+  ss << indent << "\"" << hex::encode_address(address) << "\": {\n";
+  ss << indent << "  \"balance\": \"" << hex::encode_uint256(data.balance) << "\"";
 
   if (data.nonce > 0) {
-    ss << ",\n" << indent << "  \"nonce\": \"" << encode_uint64(data.nonce) << "\"";
+    ss << ",\n" << indent << "  \"nonce\": \"" << hex::encode_uint64(data.nonce) << "\"";
   }
 
   const auto code = state.code().get_code(address);
   if (!code.empty()) {
-    ss << ",\n" << indent << "  \"code\": \"" << encode_bytes(code) << "\"";
+    ss << ",\n" << indent << "  \"code\": \"" << hex::encode_bytes(code) << "\"";
   }
 
   if (storage != nullptr && !storage->empty()) {
     ss << ",\n" << indent << "  \"storage\": {\n";
     size_t j = 0;
     for (const auto& [slot, value] : *storage) {
-      ss << indent << "    \"" << encode_uint256(slot.get()) << "\": \""
-         << encode_uint256(value.get()) << "\"";
+      ss << indent << "    \"" << hex::encode_uint256(slot.get()) << "\": \""
+         << hex::encode_uint256(value.get()) << "\"";
       if (j + 1 < storage->size()) {
         ss << ",";
       }
@@ -293,7 +368,7 @@ std::string serialize_combined_output(const T8nResult& result, const T8nState& s
   ss << "  },\n";
 
   // Body (RLP-encoded transactions)
-  ss << "  \"body\": \"" << encode_bytes(encode_tx_body(txs)) << "\"\n";
+  ss << "  \"body\": \"" << hex::encode_bytes(encode_tx_body(txs)) << "\"\n";
 
   ss << "}\n";
   return ss.str();
@@ -318,14 +393,31 @@ int write_outputs(const std::string& basedir, const std::string& result_file,
       return true;
     }
 
-    std::string path = filename;
-    if (!basedir.empty()) {
-      path = basedir + "/" + filename;
+    // Validate filename doesn't contain path traversal sequences
+    if (filename.find("..") != std::string::npos) {
+      std::cerr << "Error: Filename contains invalid path traversal: " << filename << "\n";
+      return false;
     }
 
-    std::ofstream file(path);
+    // Use std::filesystem::path for safe path construction
+    std::filesystem::path filepath(filename);
+    if (!basedir.empty()) {
+      const std::filesystem::path base(basedir);
+      filepath = base / filename;
+
+      // Verify the resolved path is still within basedir (prevent symlink attacks)
+      auto canonical_base = std::filesystem::weakly_canonical(base);
+      auto canonical_path = std::filesystem::weakly_canonical(filepath);
+      auto relative = canonical_path.lexically_relative(canonical_base);
+      if (relative.empty() || relative.string().starts_with("..")) {
+        std::cerr << "Error: Path escapes base directory: " << filepath << "\n";
+        return false;
+      }
+    }
+
+    std::ofstream file(filepath);
     if (!file) {
-      std::cerr << "Error: Cannot write to " << path << "\n";
+      std::cerr << "Error: Cannot write to " << filepath << "\n";
       return false;
     }
     file << content;
@@ -345,7 +437,7 @@ int write_outputs(const std::string& basedir, const std::string& result_file,
   }
 
   if (!body_file.empty()) {
-    if (!write_file(body_file, encode_bytes(encode_tx_body(executed_txs)) + "\n")) {
+    if (!write_file(body_file, hex::encode_bytes(encode_tx_body(executed_txs)) + "\n")) {
       return 11;  // IoError
     }
   }

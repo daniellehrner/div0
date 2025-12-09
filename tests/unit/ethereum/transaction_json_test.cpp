@@ -63,7 +63,7 @@ TEST(HexEncoding, Hash) {
 
 TEST(HexEncoding, StorageSlot) {
   const StorageSlot slot(Uint256(0x42));
-  auto encoded = hex::encode_storage_slot(slot);
+  auto encoded = encode_storage_slot(slot);
   EXPECT_EQ(encoded, "0x0000000000000000000000000000000000000000000000000000000000000042");
 }
 
@@ -149,7 +149,7 @@ TEST(HexDecoding, Hash) {
 }
 
 TEST(HexDecoding, StorageSlot) {
-  const auto result = hex::decode_storage_slot("0x42");
+  const auto result = decode_storage_slot("0x42");
   ASSERT_TRUE(result.has_value());
   // NOLINTNEXTLINE(bugprone-unchecked-optional-access)
   EXPECT_EQ(result->get(), Uint256(0x42));

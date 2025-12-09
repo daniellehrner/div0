@@ -34,8 +34,12 @@ class MemoryStorageProvider : public StorageProvider {
 
   void begin_transaction() override;
 
-  /// Get all stored slots
-  /// Returns a map of address -> (slot -> value) for all non-zero storage
+  /// Get all stored slots written through this provider instance.
+  /// Returns a map of address -> (slot -> value) for all non-zero storage.
+  ///
+  /// NOTE: This only tracks storage modified via store() during this session.
+  /// Pre-existing values in the database are NOT included. This is intentional
+  /// for the t8n tool use case where all storage changes come through store().
   [[nodiscard]] const StorageMap& storage() const { return storage_; }
 
  private:

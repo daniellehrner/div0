@@ -22,7 +22,9 @@ evm::BlockContext build_block_context(const EnvInput& env,
   block_ctx.base_fee = env.base_fee.value_or(types::Uint256::zero());
   block_ctx.prev_randao = env.prev_randao.value_or(types::Uint256::zero());
 
-  // Set up block hash lookup callback (captures block_hashes by value to avoid dangling reference)
+  // Set up block hash lookup callback.
+  // MUST capture by value: the block_hashes parameter is a reference that becomes invalid
+  // after this function returns, but the returned BlockContext outlives this function.
   block_ctx.get_block_hash = [block_hashes](uint64_t block_number) -> types::Uint256 {
     auto it = block_hashes.find(block_number);
     if (it != block_hashes.end()) {
@@ -139,8 +141,7 @@ ExecutionOutput execute_transactions(T8nState& state, const std::vector<ethereum
 
     // Track blob gas if applicable
     if (const auto* blob_tx = tx.get_if<ethereum::Eip4844Tx>()) {
-      // Each blob uses BLOB_GAS_PER_BLOB (131072) gas
-      output.blob_gas_used += blob_tx->blob_versioned_hashes.size() * 131072;
+      output.blob_gas_used += blob_tx->blob_gas_used();
     }
   }
 

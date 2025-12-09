@@ -398,7 +398,7 @@ Uint256 udivrem_512_256(const uint64_t* u, int u_len, const uint64_t* v, int v_l
     --u_len;
   }
   if (u_len == 0) {
-    return Uint256(0);
+    return {0};
   }
 
   // Handle u < v case
@@ -438,7 +438,7 @@ Uint256 udivrem_512_256(const uint64_t* u, int u_len, const uint64_t* v, int v_l
   // Fast path: single-word divisor
   if (v_len == 1) {
     const uint64_t rem = udivrem_by1(un.data(), static_cast<int>(un_len), vn[0]);
-    return Uint256(rem >> shift);
+    return {rem >> shift};
   }
 
   // Fast path: two-word divisor
@@ -492,7 +492,7 @@ void umul_512(const uint64_t* x, const uint64_t* y, uint64_t* result) noexcept {
 // NOLINTNEXTLINE(bugprone-easily-swappable-parameters)
 Uint256 Uint256::addmod(const Uint256& a, const Uint256& b, const Uint256& modulus) noexcept {
   if (modulus.is_zero()) [[unlikely]] {
-    return Uint256(0);
+    return {0};
   }
 
   const auto& m = modulus.data_;
@@ -562,12 +562,12 @@ Uint256 Uint256::addmod(const Uint256& a, const Uint256& b, const Uint256& modul
 
 Uint256 Uint256::mulmod(const Uint256& a, const Uint256& b, const Uint256& modulus) noexcept {
   if (modulus.is_zero()) [[unlikely]] {
-    return Uint256(0);
+    return {0};
   }
 
   // Fast paths for zero operands
   if (a.is_zero() || b.is_zero()) {
-    return Uint256(0);
+    return {0};
   }
 
   // Compute full 512-bit product: a * b

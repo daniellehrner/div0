@@ -78,9 +78,7 @@ class Uint256 {
    * @param value Value for bits 0-63
    */
   // NOLINTNEXTLINE(google-explicit-constructor) - widening conversion is safe
-  constexpr Uint256(const uint64_t value) {
-    data_[0] = value;
-  }  // NOLINT(google-explicit-constructor)
+  constexpr Uint256(const uint64_t value) { data_[0] = value; }
 
   /**
    * @brief Construct from four 64-bit limbs.

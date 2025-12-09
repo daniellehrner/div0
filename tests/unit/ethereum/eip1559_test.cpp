@@ -50,7 +50,7 @@ TEST(CalcBaseFee, GethTestVector_UsageAboveTarget) {
 // Gas Used Equals Target (No Change)
 // =============================================================================
 
-TEST(CalcBaseFee, UsageEqualsTarget_BaseFeelUnchanged) {
+TEST(CalcBaseFee, UsageEqualsTarget_BaseFeeUnchanged) {
   const Uint256 parent_base_fee(5000000000ULL);  // 5 gwei
   const uint64_t parent_gas_limit = 30000000;
   const uint64_t parent_gas_used = 15000000;  // = limit / 2

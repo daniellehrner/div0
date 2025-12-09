@@ -2,6 +2,7 @@
 
 #include "t8n/output.h"
 
+#include <filesystem>
 #include <fstream>
 #include <iostream>
 #include <sstream>
@@ -10,19 +11,59 @@
 #include "div0/ethereum/account.h"
 #include "div0/ethereum/receipt.h"
 #include "div0/ethereum/roots.h"
-#include "div0/ethereum/transaction/hex.h"
 #include "div0/ethereum/transaction/rlp.h"
 #include "div0/trie/mpt.h"
+#include "div0/utils/hex.h"
 
 namespace div0::cli {
 
-using ethereum::hex::encode_address;
-using ethereum::hex::encode_bytes;
-using ethereum::hex::encode_hash;
-using ethereum::hex::encode_uint256;
-using ethereum::hex::encode_uint64;
+using hex::encode_address;
+using hex::encode_bytes;
+using hex::encode_hash;
+using hex::encode_uint256;
+using hex::encode_uint256_padded;
+using hex::encode_uint64;
 
 namespace {
+
+/// Escape a string for JSON output
+/// Handles: \\ \" \n \r \t and control characters
+std::string escape_json_string(const std::string& str) {
+  std::string result;
+  result.reserve(str.size() + 8);  // Reserve extra space for escapes
+
+  for (const char c : str) {
+    switch (c) {
+      case '"':
+        result += "\\\"";
+        break;
+      case '\\':
+        result += "\\\\";
+        break;
+      case '\n':
+        result += "\\n";
+        break;
+      case '\r':
+        result += "\\r";
+        break;
+      case '\t':
+        result += "\\t";
+        break;
+      default:
+        if (static_cast<unsigned char>(c) < 0x20) {
+          // Control characters: encode as \u00XX
+          result += "\\u00";
+          static constexpr char hex_chars[] = "0123456789abcdef";
+          result += hex_chars[(static_cast<unsigned char>(c) >> 4) & 0xF];
+          result += hex_chars[static_cast<unsigned char>(c) & 0xF];
+        } else {
+          result += c;
+        }
+        break;
+    }
+  }
+  return result;
+}
 
 /// Convert StorageSlot/StorageValue map to Uint256 map for compute_storage_root
 std::map<types::Uint256, types::Uint256> convert_storage(
@@ -42,6 +83,31 @@ std::map<types::Uint256, types::Uint256> convert_storage(
 
 // NOLINTBEGIN(modernize-raw-string-literal) - JSON serialization requires escaped quotes
 
+/// Serialize a single log entry to JSON
+void serialize_log(std::ostream& ss, const evm::Log& log, const std::string& indent) {
+  ss << indent << "{\n";
+  ss << indent << "  \"address\": \"" << encode_address(log.address) << "\",\n";
+
+  // Topics array
+  ss << indent << "  \"topics\": [";
+  if (!log.topics.empty()) {
+    ss << "\n";
+    for (size_t i = 0; i < log.topics.size(); ++i) {
+      // Encode Uint256 as 64-char hex with leading zeros
+      ss << indent << "    \"" << encode_uint256_padded(log.topics[i]) << "\"";
+      if (i + 1 < log.topics.size()) {
+        ss << ",";
+      }
+      ss << "\n";
+    }
+    ss << indent << "  ";
+  }
+  ss << "],\n";
+
+  ss << indent << "  \"data\": \"" << encode_bytes(log.data) << "\"\n";
+  ss << indent << "}";
+}
+
 /// Serialize a single receipt to JSON
 void serialize_receipt(std::ostream& ss, const ethereum::Receipt& receipt,
                        const types::Hash& tx_hash, const std::string& indent) {
@@ -53,7 +119,22 @@ void serialize_receipt(std::ostream& ss, const ethereum::Receipt& receipt,
   ss << indent << "  \"cumulativeGasUsed\": \"" << encode_uint64(receipt.cumulative_gas_used)
      << "\",\n";
   ss << indent << "  \"logsBloom\": \"" << encode_bytes(receipt.bloom.span()) << "\",\n";
-  ss << indent << "  \"logs\": []";  // TODO: serialize logs if needed
+
+  // Logs array
+  ss << indent << "  \"logs\": ";
+  if (receipt.logs.empty()) {
+    ss << "null";
+  } else {
+    ss << "[\n";
+    for (size_t i = 0; i < receipt.logs.size(); ++i) {
+      serialize_log(ss, receipt.logs[i], indent + "    ");
+      if (i + 1 < receipt.logs.size()) {
+        ss << ",";
+      }
+      ss << "\n";
+    }
+    ss << indent << "  ]";
+  }
   ss << "\n" << indent << "}";
 }
 
@@ -80,7 +161,8 @@ void serialize_rejected(std::ostream& ss, const std::vector<RejectedTx>& rejecte
   ss << ",\n" << indent << "\"rejected\": [\n";
   for (size_t i = 0; i < rejected.size(); ++i) {
     const auto& rej = rejected[i];
-    ss << indent << "  {\"index\": " << rej.index << ", \"error\": \"" << rej.error << "\"}";
+    ss << indent << "  {\"index\": " << rej.index << ", \"error\": \""
+       << escape_json_string(rej.error) << "\"}";
     if (i + 1 < rejected.size()) {
       ss << ",";
     }
@@ -320,14 +402,31 @@ int write_outputs(const std::string& basedir, const std::string& result_file,
       return true;
     }
 
-    std::string path = filename;
-    if (!basedir.empty()) {
-      path = basedir + "/" + filename;
+    // Validate filename doesn't contain path traversal sequences
+    if (filename.find("..") != std::string::npos) {
+      std::cerr << "Error: Filename contains invalid path traversal: " << filename << "\n";
+      return false;
     }
 
-    std::ofstream file(path);
+    // Use std::filesystem::path for safe path construction
+    std::filesystem::path filepath(filename);
+    if (!basedir.empty()) {
+      const std::filesystem::path base(basedir);
+      filepath = base / filename;
+
+      // Verify the resolved path is still within basedir (prevent symlink attacks)
+      auto canonical_base = std::filesystem::weakly_canonical(base);
+      auto canonical_path = std::filesystem::weakly_canonical(filepath);
+      auto relative = canonical_path.lexically_relative(canonical_base);
+      if (relative.empty() || relative.string().starts_with("..")) {
+        std::cerr << "Error: Path escapes base directory: " << filepath << "\n";
+        return false;
+      }
+    }
+
+    std::ofstream file(filepath);
     if (!file) {
-      std::cerr << "Error: Cannot write to " << path << "\n";
+      std::cerr << "Error: Cannot write to " << filepath << "\n";
       return false;
     }
     file << content;

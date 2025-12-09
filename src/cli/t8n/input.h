@@ -49,6 +49,7 @@ struct Ommer {
 };
 
 /// Block environment from env.json
+// NOLINTBEGIN(clang-analyzer-optin.performance.Padding)
 struct EnvInput {
   types::Address coinbase;
   uint64_t gas_limit{0};
@@ -76,6 +77,7 @@ struct EnvInput {
   // Uncle/ommer headers for reward calculation
   std::vector<Ommer> ommers;
 };
+// NOLINTEND(clang-analyzer-optin.performance.Padding)
 
 // =============================================================================
 // PARSED INPUT DATA

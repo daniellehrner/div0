@@ -7,13 +7,14 @@
 #include <string>
 #include <string_view>
 
+#include "div0/ethereum/storage_slot.h"
 #include "div0/ethereum/transaction/eip1559_tx.h"
 #include "div0/ethereum/transaction/eip2930_tx.h"
 #include "div0/ethereum/transaction/eip4844_tx.h"
 #include "div0/ethereum/transaction/eip7702_tx.h"
-#include "div0/ethereum/transaction/hex.h"
 #include "div0/ethereum/transaction/legacy_tx.h"
 #include "div0/ethereum/transaction/transaction.h"
+#include "div0/utils/hex.h"
 
 // simdjson has various warnings in its template code
 // NOLINTBEGIN(clang-diagnostic-sign-conversion,clang-diagnostic-format-nonliteral)

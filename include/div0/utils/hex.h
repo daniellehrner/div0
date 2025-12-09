@@ -1,5 +1,5 @@
-#ifndef DIV0_ETHEREUM_TRANSACTION_HEX_H
-#define DIV0_ETHEREUM_TRANSACTION_HEX_H
+#ifndef DIV0_UTILS_HEX_H
+#define DIV0_UTILS_HEX_H
 
 #include <cstdint>
 #include <optional>
@@ -7,17 +7,22 @@
 #include <string>
 #include <string_view>
 
-#include "div0/ethereum/transaction/types.h"
 #include "div0/types/address.h"
 #include "div0/types/bytes.h"
 #include "div0/types/hash.h"
 #include "div0/types/uint256.h"
 
-namespace div0::ethereum::hex {
+namespace div0::hex {
 
 // =============================================================================
 // Hex Encoding Functions
 // =============================================================================
+
+/**
+ * @brief Encode a byte as two lowercase hex characters (no prefix).
+ * Returns exactly 2 characters.
+ */
+[[nodiscard]] std::string encode_byte(uint8_t byte);
 
 /**
  * @brief Encode uint64 as "0x" prefixed hex string (quantity encoding).
@@ -30,6 +35,13 @@ namespace div0::ethereum::hex {
  * Uses minimal digits (no leading zeros), zero as "0x0".
  */
 [[nodiscard]] std::string encode_uint256(const types::Uint256& value);
+
+/**
+ * @brief Encode Uint256 as "0x" prefixed 64-char hex string with zero-padding.
+ * Always outputs exactly 66 characters (0x + 64 hex digits).
+ * Used for topics and other fixed-width 32-byte values.
+ */
+[[nodiscard]] std::string encode_uint256_padded(const types::Uint256& value);
 
 /**
  * @brief Encode byte array as "0x" prefixed hex string.
@@ -45,12 +57,6 @@ namespace div0::ethereum::hex {
  * @brief Encode hash as "0x" prefixed 64-char lowercase hex.
  */
 [[nodiscard]] std::string encode_hash(const types::Hash& hash);
-
-/**
- * @brief Encode storage slot as "0x" prefixed 64-char lowercase hex.
- * StorageSlot is a wrapper around Uint256, encoded with leading zeros.
- */
-[[nodiscard]] std::string encode_storage_slot(const StorageSlot& slot);
 
 // =============================================================================
 // Hex Decoding Functions
@@ -86,12 +92,6 @@ namespace div0::ethereum::hex {
  */
 [[nodiscard]] std::optional<types::Hash> decode_hash(std::string_view hex);
 
-/**
- * @brief Decode "0x" prefixed 64-char hex string to storage slot.
- * @return nullopt on parse error or wrong length
- */
-[[nodiscard]] std::optional<StorageSlot> decode_storage_slot(std::string_view hex);
+}  // namespace div0::hex
 
-}  // namespace div0::ethereum::hex
-
-#endif  // DIV0_ETHEREUM_TRANSACTION_HEX_H
+#endif  // DIV0_UTILS_HEX_H

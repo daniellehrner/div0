@@ -219,4 +219,295 @@ TEST(ReceiptsRoot, Deterministic) {
   EXPECT_EQ(root1, root2);
 }
 
+// =============================================================================
+// Storage Root Computation
+// =============================================================================
+
+TEST(StorageRoot, EmptyStorage) {
+  const std::map<types::Uint256, types::Uint256> storage;
+  const auto root = compute_storage_root(storage);
+
+  // Empty storage should return empty trie root
+  EXPECT_EQ(root, trie::MerklePatriciaTrie::EMPTY_ROOT);
+}
+
+TEST(StorageRoot, AllZeroValues) {
+  // Storage with only zero values should be treated as empty
+  std::map<types::Uint256, types::Uint256> storage;
+  storage[types::Uint256(1)] = types::Uint256::zero();
+  storage[types::Uint256(2)] = types::Uint256::zero();
+  storage[types::Uint256(100)] = types::Uint256::zero();
+
+  const auto root = compute_storage_root(storage);
+
+  // All zero values are excluded, so should be empty root
+  EXPECT_EQ(root, trie::MerklePatriciaTrie::EMPTY_ROOT);
+}
+
+TEST(StorageRoot, SingleSlot) {
+  std::map<types::Uint256, types::Uint256> storage;
+  storage[types::Uint256(0)] = types::Uint256(1);
+
+  const auto root = compute_storage_root(storage);
+
+  // Should produce a valid non-empty root
+  EXPECT_FALSE(root.is_zero());
+  EXPECT_NE(root, trie::MerklePatriciaTrie::EMPTY_ROOT);
+}
+
+TEST(StorageRoot, MultipleSlots) {
+  std::map<types::Uint256, types::Uint256> storage;
+  storage[types::Uint256(0)] = types::Uint256(100);
+  storage[types::Uint256(1)] = types::Uint256(200);
+  storage[types::Uint256(2)] = types::Uint256(300);
+
+  const auto root = compute_storage_root(storage);
+
+  EXPECT_FALSE(root.is_zero());
+  EXPECT_NE(root, trie::MerklePatriciaTrie::EMPTY_ROOT);
+}
+
+TEST(StorageRoot, ZeroValuesExcluded) {
+  // Storage with mixed zero and non-zero values
+  std::map<types::Uint256, types::Uint256> storage_with_zeros;
+  storage_with_zeros[types::Uint256(0)] = types::Uint256(100);
+  storage_with_zeros[types::Uint256(1)] = types::Uint256::zero();  // Should be excluded
+  storage_with_zeros[types::Uint256(2)] = types::Uint256(300);
+
+  std::map<types::Uint256, types::Uint256> storage_without_zeros;
+  storage_without_zeros[types::Uint256(0)] = types::Uint256(100);
+  storage_without_zeros[types::Uint256(2)] = types::Uint256(300);
+
+  const auto root_with_zeros = compute_storage_root(storage_with_zeros);
+  const auto root_without_zeros = compute_storage_root(storage_without_zeros);
+
+  // Both should produce the same root since zero values are excluded
+  EXPECT_EQ(root_with_zeros, root_without_zeros);
+}
+
+TEST(StorageRoot, Deterministic) {
+  std::map<types::Uint256, types::Uint256> storage;
+  storage[types::Uint256(0x1234)] = types::Uint256(0xABCD);
+  storage[types::Uint256(0x5678)] = types::Uint256(0xEF01);
+
+  const auto root1 = compute_storage_root(storage);
+  const auto root2 = compute_storage_root(storage);
+  const auto root3 = compute_storage_root(storage);
+
+  EXPECT_EQ(root1, root2);
+  EXPECT_EQ(root2, root3);
+}
+
+TEST(StorageRoot, LargeSlotKey) {
+  std::map<types::Uint256, types::Uint256> storage;
+  // Large slot key (full 256-bit value)
+  const types::Uint256 large_key(0xFFFFFFFFFFFFFFFFULL, 0xFFFFFFFFFFFFFFFFULL,
+                                 0xFFFFFFFFFFFFFFFFULL, 0xFFFFFFFFFFFFFFFFULL);
+  storage[large_key] = types::Uint256(42);
+
+  const auto root = compute_storage_root(storage);
+
+  EXPECT_FALSE(root.is_zero());
+  EXPECT_NE(root, trie::MerklePatriciaTrie::EMPTY_ROOT);
+}
+
+TEST(StorageRoot, LargeValue) {
+  std::map<types::Uint256, types::Uint256> storage;
+  // Large value (full 256-bit value)
+  const types::Uint256 large_value(0xDEADBEEFCAFEBABEULL, 0x1234567890ABCDEFULL,
+                                   0xFEDCBA0987654321ULL, 0xABCDEF0123456789ULL);
+  storage[types::Uint256(0)] = large_value;
+
+  const auto root = compute_storage_root(storage);
+
+  EXPECT_FALSE(root.is_zero());
+  EXPECT_NE(root, trie::MerklePatriciaTrie::EMPTY_ROOT);
+}
+
+TEST(StorageRoot, DifferentSlotsDifferentRoots) {
+  std::map<types::Uint256, types::Uint256> storage1;
+  storage1[types::Uint256(0)] = types::Uint256(100);
+
+  std::map<types::Uint256, types::Uint256> storage2;
+  storage2[types::Uint256(1)] = types::Uint256(100);
+
+  const auto root1 = compute_storage_root(storage1);
+  const auto root2 = compute_storage_root(storage2);
+
+  // Different slots should produce different roots
+  EXPECT_NE(root1, root2);
+}
+
+TEST(StorageRoot, DifferentValuesDifferentRoots) {
+  std::map<types::Uint256, types::Uint256> storage1;
+  storage1[types::Uint256(0)] = types::Uint256(100);
+
+  std::map<types::Uint256, types::Uint256> storage2;
+  storage2[types::Uint256(0)] = types::Uint256(200);
+
+  const auto root1 = compute_storage_root(storage1);
+  const auto root2 = compute_storage_root(storage2);
+
+  // Different values should produce different roots
+  EXPECT_NE(root1, root2);
+}
+
+// =============================================================================
+// Withdrawals Root Computation
+// =============================================================================
+
+TEST(WithdrawalsRoot, EmptyWithdrawals) {
+  const std::vector<Withdrawal> withdrawals;
+  const auto root = compute_withdrawals_root(withdrawals);
+
+  // Empty withdrawals should return empty trie root
+  EXPECT_EQ(root, trie::MerklePatriciaTrie::EMPTY_ROOT);
+}
+
+TEST(WithdrawalsRoot, SingleWithdrawal) {
+  std::vector<Withdrawal> withdrawals;
+  Withdrawal w;
+  w.index = 0;
+  w.validator_index = 1;
+  w.address = types::Address::zero();
+  w.amount = 1000;
+  withdrawals.push_back(w);
+
+  const auto root = compute_withdrawals_root(withdrawals);
+
+  // Should produce a valid non-empty root
+  EXPECT_FALSE(root.is_zero());
+  EXPECT_NE(root, trie::MerklePatriciaTrie::EMPTY_ROOT);
+}
+
+TEST(WithdrawalsRoot, MultipleWithdrawals) {
+  std::vector<Withdrawal> withdrawals;
+
+  Withdrawal w1;
+  w1.index = 0;
+  w1.validator_index = 100;
+  w1.address = types::Address::zero();
+  w1.amount = 32000000000;  // 32 ETH in Gwei
+  withdrawals.push_back(w1);
+
+  Withdrawal w2;
+  w2.index = 1;
+  w2.validator_index = 101;
+  w2.address = types::Address(types::Uint256(1));
+  w2.amount = 16000000000;  // 16 ETH in Gwei
+  withdrawals.push_back(w2);
+
+  const auto root = compute_withdrawals_root(withdrawals);
+
+  EXPECT_FALSE(root.is_zero());
+  EXPECT_NE(root, trie::MerklePatriciaTrie::EMPTY_ROOT);
+}
+
+TEST(WithdrawalsRoot, Deterministic) {
+  std::vector<Withdrawal> withdrawals;
+  Withdrawal w;
+  w.index = 42;
+  w.validator_index = 123;
+  w.address = types::Address(types::Uint256(0xDEAD));
+  w.amount = 5000000000;
+  withdrawals.push_back(w);
+
+  const auto root1 = compute_withdrawals_root(withdrawals);
+  const auto root2 = compute_withdrawals_root(withdrawals);
+  const auto root3 = compute_withdrawals_root(withdrawals);
+
+  EXPECT_EQ(root1, root2);
+  EXPECT_EQ(root2, root3);
+}
+
+TEST(WithdrawalsRoot, OrderMatters) {
+  Withdrawal w1;
+  w1.index = 0;
+  w1.validator_index = 100;
+  w1.address = types::Address::zero();
+  w1.amount = 1000;
+
+  Withdrawal w2;
+  w2.index = 1;
+  w2.validator_index = 200;
+  w2.address = types::Address(types::Uint256(1));
+  w2.amount = 2000;
+
+  const std::vector withdrawals1 = {w1, w2};
+  const std::vector withdrawals2 = {w2, w1};
+
+  const auto root1 = compute_withdrawals_root(withdrawals1);
+  const auto root2 = compute_withdrawals_root(withdrawals2);
+
+  // Different order should produce different roots
+  EXPECT_NE(root1, root2);
+}
+
+TEST(WithdrawalsRoot, ZeroAmountIncluded) {
+  // Unlike storage, zero-amount withdrawals ARE included
+  std::vector<Withdrawal> withdrawals;
+  Withdrawal w;
+  w.index = 0;
+  w.validator_index = 1;
+  w.address = types::Address::zero();
+  w.amount = 0;  // Zero amount
+  withdrawals.push_back(w);
+
+  const auto root = compute_withdrawals_root(withdrawals);
+
+  // Should NOT be empty root (zero withdrawals are included)
+  EXPECT_NE(root, trie::MerklePatriciaTrie::EMPTY_ROOT);
+}
+
+// =============================================================================
+// Withdrawals Root Test Vectors from go-ethereum
+// =============================================================================
+// Test vectors from: references/go-ethereum/cmd/evm/testdata/26/
+
+TEST(WithdrawalsRoot, GethTestVector_SingleWithdrawal) {
+  // From testdata/26/env.json:
+  // {
+  //   "index": "0x42",
+  //   "validatorIndex": "0x42",
+  //   "address": "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b",
+  //   "amount": "0x2a"
+  // }
+  // Expected withdrawalsRoot from exp.json:
+  // "0x4921c0162c359755b2ae714a0978a1dad2eb8edce7ff9b38b9b6fc4cbc547eb5"
+
+  std::vector<Withdrawal> withdrawals;
+  Withdrawal w;
+  w.index = 0x42;
+  w.validator_index = 0x42;
+
+  // Address: 0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b
+  const std::array<uint8_t, 20> addr_bytes = {0xa9, 0x4f, 0x53, 0x74, 0xfc, 0xe5, 0xed,
+                                              0xbc, 0x8e, 0x2a, 0x86, 0x97, 0xc1, 0x53,
+                                              0x31, 0x67, 0x7e, 0x6e, 0xbf, 0x0b};
+  w.address = types::Address(addr_bytes);
+  w.amount = 0x2a;
+
+  withdrawals.push_back(w);
+
+  const auto root = compute_withdrawals_root(withdrawals);
+
+  // Expected: 0x4921c0162c359755b2ae714a0978a1dad2eb8edce7ff9b38b9b6fc4cbc547eb5
+  const auto expected =
+      types::Hash::from_hex("4921c0162c359755b2ae714a0978a1dad2eb8edce7ff9b38b9b6fc4cbc547eb5");
+
+  EXPECT_EQ(root, expected);
+}
+
+TEST(WithdrawalsRoot, GethTestVector_EmptyWithdrawals) {
+  // From testdata/28/env.json: "withdrawals" : []
+  // Expected withdrawalsRoot from exp.json:
+  // "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421"
+
+  const std::vector<Withdrawal> withdrawals;
+  const auto root = compute_withdrawals_root(withdrawals);
+
+  // Expected: EMPTY_ROOT
+  EXPECT_EQ(root, trie::MerklePatriciaTrie::EMPTY_ROOT);
+}
+
 }  // namespace div0::ethereum

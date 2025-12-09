@@ -43,7 +43,7 @@ void json_encode_access_list(std::ostringstream& ss, const AccessList& list) {
         ss << ',';
       }
       first_key = false;
-      json_append_string(ss, hex::encode_storage_slot(key));
+      json_append_string(ss, encode_storage_slot(key));
     }
     ss << "]}";
   }
@@ -198,7 +198,7 @@ std::optional<AccessList> json_parse_access_list(simdjson::ondemand::array& arr)
           if (key_str.error() != simdjson::SUCCESS) {
             return std::nullopt;
           }
-          auto key = hex::decode_storage_slot(key_str.value());
+          auto key = decode_storage_slot(key_str.value());
           if (!key) {
             return std::nullopt;
           }

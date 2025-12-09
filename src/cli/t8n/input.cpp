@@ -6,8 +6,8 @@
 #include <iostream>
 #include <sstream>
 
-#include "div0/ethereum/transaction/hex.h"
 #include "div0/ethereum/transaction/json.h"
+#include "div0/utils/hex.h"
 #include "exit_codes.h"
 
 // simdjson has various warnings in its template code
@@ -17,11 +17,11 @@
 
 namespace div0::cli {
 
-using ethereum::hex::decode_address;
-using ethereum::hex::decode_bytes;
-using ethereum::hex::decode_hash;
-using ethereum::hex::decode_uint256;
-using ethereum::hex::decode_uint64;
+using hex::decode_address;
+using hex::decode_bytes;
+using hex::decode_hash;
+using hex::decode_uint256;
+using hex::decode_uint64;
 
 // =============================================================================
 // HELPER UTILITIES
@@ -37,7 +37,8 @@ std::variant<std::string, ParseError> read_input(const std::string& path) {
     return ss.str();
   }
 
-  const std::ifstream file(path);
+  // NOLINTNEXTLINE(misc-const-correctness) - ifstream cannot be const, reading modifies state
+  std::ifstream file(path);
   if (!file) {
     return ParseError{.message = "cannot open file: " + path,
                       .exit_code = static_cast<int>(ExitCode::IoError)};

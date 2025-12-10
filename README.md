@@ -101,6 +101,60 @@ make fuzz                                        # Build fuzzers
 
 See [fuzz/README.md](fuzz/README.md) for detailed fuzzing documentation.
 
+## Execution Spec Tests
+
+The [ethereum/execution-spec-tests](https://github.com/ethereum/execution-spec-tests) verify EVM implementation correctness by running the div0 t8n tool against the official Ethereum test suite.
+
+### Prerequisites
+
+The execution-spec-tests use `uv` for dependency management:
+
+```bash
+curl -LsSf https://astral.sh/uv/install.sh | sh
+```
+
+### Running Tests
+
+Clone the execution-spec-tests repository and run tests using `uv run fill`:
+
+```bash
+# Clone the test suite (if not already done)
+git clone --depth 1 https://github.com/ethereum/execution-spec-tests.git
+cd execution-spec-tests
+
+# Run specific tests by keyword filter (-k) and fork (--fork)
+uv run fill -k "push0" --fork=Shanghai --evm-bin=/path/to/div0/build/debug/div0
+
+# Run with tracing enabled (for debugging)
+uv run fill -k "push0" --fork=Shanghai --evm-bin=./build/debug/div0 --traces
+
+# Run all tests for a specific EIP
+uv run fill -k "eip7702" --fork=Prague --evm-bin=./build/release/div0
+
+# Run a specific test file
+uv run fill tests/shanghai/eip3855_push0/ --fork=Shanghai --evm-bin=./build/debug/div0
+
+# List available tests without running them
+uv run fill --collect-only -k "push0" tests/shanghai/
+```
+
+### Key Options
+
+| Option | Description |
+|--------|-------------|
+| `--evm-bin=PATH` | **Required**: Path to the div0 binary |
+| `--fork=FORK` | Target fork (Shanghai, Cancun, Prague, etc.) |
+| `-k EXPRESSION` | Filter tests by keyword (pytest style) |
+| `--traces` | Enable EVM execution tracing |
+| `--clean` | Remove existing fixture files before running |
+| `-x` | Stop on first failure |
+
+### Trace Output
+
+When `--traces` is enabled, trace files are created for each transaction:
+- Filename format: `trace-{tx_index}-{tx_hash}.jsonl`
+- Each line is a JSON object with EIP-3155 fields: `pc`, `op`, `gas`, `gasCost`, `memSize`, `stack`, `depth`, `refund`, `opName`
+
 ## CMake Presets
 
 - `debug` - Debug with sanitizers

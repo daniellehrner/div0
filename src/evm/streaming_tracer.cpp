@@ -10,6 +10,10 @@ namespace {
 
 /// Write a hex-encoded Uint256 value to the output stream (no leading zeros, lowercase)
 void write_hex_uint256(std::ostream& out, const types::Uint256& value) {
+  // Save stream state to avoid pollution from std::hex/std::setfill
+  const auto original_flags = out.flags();
+  const auto original_fill = out.fill();
+
   // Find the first non-zero limb (from most significant)
   int first_nonzero = -1;
   for (int i = 3; i >= 0; --i) {
@@ -31,6 +35,10 @@ void write_hex_uint256(std::ostream& out, const types::Uint256& value) {
     }
   }
   out << '"';
+
+  // Restore stream state
+  out.flags(original_flags);
+  out.fill(original_fill);
 }
 
 }  // namespace
@@ -112,7 +120,7 @@ void StreamingTracer::trace_pre_execution(const CallFrame& frame) {
     const size_t stack_size = frame.stack->size();
     pre_stack_.resize(stack_size);
     for (size_t i = 0; i < stack_size; ++i) {
-      // Stack[i] gives depth from top, so stack[size-1] is bottom
+      // Stack uses depth-from-top indexing (0=top), so stack[size-1-i] reverses to bottom-to-top
       pre_stack_[i] = (*frame.stack)[stack_size - 1 - i];
     }
   } else {
@@ -150,6 +158,10 @@ void StreamingTracer::write_trace_line(const CallFrame& frame, uint64_t gas_cost
   // EIP-3155 format using PRE-EXECUTION state (captured in trace_pre_execution)
   // {"pc":0,"op":96,"gas":"0x...","gasCost":"0x...","memSize":0,"stack":[...],"depth":1,"opName":"PUSH1"}
 
+  // Save stream state to avoid pollution from std::hex/std::dec/std::setfill
+  const auto original_flags = output_.flags();
+  const auto original_fill = output_.fill();
+
   output_ << "{\"pc\":" << pre_pc_;
   output_ << ",\"op\":" << static_cast<unsigned>(pre_opcode_);
   output_ << ",\"gas\":\"0x" << std::hex << pre_gas_ << "\"";
@@ -183,6 +195,10 @@ void StreamingTracer::write_trace_line(const CallFrame& frame, uint64_t gas_cost
   // For now, skip since we don't store pre-execution memory
 
   output_ << "}\n";
+
+  // Restore stream state
+  output_.flags(original_flags);
+  output_.fill(original_fill);
 }
 
 // NOLINTEND(modernize-raw-string-literal)

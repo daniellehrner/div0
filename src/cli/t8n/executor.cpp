@@ -145,7 +145,7 @@ ExecutionOutput execute_transactions(T8nState& state, const std::vector<ethereum
 
       trace_file = std::make_unique<std::ofstream>(trace_path);
       if (trace_file->is_open()) {
-        logger.info("Created tracing-file: {}", trace_path);
+        logger.info("Created trace file: {}", trace_path);
         tracer = std::make_unique<evm::StreamingTracer>(*trace_file, trace_config.tracer_config);
         evm.set_tracer(tracer.get());
       } else {

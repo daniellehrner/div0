@@ -28,6 +28,7 @@ struct T8nResult {
   types::Hash logs_hash;  // keccak256(rlp(logs))
   ethereum::Bloom logs_bloom;
   std::vector<ethereum::Receipt> receipts;
+  std::vector<types::Hash> tx_hashes;  // Transaction hashes (same order as receipts)
   std::vector<RejectedTx> rejected;
   uint64_t gas_used{0};
   uint64_t blob_gas_used{0};

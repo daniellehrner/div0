@@ -108,8 +108,20 @@ int run_t8n(const T8nOptions& opts) {
   // 5. Execute transactions
   logger.info("Executing {} transactions...", input.txs.size());
   crypto::Secp256k1Context secp_ctx;
-  auto exec_output =
-      execute_transactions(*state, input.txs, input.env, fork, opts.chain_id, secp_ctx);
+
+  // Build trace config from options
+  const TraceConfig trace_config{
+      .enabled = opts.trace,
+      .output_dir = opts.output_basedir,
+      .tracer_config = {.memory = opts.trace_memory, .return_data = opts.trace_returndata}};
+
+  if (opts.trace) {
+    logger.info("Tracing enabled (memory={}, returndata={})", opts.trace_memory,
+                opts.trace_returndata);
+  }
+
+  auto exec_output = execute_transactions(*state, input.txs, input.env, fork, opts.chain_id,
+                                          secp_ctx, trace_config);
   logger.info("Executed: {} successful, {} rejected, {} gas used", exec_output.executed_txs.size(),
               exec_output.rejected.size(), exec_output.gas_used);
 

@@ -13,6 +13,7 @@
 #include "div0/evm/gas/schedule.h"
 #include "div0/evm/memory_pool.h"
 #include "div0/evm/stack_pool.h"
+#include "div0/evm/tracer.h"
 #include "div0/state/state_context.h"
 
 namespace div0::evm {
@@ -80,6 +81,28 @@ class EVM {
    */
   [[nodiscard]] ExecutionResult execute(const ExecutionEnvironment& env);
 
+  /**
+   * @brief Set tracer for next execution.
+   *
+   * The tracer receives callbacks during execution for debugging and analysis.
+   * Pass nullptr to disable tracing (near-zero overhead).
+   *
+   * OWNERSHIP:
+   * ==========
+   * The EVM does not take ownership of the tracer. The caller must ensure the
+   * tracer outlives any execute() calls.
+   *
+   * THREAD SAFETY:
+   * ==============
+   * Set tracer before calling execute(). Do not change tracer during execution.
+   *
+   * @param tracer Tracer to use, or nullptr to disable tracing
+   */
+  void set_tracer(Tracer* tracer) noexcept { tracer_ = tracer; }
+
+  /// Get the current tracer (may be nullptr)
+  [[nodiscard]] Tracer* tracer() const noexcept { return tracer_; }
+
  private:
   /**
    * @brief Execute a single call frame until it completes or needs a child call.
@@ -125,6 +148,9 @@ class EVM {
 
   /// Whether fork-specific dispatch and schedule have been selected
   bool fork_initialized_{false};
+
+  /// Tracer for execution tracing (nullptr = no tracing)
+  Tracer* tracer_{nullptr};
 
   /// Per-instance pools for zero-allocation execution.
   /// Heap-allocated via unique_ptr because pools are ~36MB total (1024 entries each).

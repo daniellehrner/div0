@@ -6,7 +6,6 @@
 #include <iostream>
 #include <sstream>
 
-#include "div0/ethereum/storage_slot.h"
 #include "div0/ethereum/transaction/json.h"
 #include "div0/utils/hex.h"
 #include "exit_codes.h"
@@ -17,6 +16,12 @@
 // NOLINTEND(clang-diagnostic-sign-conversion,clang-diagnostic-format-nonliteral)
 
 namespace div0::cli {
+
+using hex::decode_address;
+using hex::decode_bytes;
+using hex::decode_hash;
+using hex::decode_uint256;
+using hex::decode_uint64;
 
 // =============================================================================
 // HELPER UTILITIES
@@ -75,7 +80,7 @@ std::variant<std::map<types::Address, AllocAccount>, ParseError> parse_alloc_fro
   for (auto field : root) {
     const std::string_view addr_hex = field.unescaped_key();
 
-    auto addr_opt = hex::decode_address(addr_hex);
+    auto addr_opt = decode_address(addr_hex);
     if (!addr_opt) {
       return json_error("invalid address in alloc: " + std::string(addr_hex));
     }
@@ -89,7 +94,7 @@ std::variant<std::map<types::Address, AllocAccount>, ParseError> parse_alloc_fro
 
     // Balance (optional, default 0)
     if (auto balance_str = get_string_field(account_obj.value(), "balance")) {
-      auto balance = hex::decode_uint256(*balance_str);
+      auto balance = decode_uint256(*balance_str);
       if (!balance) {
         return json_error("invalid balance for " + std::string(addr_hex));
       }
@@ -98,7 +103,7 @@ std::variant<std::map<types::Address, AllocAccount>, ParseError> parse_alloc_fro
 
     // Nonce (optional, default 0)
     if (auto nonce_str = get_string_field(account_obj.value(), "nonce")) {
-      auto nonce = hex::decode_uint64(*nonce_str);
+      auto nonce = decode_uint64(*nonce_str);
       if (!nonce) {
         return json_error("invalid nonce for " + std::string(addr_hex));
       }
@@ -107,7 +112,7 @@ std::variant<std::map<types::Address, AllocAccount>, ParseError> parse_alloc_fro
 
     // Code (optional)
     if (auto code_str = get_string_field(account_obj.value(), "code")) {
-      auto code = hex::decode_bytes(*code_str);
+      auto code = decode_bytes(*code_str);
       if (!code) {
         return json_error("invalid code for " + std::string(addr_hex));
       }
@@ -121,7 +126,7 @@ std::variant<std::map<types::Address, AllocAccount>, ParseError> parse_alloc_fro
       if (storage_obj.error() == simdjson::SUCCESS) {
         for (auto slot_field : storage_obj.value()) {
           const std::string_view slot_hex = slot_field.unescaped_key();
-          auto slot = hex::decode_uint256(slot_hex);
+          auto slot = decode_uint256(slot_hex);
           if (!slot) {
             return json_error("invalid storage slot for " + std::string(addr_hex));
           }
@@ -130,7 +135,7 @@ std::variant<std::map<types::Address, AllocAccount>, ParseError> parse_alloc_fro
           if (value_str.error() != simdjson::SUCCESS) {
             return json_error("invalid storage value for " + std::string(addr_hex));
           }
-          auto value = hex::decode_uint256(value_str.value());
+          auto value = decode_uint256(value_str.value());
           if (!value) {
             return json_error("invalid storage value for " + std::string(addr_hex));
           }
@@ -167,7 +172,7 @@ std::optional<ParseError> parse_block_hashes(simdjson::ondemand::object& obj,
 
   for (auto hash_field : hashes_obj.value()) {
     const std::string_view block_num_str = hash_field.unescaped_key();
-    auto block_num = hex::decode_uint64(block_num_str);
+    auto block_num = decode_uint64(block_num_str);
     if (!block_num) {
       return json_error("invalid block number in blockHashes");
     }
@@ -176,7 +181,7 @@ std::optional<ParseError> parse_block_hashes(simdjson::ondemand::object& obj,
     if (hash_str.error() != simdjson::SUCCESS) {
       return json_error("invalid hash in blockHashes");
     }
-    auto hash = hex::decode_hash(hash_str.value());
+    auto hash = decode_hash(hash_str.value());
     if (!hash) {
       return json_error("invalid hash in blockHashes");
     }
@@ -209,22 +214,22 @@ std::optional<ParseError> parse_withdrawals(simdjson::ondemand::object& obj,
     Withdrawal w;
 
     if (auto s = get_string_field(w_obj.value(), "index")) {
-      if (auto v = hex::decode_uint64(*s)) {
+      if (auto v = decode_uint64(*s)) {
         w.index = *v;
       }
     }
     if (auto s = get_string_field(w_obj.value(), "validatorIndex")) {
-      if (auto v = hex::decode_uint64(*s)) {
+      if (auto v = decode_uint64(*s)) {
         w.validator_index = *v;
       }
     }
     if (auto s = get_string_field(w_obj.value(), "address")) {
-      if (auto v = hex::decode_address(*s)) {
+      if (auto v = decode_address(*s)) {
         w.address = *v;
       }
     }
     if (auto s = get_string_field(w_obj.value(), "amount")) {
-      if (auto v = hex::decode_uint64(*s)) {
+      if (auto v = decode_uint64(*s)) {
         w.amount = *v;
       }
     }
@@ -256,12 +261,12 @@ std::optional<ParseError> parse_ommers(simdjson::ondemand::object& obj, std::vec
     Ommer o;
 
     if (auto s = get_string_field(o_obj.value(), "coinbase")) {
-      if (auto v = hex::decode_address(*s)) {
+      if (auto v = decode_address(*s)) {
         o.coinbase = *v;
       }
     }
     if (auto s = get_string_field(o_obj.value(), "delta")) {
-      if (auto v = hex::decode_uint64(*s)) {
+      if (auto v = decode_uint64(*s)) {
         o.delta = *v;
       }
     }
@@ -281,7 +286,7 @@ std::variant<EnvInput, ParseError> parse_env_from_json(simdjson::ondemand::objec
   if (!coinbase_str) {
     return json_error("env missing currentCoinbase");
   }
-  auto coinbase = hex::decode_address(*coinbase_str);
+  auto coinbase = decode_address(*coinbase_str);
   if (!coinbase) {
     return json_error("invalid currentCoinbase");
   }
@@ -291,7 +296,7 @@ std::variant<EnvInput, ParseError> parse_env_from_json(simdjson::ondemand::objec
   if (!gas_limit_str) {
     return json_error("env missing currentGasLimit");
   }
-  auto gas_limit = hex::decode_uint64(*gas_limit_str);
+  auto gas_limit = decode_uint64(*gas_limit_str);
   if (!gas_limit) {
     return json_error("invalid currentGasLimit");
   }
@@ -301,7 +306,7 @@ std::variant<EnvInput, ParseError> parse_env_from_json(simdjson::ondemand::objec
   if (!number_str) {
     return json_error("env missing currentNumber");
   }
-  auto number = hex::decode_uint64(*number_str);
+  auto number = decode_uint64(*number_str);
   if (!number) {
     return json_error("invalid currentNumber");
   }
@@ -311,7 +316,7 @@ std::variant<EnvInput, ParseError> parse_env_from_json(simdjson::ondemand::objec
   if (!timestamp_str) {
     return json_error("env missing currentTimestamp");
   }
-  auto timestamp = hex::decode_uint64(*timestamp_str);
+  auto timestamp = decode_uint64(*timestamp_str);
   if (!timestamp) {
     return json_error("invalid currentTimestamp");
   }
@@ -319,7 +324,7 @@ std::variant<EnvInput, ParseError> parse_env_from_json(simdjson::ondemand::objec
 
   // Optional fields
   if (auto s = get_string_field(obj, "currentDifficulty")) {
-    env.difficulty = hex::decode_uint256(*s);
+    env.difficulty = decode_uint256(*s);
   }
 
   auto random_str = get_string_field(obj, "currentRandom");
@@ -327,32 +332,32 @@ std::variant<EnvInput, ParseError> parse_env_from_json(simdjson::ondemand::objec
     random_str = get_string_field(obj, "prevRandao");
   }
   if (random_str) {
-    env.prev_randao = hex::decode_uint256(*random_str);
+    env.prev_randao = decode_uint256(*random_str);
   }
 
   if (auto s = get_string_field(obj, "currentBaseFee")) {
-    env.base_fee = hex::decode_uint256(*s);
+    env.base_fee = decode_uint256(*s);
   }
 
   if (auto s = get_string_field(obj, "currentExcessBlobGas")) {
-    env.excess_blob_gas = hex::decode_uint64(*s);
+    env.excess_blob_gas = decode_uint64(*s);
   }
 
   if (auto s = get_string_field(obj, "parentBeaconBlockRoot")) {
-    env.parent_beacon_root = hex::decode_hash(*s);
+    env.parent_beacon_root = decode_hash(*s);
   }
 
   // Parent fields for base fee calculation (blockchain tests)
   if (auto s = get_string_field(obj, "parentBaseFee")) {
-    env.parent_base_fee = hex::decode_uint256(*s);
+    env.parent_base_fee = decode_uint256(*s);
   }
 
   if (auto s = get_string_field(obj, "parentGasUsed")) {
-    env.parent_gas_used = hex::decode_uint64(*s);
+    env.parent_gas_used = decode_uint64(*s);
   }
 
   if (auto s = get_string_field(obj, "parentGasLimit")) {
-    env.parent_gas_limit = hex::decode_uint64(*s);
+    env.parent_gas_limit = decode_uint64(*s);
   }
 
   // Complex nested fields

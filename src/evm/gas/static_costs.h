@@ -3,7 +3,7 @@
 
 #include <array>
 
-#include "../opcodes.h"
+#include "div0/evm/opcodes.h"
 
 namespace div0::evm::gas {
 
@@ -13,98 +13,98 @@ constexpr std::array<uint64_t, 256> create_shanghai_table() {
   std::array<uint64_t, 256> table{};
 
   // Arithmetic opcodes
-  table[op(Opcode::Add)] = 3;
-  table[op(Opcode::Mul)] = 5;
-  table[op(Opcode::Sub)] = 3;
-  table[op(Opcode::Div)] = 5;
-  table[op(Opcode::SDiv)] = 5;
-  table[op(Opcode::Mod)] = 5;
-  table[op(Opcode::SMod)] = 5;
-  table[op(Opcode::AddMod)] = 8;
-  table[op(Opcode::MulMod)] = 8;
-  table[op(Opcode::SignExtend)] = 5;
+  table[op::ADD] = 3;
+  table[op::MUL] = 5;
+  table[op::SUB] = 3;
+  table[op::DIV] = 5;
+  table[op::SDIV] = 5;
+  table[op::MOD] = 5;
+  table[op::SMOD] = 5;
+  table[op::ADDMOD] = 8;
+  table[op::MULMOD] = 8;
+  table[op::SIGNEXTEND] = 5;
 
   // Comparison opcodes
-  table[op(Opcode::Lt)] = 3;
-  table[op(Opcode::Gt)] = 3;
-  table[op(Opcode::Eq)] = 3;
-  table[op(Opcode::IsZero)] = 3;
+  table[op::LT] = 3;
+  table[op::GT] = 3;
+  table[op::EQ] = 3;
+  table[op::ISZERO] = 3;
 
   // Keccak256 (SHA3) opcode - base cost only, word cost is dynamic
-  table[op(Opcode::Sha3)] = 30;
+  table[op::KECCAK256] = 30;
 
   // Memory opcodes (static portion only - expansion cost calculated dynamically)
-  table[op(Opcode::MLoad)] = 3;
-  table[op(Opcode::MStore)] = 3;
-  table[op(Opcode::MStore8)] = 3;
-  table[op(Opcode::MSize)] = 2;
+  table[op::MLOAD] = 3;
+  table[op::MSTORE] = 3;
+  table[op::MSTORE8] = 3;
+  table[op::MSIZE] = 2;
 
   // Stack opcodes
-  table[op(Opcode::Push0)] = 2;
-  table[op(Opcode::Push1)] = 3;
-  table[op(Opcode::Push2)] = 3;
-  table[op(Opcode::Push3)] = 3;
-  table[op(Opcode::Push4)] = 3;
-  table[op(Opcode::Push5)] = 3;
-  table[op(Opcode::Push6)] = 3;
-  table[op(Opcode::Push7)] = 3;
-  table[op(Opcode::Push8)] = 3;
-  table[op(Opcode::Push9)] = 3;
-  table[op(Opcode::Push10)] = 3;
-  table[op(Opcode::Push11)] = 3;
-  table[op(Opcode::Push12)] = 3;
-  table[op(Opcode::Push13)] = 3;
-  table[op(Opcode::Push14)] = 3;
-  table[op(Opcode::Push15)] = 3;
-  table[op(Opcode::Push16)] = 3;
-  table[op(Opcode::Push17)] = 3;
-  table[op(Opcode::Push18)] = 3;
-  table[op(Opcode::Push19)] = 3;
-  table[op(Opcode::Push20)] = 3;
-  table[op(Opcode::Push21)] = 3;
-  table[op(Opcode::Push22)] = 3;
-  table[op(Opcode::Push23)] = 3;
-  table[op(Opcode::Push24)] = 3;
-  table[op(Opcode::Push25)] = 3;
-  table[op(Opcode::Push26)] = 3;
-  table[op(Opcode::Push27)] = 3;
-  table[op(Opcode::Push28)] = 3;
-  table[op(Opcode::Push29)] = 3;
-  table[op(Opcode::Push30)] = 3;
-  table[op(Opcode::Push31)] = 3;
-  table[op(Opcode::Push32)] = 3;
-  table[op(Opcode::Dup1)] = 3;
-  table[op(Opcode::Dup2)] = 3;
-  table[op(Opcode::Dup3)] = 3;
-  table[op(Opcode::Dup4)] = 3;
-  table[op(Opcode::Dup5)] = 3;
-  table[op(Opcode::Dup6)] = 3;
-  table[op(Opcode::Dup7)] = 3;
-  table[op(Opcode::Dup8)] = 3;
-  table[op(Opcode::Dup9)] = 3;
-  table[op(Opcode::Dup10)] = 3;
-  table[op(Opcode::Dup11)] = 3;
-  table[op(Opcode::Dup12)] = 3;
-  table[op(Opcode::Dup13)] = 3;
-  table[op(Opcode::Dup14)] = 3;
-  table[op(Opcode::Dup15)] = 3;
-  table[op(Opcode::Dup16)] = 3;
-  table[op(Opcode::Swap1)] = 3;
-  table[op(Opcode::Swap2)] = 3;
-  table[op(Opcode::Swap3)] = 3;
-  table[op(Opcode::Swap4)] = 3;
-  table[op(Opcode::Swap5)] = 3;
-  table[op(Opcode::Swap6)] = 3;
-  table[op(Opcode::Swap7)] = 3;
-  table[op(Opcode::Swap8)] = 3;
-  table[op(Opcode::Swap9)] = 3;
-  table[op(Opcode::Swap10)] = 3;
-  table[op(Opcode::Swap11)] = 3;
-  table[op(Opcode::Swap12)] = 3;
-  table[op(Opcode::Swap13)] = 3;
-  table[op(Opcode::Swap14)] = 3;
-  table[op(Opcode::Swap15)] = 3;
-  table[op(Opcode::Swap16)] = 3;
+  table[op::PUSH0] = 2;
+  table[op::PUSH1] = 3;
+  table[op::PUSH2] = 3;
+  table[op::PUSH3] = 3;
+  table[op::PUSH4] = 3;
+  table[op::PUSH5] = 3;
+  table[op::PUSH6] = 3;
+  table[op::PUSH7] = 3;
+  table[op::PUSH8] = 3;
+  table[op::PUSH9] = 3;
+  table[op::PUSH10] = 3;
+  table[op::PUSH11] = 3;
+  table[op::PUSH12] = 3;
+  table[op::PUSH13] = 3;
+  table[op::PUSH14] = 3;
+  table[op::PUSH15] = 3;
+  table[op::PUSH16] = 3;
+  table[op::PUSH17] = 3;
+  table[op::PUSH18] = 3;
+  table[op::PUSH19] = 3;
+  table[op::PUSH20] = 3;
+  table[op::PUSH21] = 3;
+  table[op::PUSH22] = 3;
+  table[op::PUSH23] = 3;
+  table[op::PUSH24] = 3;
+  table[op::PUSH25] = 3;
+  table[op::PUSH26] = 3;
+  table[op::PUSH27] = 3;
+  table[op::PUSH28] = 3;
+  table[op::PUSH29] = 3;
+  table[op::PUSH30] = 3;
+  table[op::PUSH31] = 3;
+  table[op::PUSH32] = 3;
+  table[op::DUP1] = 3;
+  table[op::DUP2] = 3;
+  table[op::DUP3] = 3;
+  table[op::DUP4] = 3;
+  table[op::DUP5] = 3;
+  table[op::DUP6] = 3;
+  table[op::DUP7] = 3;
+  table[op::DUP8] = 3;
+  table[op::DUP9] = 3;
+  table[op::DUP10] = 3;
+  table[op::DUP11] = 3;
+  table[op::DUP12] = 3;
+  table[op::DUP13] = 3;
+  table[op::DUP14] = 3;
+  table[op::DUP15] = 3;
+  table[op::DUP16] = 3;
+  table[op::SWAP1] = 3;
+  table[op::SWAP2] = 3;
+  table[op::SWAP3] = 3;
+  table[op::SWAP4] = 3;
+  table[op::SWAP5] = 3;
+  table[op::SWAP6] = 3;
+  table[op::SWAP7] = 3;
+  table[op::SWAP8] = 3;
+  table[op::SWAP9] = 3;
+  table[op::SWAP10] = 3;
+  table[op::SWAP11] = 3;
+  table[op::SWAP12] = 3;
+  table[op::SWAP13] = 3;
+  table[op::SWAP14] = 3;
+  table[op::SWAP15] = 3;
+  table[op::SWAP16] = 3;
 
   return table;
 }

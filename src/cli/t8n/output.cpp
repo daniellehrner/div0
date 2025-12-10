@@ -17,6 +17,13 @@
 
 namespace div0::cli {
 
+using hex::encode_address;
+using hex::encode_bytes;
+using hex::encode_hash;
+using hex::encode_uint256;
+using hex::encode_uint256_padded;
+using hex::encode_uint64;
+
 namespace {
 
 /// Escape a string for JSON output
@@ -77,7 +84,7 @@ std::map<types::Uint256, types::Uint256> convert_storage(
 /// Serialize a single log entry to JSON
 void serialize_log(std::ostream& ss, const evm::Log& log, const std::string& indent) {
   ss << indent << "{\n";
-  ss << indent << "  \"address\": \"" << hex::encode_address(log.address) << "\",\n";
+  ss << indent << "  \"address\": \"" << encode_address(log.address) << "\",\n";
 
   // Topics array
   ss << indent << "  \"topics\": [";
@@ -85,7 +92,7 @@ void serialize_log(std::ostream& ss, const evm::Log& log, const std::string& ind
     ss << "\n";
     for (size_t i = 0; i < log.topics.size(); ++i) {
       // Encode Uint256 as 64-char hex with leading zeros
-      ss << indent << "    \"" << hex::encode_uint256_padded(log.topics[i]) << "\"";
+      ss << indent << "    \"" << encode_uint256_padded(log.topics[i]) << "\"";
       if (i + 1 < log.topics.size()) {
         ss << ",";
       }
@@ -95,20 +102,21 @@ void serialize_log(std::ostream& ss, const evm::Log& log, const std::string& ind
   }
   ss << "],\n";
 
-  ss << indent << "  \"data\": \"" << hex::encode_bytes(log.data) << "\"\n";
+  ss << indent << "  \"data\": \"" << encode_bytes(log.data) << "\"\n";
   ss << indent << "}";
 }
 
 /// Serialize a single receipt to JSON
 void serialize_receipt(std::ostream& ss, const ethereum::Receipt& receipt,
-                       const std::string& indent) {
+                       const types::Hash& tx_hash, const std::string& indent) {
   ss << indent << "{\n";
-  ss << indent << "  \"type\": \"" << hex::encode_uint64(static_cast<uint64_t>(receipt.tx_type))
+  ss << indent << "  \"transactionHash\": \"" << encode_hash(tx_hash) << "\",\n";
+  ss << indent << "  \"type\": \"" << encode_uint64(static_cast<uint64_t>(receipt.tx_type))
      << "\",\n";
-  ss << indent << "  \"status\": \"" << hex::encode_uint64(receipt.status) << "\",\n";
-  ss << indent << "  \"cumulativeGasUsed\": \"" << hex::encode_uint64(receipt.cumulative_gas_used)
+  ss << indent << "  \"status\": \"" << encode_uint64(receipt.status) << "\",\n";
+  ss << indent << "  \"cumulativeGasUsed\": \"" << encode_uint64(receipt.cumulative_gas_used)
      << "\",\n";
-  ss << indent << "  \"logsBloom\": \"" << hex::encode_bytes(receipt.bloom.span()) << "\",\n";
+  ss << indent << "  \"logsBloom\": \"" << encode_bytes(receipt.bloom.span()) << "\",\n";
 
   // Logs array
   ss << indent << "  \"logs\": ";
@@ -130,10 +138,10 @@ void serialize_receipt(std::ostream& ss, const ethereum::Receipt& receipt,
 
 /// Serialize receipts array to JSON
 void serialize_receipts(std::ostream& ss, const std::vector<ethereum::Receipt>& receipts,
-                        const std::string& indent) {
+                        const std::vector<types::Hash>& tx_hashes, const std::string& indent) {
   ss << indent << "\"receipts\": [\n";
   for (size_t i = 0; i < receipts.size(); ++i) {
-    serialize_receipt(ss, receipts[i], indent + "  ");
+    serialize_receipt(ss, receipts[i], tx_hashes[i], indent + "  ");
     if (i + 1 < receipts.size()) {
       ss << ",";
     }
@@ -163,41 +171,39 @@ void serialize_rejected(std::ostream& ss, const std::vector<RejectedTx>& rejecte
 
 /// Serialize result fields to JSON (core fields without outer braces)
 void serialize_result_fields(std::ostream& ss, const T8nResult& result, const std::string& indent) {
-  ss << indent << "\"stateRoot\": \"" << hex::encode_hash(result.state_root) << "\",\n";
-  ss << indent << "\"txRoot\": \"" << hex::encode_hash(result.tx_root) << "\",\n";
-  ss << indent << "\"receiptsRoot\": \"" << hex::encode_hash(result.receipts_root) << "\",\n";
-  ss << indent << "\"logsHash\": \"" << hex::encode_hash(result.logs_hash) << "\",\n";
-  ss << indent << "\"logsBloom\": \"" << hex::encode_bytes(result.logs_bloom.span()) << "\",\n";
-  ss << indent << "\"gasUsed\": \"" << hex::encode_uint64(result.gas_used) << "\"";
+  ss << indent << "\"stateRoot\": \"" << encode_hash(result.state_root) << "\",\n";
+  ss << indent << "\"txRoot\": \"" << encode_hash(result.tx_root) << "\",\n";
+  ss << indent << "\"receiptsRoot\": \"" << encode_hash(result.receipts_root) << "\",\n";
+  ss << indent << "\"logsHash\": \"" << encode_hash(result.logs_hash) << "\",\n";
+  ss << indent << "\"logsBloom\": \"" << encode_bytes(result.logs_bloom.span()) << "\",\n";
+  ss << indent << "\"gasUsed\": \"" << encode_uint64(result.gas_used) << "\"";
 
   if (result.blob_gas_used > 0) {
-    ss << ",\n"
-       << indent << "\"blobGasUsed\": \"" << hex::encode_uint64(result.blob_gas_used) << "\"";
+    ss << ",\n" << indent << "\"blobGasUsed\": \"" << encode_uint64(result.blob_gas_used) << "\"";
   }
 
   // Additional fields for blockchain tests
   if (result.current_difficulty) {
     ss << ",\n"
-       << indent << "\"currentDifficulty\": \"" << hex::encode_uint256(*result.current_difficulty)
+       << indent << "\"currentDifficulty\": \"" << encode_uint256(*result.current_difficulty)
        << "\"";
   }
   if (result.current_base_fee) {
     ss << ",\n"
-       << indent << "\"currentBaseFee\": \"" << hex::encode_uint256(*result.current_base_fee)
-       << "\"";
+       << indent << "\"currentBaseFee\": \"" << encode_uint256(*result.current_base_fee) << "\"";
   }
   if (result.withdrawals_root) {
     ss << ",\n"
-       << indent << "\"withdrawalsRoot\": \"" << hex::encode_hash(*result.withdrawals_root) << "\"";
+       << indent << "\"withdrawalsRoot\": \"" << encode_hash(*result.withdrawals_root) << "\"";
   }
   if (result.current_excess_blob_gas) {
     ss << ",\n"
-       << indent << "\"currentExcessBlobGas\": \""
-       << hex::encode_uint64(*result.current_excess_blob_gas) << "\"";
+       << indent << "\"currentExcessBlobGas\": \"" << encode_uint64(*result.current_excess_blob_gas)
+       << "\"";
   }
 
   ss << ",\n";
-  serialize_receipts(ss, result.receipts, indent);
+  serialize_receipts(ss, result.receipts, result.tx_hashes, indent);
   serialize_rejected(ss, result.rejected, indent);
 }
 
@@ -206,24 +212,24 @@ void serialize_account(std::ostream& ss, const types::Address& address,
                        const state::AccountData& data, const T8nState& state,
                        const std::map<ethereum::StorageSlot, ethereum::StorageValue>* storage,
                        const std::string& indent) {
-  ss << indent << "\"" << hex::encode_address(address) << "\": {\n";
-  ss << indent << "  \"balance\": \"" << hex::encode_uint256(data.balance) << "\"";
+  ss << indent << "\"" << encode_address(address) << "\": {\n";
+  ss << indent << "  \"balance\": \"" << encode_uint256(data.balance) << "\"";
 
   if (data.nonce > 0) {
-    ss << ",\n" << indent << "  \"nonce\": \"" << hex::encode_uint64(data.nonce) << "\"";
+    ss << ",\n" << indent << "  \"nonce\": \"" << encode_uint64(data.nonce) << "\"";
   }
 
   const auto code = state.code().get_code(address);
   if (!code.empty()) {
-    ss << ",\n" << indent << "  \"code\": \"" << hex::encode_bytes(code) << "\"";
+    ss << ",\n" << indent << "  \"code\": \"" << encode_bytes(code) << "\"";
   }
 
   if (storage != nullptr && !storage->empty()) {
     ss << ",\n" << indent << "  \"storage\": {\n";
     size_t j = 0;
     for (const auto& [slot, value] : *storage) {
-      ss << indent << "    \"" << hex::encode_uint256(slot.get()) << "\": \""
-         << hex::encode_uint256(value.get()) << "\"";
+      ss << indent << "    \"" << encode_uint256(slot.get()) << "\": \""
+         << encode_uint256(value.get()) << "\"";
       if (j + 1 < storage->size()) {
         ss << ",";
       }
@@ -274,6 +280,7 @@ types::Bytes encode_tx_body(const std::vector<ethereum::Transaction>& txs) {
 T8nResult compute_result(const T8nState& state, const ExecutionOutput& exec_output) {
   T8nResult result;
   result.receipts = exec_output.receipts;
+  result.tx_hashes = exec_output.tx_hashes;
   result.rejected = exec_output.rejected;
   result.gas_used = exec_output.gas_used;
   result.blob_gas_used = exec_output.blob_gas_used;
@@ -368,7 +375,7 @@ std::string serialize_combined_output(const T8nResult& result, const T8nState& s
   ss << "  },\n";
 
   // Body (RLP-encoded transactions)
-  ss << "  \"body\": \"" << hex::encode_bytes(encode_tx_body(txs)) << "\"\n";
+  ss << "  \"body\": \"" << encode_bytes(encode_tx_body(txs)) << "\"\n";
 
   ss << "}\n";
   return ss.str();
@@ -437,7 +444,7 @@ int write_outputs(const std::string& basedir, const std::string& result_file,
   }
 
   if (!body_file.empty()) {
-    if (!write_file(body_file, hex::encode_bytes(encode_tx_body(executed_txs)) + "\n")) {
+    if (!write_file(body_file, encode_bytes(encode_tx_body(executed_txs)) + "\n")) {
       return 11;  // IoError
     }
   }

@@ -27,8 +27,20 @@ constexpr std::array<uint64_t, 256> create_shanghai_table() {
   // Comparison opcodes
   table[op::LT] = 3;
   table[op::GT] = 3;
+  table[op::SLT] = 3;
+  table[op::SGT] = 3;
   table[op::EQ] = 3;
   table[op::ISZERO] = 3;
+
+  // Bitwise opcodes
+  table[op::AND] = 3;
+  table[op::OR] = 3;
+  table[op::XOR] = 3;
+  table[op::NOT] = 3;
+  table[op::BYTE] = 3;
+  table[op::SHL] = 3;
+  table[op::SHR] = 3;
+  table[op::SAR] = 3;
 
   // Keccak256 (SHA3) opcode - base cost only, word cost is dynamic
   table[op::KECCAK256] = 30;
@@ -38,6 +50,17 @@ constexpr std::array<uint64_t, 256> create_shanghai_table() {
   table[op::MSTORE] = 3;
   table[op::MSTORE8] = 3;
   table[op::MSIZE] = 2;
+
+  // Context opcodes
+  table[op::CALLER] = 2;
+  table[op::CALLDATALOAD] = 3;
+  table[op::CALLDATASIZE] = 2;
+  table[op::CALLDATACOPY] = 3;  // Base cost; word cost and memory expansion added dynamically
+
+  // Control flow opcodes
+  table[op::POP] = 2;
+  table[op::PC] = 2;
+  table[op::GAS] = 2;
 
   // Stack opcodes
   table[op::PUSH0] = 2;

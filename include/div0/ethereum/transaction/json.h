@@ -1,6 +1,9 @@
 #ifndef DIV0_ETHEREUM_TRANSACTION_JSON_H
 #define DIV0_ETHEREUM_TRANSACTION_JSON_H
 
+// JSON transaction encoding/decoding is not available in bare-metal builds
+#ifndef DIV0_BARE_METAL
+
 #include <cstdint>
 #include <optional>
 #include <sstream>
@@ -138,5 +141,7 @@ void json_encode_authorization_list(std::ostringstream& ss, const AuthorizationL
 [[nodiscard]] std::optional<types::Bytes> json_parse_input_field(simdjson::ondemand::object& obj);
 
 }  // namespace div0::ethereum
+
+#endif  // DIV0_BARE_METAL
 
 #endif  // DIV0_ETHEREUM_TRANSACTION_JSON_H

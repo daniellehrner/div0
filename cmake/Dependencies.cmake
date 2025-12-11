@@ -9,7 +9,9 @@ set(FETCHCONTENT_QUIET OFF)
 # Testing & Benchmarking
 # ============================================================================
 
-include(dependencies/GTest)
+if(DIV0_BUILD_TESTS)
+  include(dependencies/GTest)
+endif()
 
 if(DIV0_BUILD_BENCHMARKS)
   include(dependencies/Benchmark)
@@ -26,20 +28,16 @@ include(dependencies/secp256k1)
 # CLI & Serialization
 # ============================================================================
 
-include(dependencies/CLI11)
-include(dependencies/simdjson)
+if(DIV0_BUILD_CLI)
+  include(dependencies/CLI11)
+  include(dependencies/spdlog)
+  include(dependencies/libbacktrace)
+endif()
 
-# ============================================================================
-# Logging
-# ============================================================================
-
-include(dependencies/spdlog)
-
-# ============================================================================
-# Debugging
-# ============================================================================
-
-include(dependencies/libbacktrace)
+# JSON parsing - not needed for bare-metal builds
+if(NOT DIV0_BARE_METAL)
+  include(dependencies/simdjson)
+endif()
 
 # ============================================================================
 # Summary
@@ -47,13 +45,19 @@ include(dependencies/libbacktrace)
 
 message(STATUS "")
 message(STATUS "Dependencies configured:")
-message(STATUS "  - GTest      : Testing framework")
+if(DIV0_BUILD_TESTS)
+  message(STATUS "  - GTest      : Testing framework")
+endif()
 if(DIV0_BUILD_BENCHMARKS)
   message(STATUS "  - Benchmark  : Performance benchmarking")
 endif()
 message(STATUS "  - XKCP       : Keccak cryptographic primitives")
 message(STATUS "  - secp256k1  : ECDSA signature recovery")
-message(STATUS "  - CLI11      : Command-line parser")
-message(STATUS "  - simdjson   : JSON parser")
-message(STATUS "  - spdlog     : Logging library")
-message(STATUS "  - libbacktrace : Stack trace symbolization")
+if(DIV0_BUILD_CLI)
+  message(STATUS "  - CLI11      : Command-line parser")
+  message(STATUS "  - spdlog     : Logging library")
+  message(STATUS "  - libbacktrace : Stack trace symbolization")
+endif()
+if(NOT DIV0_BARE_METAL)
+  message(STATUS "  - simdjson   : JSON parser")
+endif()

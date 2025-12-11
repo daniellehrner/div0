@@ -2,10 +2,13 @@
 
 #include "div0/crypto/keccak256.h"
 #include "div0/crypto/secp256k1.h"
-#include "div0/ethereum/transaction/json.h"
 #include "div0/ethereum/transaction/rlp.h"
 #include "div0/rlp/decode.h"
 #include "div0/rlp/encode.h"
+
+#ifndef DIV0_BARE_METAL
+#include "div0/ethereum/transaction/json.h"
+#endif
 
 namespace div0::ethereum {
 
@@ -240,6 +243,8 @@ std::optional<types::Address> recover_sender(const LegacyTx& tx, crypto::Secp256
   return sender;
 }
 
+#ifndef DIV0_BARE_METAL
+
 // =============================================================================
 // LegacyTx JSON Encoding
 // =============================================================================
@@ -384,5 +389,7 @@ JsonDecodeResult<LegacyTx> json_decode_legacy_tx(std::string_view json) {
 
   return {.value = std::move(tx), .error = JsonDecodeError::Success, .error_detail = {}};
 }
+
+#endif  // DIV0_BARE_METAL
 
 }  // namespace div0::ethereum

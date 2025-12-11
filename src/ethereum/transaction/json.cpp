@@ -1,3 +1,6 @@
+// JSON transaction encoding/decoding is not available in bare-metal builds
+#ifndef DIV0_BARE_METAL
+
 #include "div0/ethereum/transaction/json.h"
 
 #include <sstream>
@@ -415,3 +418,5 @@ JsonDecodeResult<Transaction> json_decode_transaction(std::string_view json) {
 }
 
 }  // namespace div0::ethereum
+
+#endif  // DIV0_BARE_METAL

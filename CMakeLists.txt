@@ -57,8 +57,24 @@ endif()
 option(DIV0_BUILD_TESTS "Build unit tests" ON)
 option(DIV0_BUILD_BENCHMARKS "Build benchmarks" OFF)
 option(DIV0_BUILD_FUZZ "Build fuzzing targets" OFF)
+option(DIV0_BUILD_CLI "Build CLI tools and main executable" ON)
+option(DIV0_BARE_METAL "Build for bare-metal targets (disables CLI, JSON, logging)" OFF)
 option(DIV0_ENABLE_LTO "Enable link-time optimization for Release builds" ON)
 option(DIV0_ENABLE_CLANG_TIDY "Run clang-tidy during build" ON)
+
+# ============================================================================
+# Bare-Metal Mode Overrides
+# ============================================================================
+# When building for bare-metal targets, disable everything not needed
+
+if(DIV0_BARE_METAL)
+  set(DIV0_BUILD_CLI OFF CACHE BOOL "" FORCE)
+  set(DIV0_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+  set(DIV0_BUILD_BENCHMARKS OFF CACHE BOOL "" FORCE)
+  set(DIV0_BUILD_FUZZ OFF CACHE BOOL "" FORCE)
+  add_compile_definitions(DIV0_BARE_METAL=1)
+  message(STATUS "Bare-metal mode: CLI, tests, JSON parsing disabled")
+endif()
 
 # ============================================================================
 # Include CMake Modules
@@ -303,7 +319,7 @@ target_link_libraries(div0_ethereum
     div0_types
     div0_utils
     div0_trie
-    simdjson
+    $<$<NOT:$<BOOL:${DIV0_BARE_METAL}>>:simdjson>
   PRIVATE
     div0_rlp
     div0_crypto
@@ -426,64 +442,66 @@ target_compile_options(div0_evm PRIVATE ${DIV0_WARNING_FLAGS})
 # ============================================================================
 # CLI commands (t8n, t9n, b11r) - NOT a public API
 
-# Generate version.h from template
-configure_file(
-    src/cli/version.h.in
-    ${CMAKE_CURRENT_BINARY_DIR}/generated/version.h
-    @ONLY
-)
+if(DIV0_BUILD_CLI)
+  # Generate version.h from template
+  configure_file(
+      src/cli/version.h.in
+      ${CMAKE_CURRENT_BINARY_DIR}/generated/version.h
+      @ONLY
+  )
 
-add_library(div0_cli STATIC
-    src/cli/crash_handler.cpp
-    src/cli/t8n/t8n_command.cpp
-    src/cli/t8n/input.cpp
-    src/cli/t8n/state_builder.cpp
-    src/cli/t8n/executor.cpp
-    src/cli/t8n/output.cpp
-)
+  add_library(div0_cli STATIC
+      src/cli/crash_handler.cpp
+      src/cli/t8n/t8n_command.cpp
+      src/cli/t8n/input.cpp
+      src/cli/t8n/state_builder.cpp
+      src/cli/t8n/executor.cpp
+      src/cli/t8n/output.cpp
+  )
 
-target_include_directories(div0_cli
-  PRIVATE
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/cli
-    ${CMAKE_CURRENT_BINARY_DIR}/generated
-)
-
-target_link_libraries(div0_cli
-  PUBLIC
-    div0_evm
-    div0_trie
-    CLI11::CLI11
-    spdlog::spdlog_header_only
-  PRIVATE
-    libbacktrace
-)
-
-target_compile_options(div0_cli PRIVATE ${DIV0_WARNING_FLAGS})
-
-# ============================================================================
-# Main Executable: div0
-# ============================================================================
-# CLI application with subcommands
-# Skip when fuzzing - libFuzzer provides its own main()
-
-if(NOT DIV0_BUILD_FUZZ)
-  add_executable(div0 src/cli/main.cpp)
-
-  target_include_directories(div0
+  target_include_directories(div0_cli
     PRIVATE
       ${CMAKE_CURRENT_SOURCE_DIR}/src/cli
       ${CMAKE_CURRENT_BINARY_DIR}/generated
   )
 
-  target_link_libraries(div0
+  target_link_libraries(div0_cli
+    PUBLIC
+      div0_evm
+      div0_trie
+      CLI11::CLI11
+      spdlog::spdlog_header_only
     PRIVATE
-      div0_cli
+      libbacktrace
   )
 
-  target_compile_options(div0 PRIVATE ${DIV0_WARNING_FLAGS})
+  target_compile_options(div0_cli PRIVATE ${DIV0_WARNING_FLAGS})
 
-  # Export symbols for readable stack traces in crash handler
-  target_link_options(div0 PRIVATE -rdynamic)
+  # ============================================================================
+  # Main Executable: div0
+  # ============================================================================
+  # CLI application with subcommands
+  # Skip when fuzzing - libFuzzer provides its own main()
+
+  if(NOT DIV0_BUILD_FUZZ)
+    add_executable(div0 src/cli/main.cpp)
+
+    target_include_directories(div0
+      PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/cli
+        ${CMAKE_CURRENT_BINARY_DIR}/generated
+    )
+
+    target_link_libraries(div0
+      PRIVATE
+        div0_cli
+    )
+
+    target_compile_options(div0 PRIVATE ${DIV0_WARNING_FLAGS})
+
+    # Export symbols for readable stack traces in crash handler
+    target_link_options(div0 PRIVATE -rdynamic)
+  endif()
 endif()
 
 # ============================================================================
@@ -543,11 +561,15 @@ message(STATUS "    - div0_ethereum  (Ethereum consensus types)")
 message(STATUS "    - div0_db        (key-value database abstraction)")
 message(STATUS "    - div0_state     (EVM state management)")
 message(STATUS "    - div0_evm       (EVM interpreter)")
-message(STATUS "    - div0_cli       (CLI commands)")
+if(DIV0_BUILD_CLI)
+  message(STATUS "    - div0_cli       (CLI commands)")
+endif()
 message(STATUS "")
 message(STATUS "  Build tests:       ${DIV0_BUILD_TESTS}")
 message(STATUS "  Build benchmarks:  ${DIV0_BUILD_BENCHMARKS}")
 message(STATUS "  Build fuzz:        ${DIV0_BUILD_FUZZ}")
+message(STATUS "  Build CLI:         ${DIV0_BUILD_CLI}")
+message(STATUS "  Bare-metal mode:   ${DIV0_BARE_METAL}")
 message(STATUS "  Enable LTO:        ${DIV0_ENABLE_LTO}")
 message(STATUS "  Enable clang-tidy: ${DIV0_ENABLE_CLANG_TIDY}")
 message(STATUS "")

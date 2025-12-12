@@ -11,6 +11,7 @@
 #include "opcodes/arithmetic.h"
 #include "opcodes/call.h"
 #include "opcodes/comparison.h"
+#include "opcodes/context.h"
 #include "opcodes/dup.h"
 #include "opcodes/keccak256.h"
 #include "opcodes/memory.h"
@@ -356,6 +357,7 @@ FrameResult EVM::execute_frame(CallFrame& frame) {
       dispatch_shanghai[op::EQ] = &&op_eq;
       dispatch_shanghai[op::ISZERO] = &&op_is_zero;
       dispatch_shanghai[op::KECCAK256] = &&op_sha3;
+      dispatch_shanghai[op::CALLER] = &&op_caller;
       dispatch_shanghai[op::MLOAD] = &&op_mload;
       dispatch_shanghai[op::MSTORE] = &&op_mstore;
       dispatch_shanghai[op::MSTORE8] = &&op_mstore8;
@@ -428,6 +430,11 @@ FrameResult EVM::execute_frame(CallFrame& frame) {
       dispatch_shanghai[op::SWAP15] = &&op_swap15;
       dispatch_shanghai[op::SWAP16] = &&op_swap16;
       dispatch_shanghai[op::CALL] = &&op_call;
+      dispatch_shanghai[op::CALLCODE] = &&op_callcode;
+      dispatch_shanghai[op::DELEGATECALL] = &&op_delegatecall;
+      dispatch_shanghai[op::STATICCALL] = &&op_staticcall;
+      dispatch_shanghai[op::RETURN] = &&op_return;
+      dispatch_shanghai[op::REVERT] = &&op_revert;
 
       // Cancun inherits Shanghai opcodes
       dispatch_cancun = dispatch_shanghai;
@@ -558,6 +565,22 @@ op_sha3: {
                               schedule_->sha3_word_cost, schedule_->memory_access, memory);
   if (tracer_ != nullptr) [[unlikely]] {
     tracer_->trace_post_execution(frame, status, gas_before - gas);
+  }
+  if (status != ExecutionStatus::Success) [[unlikely]] {
+    return FrameResult::error(status);
+  }
+}
+  DISPATCH_NEXT();
+
+  // CALLER opcode - push msg.sender onto stack
+op_caller: {
+  if (tracer_ != nullptr) [[unlikely]] {
+    tracer_->trace_pre_execution(frame);
+  }
+  const uint64_t gas_cost = schedule_->static_costs[op::CALLER];
+  status = opcodes::caller(stack, gas, gas_cost, frame.caller);
+  if (tracer_ != nullptr) [[unlikely]] {
+    tracer_->trace_post_execution(frame, status, gas_cost);
   }
   if (status != ExecutionStatus::Success) [[unlikely]] {
     return FrameResult::error(status);
@@ -764,76 +787,112 @@ op_sstore: {
 
 #undef SWAP_N_HANDLER
 
-  // CALL opcode - creates a child call frame
-op_call: {
+// Macro for CALL family opcodes - handles tracing, error checking, and frame setup
+// Differences: prepare_fn, exec_type, is_static, caller, address, value
+#define CALL_OPCODE_HANDLER(label, prepare_call_expr, exec_type_val, is_static_expr, caller_expr, \
+                            address_expr, value_expr)                                             \
+  label: {                                                                                        \
+    if (tracer_ != nullptr) [[unlikely]] {                                                        \
+      tracer_->trace_pre_execution(frame);                                                        \
+    }                                                                                             \
+    const uint64_t gas_before = gas;                                                              \
+    auto setup = prepare_call_expr;                                                               \
+                                                                                                  \
+    if (setup.status == ExecutionStatus::CallDepthExceeded) [[unlikely]] {                        \
+      if (tracer_ != nullptr) [[unlikely]] {                                                      \
+        tracer_->trace_post_execution(frame, setup.status, gas_before - gas);                     \
+      }                                                                                           \
+      DISPATCH_NEXT();                                                                            \
+    }                                                                                             \
+                                                                                                  \
+    if (setup.status != ExecutionStatus::Success) [[unlikely]] {                                  \
+      if (tracer_ != nullptr) [[unlikely]] {                                                      \
+        tracer_->trace_post_execution(frame, setup.status, gas_before - gas);                     \
+      }                                                                                           \
+      return FrameResult::error(setup.status);                                                    \
+    }                                                                                             \
+                                                                                                  \
+    if (tracer_ != nullptr) [[unlikely]] {                                                        \
+      tracer_->trace_post_execution(frame, ExecutionStatus::Success, gas_before - gas);           \
+    }                                                                                             \
+                                                                                                  \
+    frame.output_offset = setup.ret_offset;                                                       \
+    frame.output_size = static_cast<uint32_t>(std::min(setup.ret_size, uint64_t{UINT32_MAX}));    \
+                                                                                                  \
+    const auto callee_code = state_context_.code.get_code(setup.target);                          \
+                                                                                                  \
+    pending_frame_ = frame_pool_->rent_frame();                                                   \
+    pending_frame_->pc = 0;                                                                       \
+    pending_frame_->gas = setup.child_gas;                                                        \
+    pending_frame_->stack = stack_pool_->rent();                                                  \
+    pending_frame_->memory = memory_pool_->rent();                                                \
+    pending_frame_->code_ptr = callee_code.data();                                                \
+    pending_frame_->code_size = callee_code.size();                                               \
+    pending_frame_->output_offset = 0;                                                            \
+    pending_frame_->output_size = 0;                                                              \
+    pending_frame_->depth = frame.depth + 1;                                                      \
+    pending_frame_->exec_type = exec_type_val;                                                    \
+    pending_frame_->is_static = is_static_expr;                                                   \
+    pending_frame_->caller = caller_expr;                                                         \
+    pending_frame_->address = address_expr;                                                       \
+    pending_frame_->value = value_expr;                                                           \
+                                                                                                  \
+    if (setup.args_size > 0) {                                                                    \
+      pending_frame_->input_ptr =                                                                 \
+          memory.read_span_unsafe(setup.args_offset, setup.args_size).data();                     \
+      pending_frame_->input_size = setup.args_size;                                               \
+    } else {                                                                                      \
+      pending_frame_->input_ptr = nullptr;                                                        \
+      pending_frame_->input_size = 0;                                                             \
+    }                                                                                             \
+                                                                                                  \
+    return FrameResult::call();                                                                   \
+  }
+
+  // CALL: execute code at target address, writes to target's storage
+  CALL_OPCODE_HANDLER(op_call,
+                      opcodes::prepare_call(stack, gas, memory, state_context_.accounts,
+                                            frame.is_static, frame.depth, schedule_->memory_access),
+                      ExecutionType::Call, frame.is_static, frame.address, setup.target,
+                      setup.value)
+
+  // STATICCALL: read-only call, forces static context
+  CALL_OPCODE_HANDLER(op_staticcall,
+                      opcodes::prepare_staticcall(stack, gas, memory, state_context_.accounts,
+                                                  frame.depth, schedule_->memory_access),
+                      ExecutionType::StaticCall, true, frame.address, setup.target,
+                      types::Uint256::zero())
+
+  // DELEGATECALL: execute code in caller's context (preserves msg.sender and msg.value)
+  CALL_OPCODE_HANDLER(op_delegatecall,
+                      opcodes::prepare_delegatecall(stack, gas, memory, state_context_.accounts,
+                                                    frame.depth, schedule_->memory_access),
+                      ExecutionType::DelegateCall, frame.is_static, frame.caller, frame.address,
+                      frame.value)
+
+  // CALLCODE: deprecated - like CALL but runs at caller's address
+  CALL_OPCODE_HANDLER(
+      op_callcode,
+      opcodes::prepare_callcode(stack, gas, memory, state_context_.accounts, frame.is_static,
+                                frame.depth, schedule_->memory_access),
+      ExecutionType::CallCode, frame.is_static, frame.address, frame.address, setup.value)
+
+#undef CALL_OPCODE_HANDLER
+
+  // RETURN opcode - halt execution and return data
+op_return: {
   if (tracer_ != nullptr) [[unlikely]] {
     tracer_->trace_pre_execution(frame);
   }
-  // CALL has dynamic gas cost
-  const uint64_t gas_before = gas;
-  auto setup = opcodes::prepare_call(stack, gas, memory, state_context_.accounts, frame.is_static,
-                                     frame.depth, schedule_->memory_access);
+  return opcodes::return_op(stack, gas, schedule_->memory_access, memory);
+}
 
-  // Call depth exceeded is not a fatal error - the EVM spec says we simply
-  // fail the call (return 0) but continue execution. prepare_call() already
-  // pushed 0 onto the stack, so we just continue to the next opcode.
-  if (setup.status == ExecutionStatus::CallDepthExceeded) [[unlikely]] {
-    if (tracer_ != nullptr) [[unlikely]] {
-      tracer_->trace_post_execution(frame, setup.status, gas_before - gas);
-    }
-    DISPATCH_NEXT();
-  }
-
-  if (setup.status != ExecutionStatus::Success) [[unlikely]] {
-    if (tracer_ != nullptr) [[unlikely]] {
-      tracer_->trace_post_execution(frame, setup.status, gas_before - gas);
-    }
-    return FrameResult::error(setup.status);
-  }
-
-  // Trace CALL post-execution before creating child frame
-  // Note: The actual child execution is traced separately via trace_frame_enter
+  // REVERT opcode - halt execution, revert state, and return data
+op_revert: {
   if (tracer_ != nullptr) [[unlikely]] {
-    tracer_->trace_post_execution(frame, ExecutionStatus::Success, gas_before - gas);
+    tracer_->trace_pre_execution(frame);
   }
-
-  // Store output location in parent frame (for when child returns)
-  frame.output_offset = setup.ret_offset;
-  frame.output_size = static_cast<uint32_t>(std::min(setup.ret_size, uint64_t{UINT32_MAX}));
-
-  // Get callee code
-  const auto callee_code = state_context_.code.get_code(setup.target);
-
-  // Create child call frame
-  pending_frame_ = frame_pool_->rent_frame();
-  pending_frame_->pc = 0;
-  pending_frame_->gas = setup.child_gas;
-  pending_frame_->stack = stack_pool_->rent();
-  pending_frame_->memory = memory_pool_->rent();
-  pending_frame_->code_ptr = callee_code.data();
-  pending_frame_->code_size = callee_code.size();
-  pending_frame_->output_offset = 0;
-  pending_frame_->output_size = 0;
-  pending_frame_->depth = frame.depth + 1;
-  pending_frame_->exec_type = ExecutionType::Call;
-  pending_frame_->is_static = frame.is_static;  // Inherit static context
-  pending_frame_->caller = frame.address;       // Caller is current contract
-  pending_frame_->address = setup.target;       // Target address
-  pending_frame_->value = setup.value;          // Value being sent
-
-  // Set input data pointer into parent's memory.
-  // SAFETY: This pointer remains valid because each frame has its own Memory instance.
-  // The parent's memory is not modified while the child executes (parent is suspended).
-  if (setup.args_size > 0) {
-    pending_frame_->input_ptr = memory.read_span_unsafe(setup.args_offset, setup.args_size).data();
-    pending_frame_->input_size = setup.args_size;
-  } else {
-    pending_frame_->input_ptr = nullptr;
-    pending_frame_->input_size = 0;
-  }
-
-  // Signal to execute() that we need to run a child call
-  return FrameResult::call();
+  return opcodes::revert_op(stack, gas, schedule_->memory_access, memory);
 }
 
 #undef OPCODE_HANDLER

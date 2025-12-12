@@ -378,5 +378,547 @@ TEST_F(EvmCallTest, NestedCallSucceeds) {
   EXPECT_EQ(callee_stored.get(), types::Uint256(1));
 }
 
+// ============================================================================
+// STATICCALL Tests
+// ============================================================================
+
+TEST_F(EvmCallTest, StaticCallToEmptyCodeSucceeds) {
+  // Callee has no code - STATICCALL should succeed and push 1
+  code_provider_.set_code(callee_addr_, {});
+
+  // Build caller code:
+  // PUSH1 0 (retSize)
+  // PUSH1 0 (retOffset)
+  // PUSH1 0 (argsSize)
+  // PUSH1 0 (argsOffset)
+  // PUSH20 <callee_addr> (address)
+  // PUSH2 10000 (gas)
+  // STATICCALL (0xFA)
+  // PUSH1 0
+  // SSTORE
+  // STOP
+  std::vector<uint8_t> code;
+  code.push_back(0x60);
+  code.push_back(0x00);  // PUSH1 0 (retSize)
+  code.push_back(0x60);
+  code.push_back(0x00);  // PUSH1 0 (retOffset)
+  code.push_back(0x60);
+  code.push_back(0x00);  // PUSH1 0 (argsSize)
+  code.push_back(0x60);
+  code.push_back(0x00);              // PUSH1 0 (argsOffset)
+  push_address(code, callee_addr_);  // PUSH20 callee
+  code.push_back(0x61);
+  code.push_back(0x27);
+  code.push_back(0x10);  // PUSH2 10000 (gas)
+  code.push_back(0xFA);  // STATICCALL
+  code.push_back(0x60);
+  code.push_back(0x00);  // PUSH1 0 (slot)
+  code.push_back(0x55);  // SSTORE
+  code.push_back(0x00);  // STOP
+
+  EVM evm(state_context_, Fork::Shanghai);
+  const auto env = make_env(code, 500000);
+  const auto result = evm.execute(env);
+
+  EXPECT_EQ(result.status, ExecutionStatus::Success);
+
+  // STATICCALL to empty code should succeed (push 1)
+  const auto stored = storage_.load(caller_addr_, ethereum::StorageSlot(types::Uint256::zero()));
+  EXPECT_EQ(stored.get(), types::Uint256(1));
+}
+
+TEST_F(EvmCallTest, StaticCallCannotWriteStorage) {
+  // Callee tries to write storage - should fail in static context
+  code_provider_.set_code(callee_addr_, {
+                                            0x60, 0x2A,  // PUSH1 42
+                                            0x60, 0x00,  // PUSH1 0
+                                            0x55,        // SSTORE (should fail)
+                                            0x00         // STOP
+                                        });
+
+  std::vector<uint8_t> code;
+  code.push_back(0x60);
+  code.push_back(0x00);
+  code.push_back(0x60);
+  code.push_back(0x00);
+  code.push_back(0x60);
+  code.push_back(0x00);
+  code.push_back(0x60);
+  code.push_back(0x00);
+  push_address(code, callee_addr_);
+  code.push_back(0x61);
+  code.push_back(0x27);
+  code.push_back(0x10);
+  code.push_back(0xFA);  // STATICCALL
+  code.push_back(0x60);
+  code.push_back(0x00);
+  code.push_back(0x55);  // SSTORE result
+  code.push_back(0x00);
+
+  EVM evm(state_context_, Fork::Shanghai);
+  const auto env = make_env(code, 500000);
+  const auto result = evm.execute(env);
+
+  EXPECT_EQ(result.status, ExecutionStatus::Success);
+
+  // STATICCALL should fail (push 0) because callee tried to SSTORE
+  const auto stored = storage_.load(caller_addr_, ethereum::StorageSlot(types::Uint256::zero()));
+  EXPECT_EQ(stored.get(), types::Uint256::zero());
+
+  // Callee's storage should NOT be modified
+  const auto callee_stored =
+      storage_.load(callee_addr_, ethereum::StorageSlot(types::Uint256::zero()));
+  EXPECT_EQ(callee_stored.get(), types::Uint256::zero());
+}
+
+TEST_F(EvmCallTest, StaticCallCanReadStorage) {
+  // Set up callee with some storage
+  storage_.store(callee_addr_, ethereum::StorageSlot(types::Uint256::zero()),
+                 ethereum::StorageValue(types::Uint256(123)));
+
+  // Callee reads from storage and returns it:
+  // PUSH1 0, SLOAD, PUSH1 0, MSTORE, PUSH1 32, PUSH1 0, RETURN
+  code_provider_.set_code(callee_addr_, {
+                                            0x60, 0x00,  // PUSH1 0
+                                            0x54,        // SLOAD (read slot 0)
+                                            0x60, 0x00,  // PUSH1 0
+                                            0x52,        // MSTORE
+                                            0x60, 0x20,  // PUSH1 32
+                                            0x60, 0x00,  // PUSH1 0
+                                            0xF3         // RETURN
+                                        });
+
+  std::vector<uint8_t> code;
+  code.push_back(0x60);
+  code.push_back(0x20);  // retSize = 32
+  code.push_back(0x60);
+  code.push_back(0x00);  // retOffset = 0
+  code.push_back(0x60);
+  code.push_back(0x00);
+  code.push_back(0x60);
+  code.push_back(0x00);
+  push_address(code, callee_addr_);
+  code.push_back(0x61);
+  code.push_back(0x27);
+  code.push_back(0x10);
+  code.push_back(0xFA);  // STATICCALL
+  // Load from memory offset 0 (where return data was copied)
+  code.push_back(0x60);
+  code.push_back(0x00);
+  code.push_back(0x51);  // MLOAD
+  // Store in slot 1
+  code.push_back(0x60);
+  code.push_back(0x01);
+  code.push_back(0x55);  // SSTORE
+  code.push_back(0x00);
+
+  EVM evm(state_context_, Fork::Shanghai);
+  const auto env = make_env(code, 500000);
+  const auto result = evm.execute(env);
+
+  EXPECT_EQ(result.status, ExecutionStatus::Success);
+
+  // Caller should have stored the value read by callee (123)
+  const auto stored = storage_.load(caller_addr_, ethereum::StorageSlot(types::Uint256(1)));
+  EXPECT_EQ(stored.get(), types::Uint256(123));
+}
+
+// ============================================================================
+// DELEGATECALL Tests
+// ============================================================================
+
+TEST_F(EvmCallTest, DelegateCallWritesToCallerStorage) {
+  // Key test: DELEGATECALL executes callee's code but writes to CALLER's storage
+
+  // Callee code writes 42 to slot 0
+  code_provider_.set_code(callee_addr_, {
+                                            0x60, 0x2A,  // PUSH1 42
+                                            0x60, 0x00,  // PUSH1 0
+                                            0x55,        // SSTORE
+                                            0x00         // STOP
+                                        });
+
+  std::vector<uint8_t> code;
+  code.push_back(0x60);
+  code.push_back(0x00);  // retSize
+  code.push_back(0x60);
+  code.push_back(0x00);  // retOffset
+  code.push_back(0x60);
+  code.push_back(0x00);  // argsSize
+  code.push_back(0x60);
+  code.push_back(0x00);  // argsOffset
+  push_address(code, callee_addr_);
+  code.push_back(0x61);
+  code.push_back(0x27);
+  code.push_back(0x10);  // gas
+  code.push_back(0xF4);  // DELEGATECALL
+  code.push_back(0x00);  // STOP
+
+  EVM evm(state_context_, Fork::Shanghai);
+  const auto env = make_env(code, 500000);
+  const auto result = evm.execute(env);
+
+  EXPECT_EQ(result.status, ExecutionStatus::Success);
+
+  // Callee's storage should be EMPTY (DELEGATECALL doesn't write to callee)
+  const auto callee_stored =
+      storage_.load(callee_addr_, ethereum::StorageSlot(types::Uint256::zero()));
+  EXPECT_EQ(callee_stored.get(), types::Uint256::zero());
+
+  // Caller's storage should have the value (42)
+  const auto caller_stored =
+      storage_.load(caller_addr_, ethereum::StorageSlot(types::Uint256::zero()));
+  EXPECT_EQ(caller_stored.get(), types::Uint256(42));
+}
+
+TEST_F(EvmCallTest, DelegateCallPreservesMsgSender) {
+  // DELEGATECALL preserves msg.sender from parent context
+  // We'll use a third contract to verify this
+
+  const types::Address third_addr{types::Uint256(0x3000)};
+  const types::Address external_caller{types::Uint256(0x9999)};
+
+  // Third contract (library) stores CALLER to slot 0:
+  // CALLER, PUSH1 0, SSTORE, STOP
+  code_provider_.set_code(third_addr, {
+                                          0x33,        // CALLER
+                                          0x60, 0x00,  // PUSH1 0
+                                          0x55,        // SSTORE
+                                          0x00         // STOP
+                                      });
+
+  // Callee DELEGATECALL to third_addr
+  std::vector<uint8_t> callee_code;
+  callee_code.push_back(0x60);
+  callee_code.push_back(0x00);
+  callee_code.push_back(0x60);
+  callee_code.push_back(0x00);
+  callee_code.push_back(0x60);
+  callee_code.push_back(0x00);
+  callee_code.push_back(0x60);
+  callee_code.push_back(0x00);
+  push_address(callee_code, third_addr);
+  callee_code.push_back(0x61);
+  callee_code.push_back(0x27);
+  callee_code.push_back(0x10);
+  callee_code.push_back(0xF4);  // DELEGATECALL
+  callee_code.push_back(0x00);
+  code_provider_.set_code(callee_addr_, callee_code);
+
+  // Caller DELEGATECALL to callee
+  std::vector<uint8_t> code;
+  code.push_back(0x60);
+  code.push_back(0x00);
+  code.push_back(0x60);
+  code.push_back(0x00);
+  code.push_back(0x60);
+  code.push_back(0x00);
+  code.push_back(0x60);
+  code.push_back(0x00);
+  push_address(code, callee_addr_);
+  code.push_back(0x61);
+  code.push_back(0x27);
+  code.push_back(0x10);
+  code.push_back(0xF4);  // DELEGATECALL
+  code.push_back(0x00);
+
+  // Set external_caller as the original caller
+  const ExecutionEnvironment env = {
+      .block = &block_ctx_,
+      .tx = {.origin = external_caller, .gas_price = types::Uint256::zero(), .blob_hashes = {}},
+      .call = {.value = types::Uint256::zero(),
+               .gas = 500000,
+               .code = code,
+               .input = {},
+               .caller = external_caller,  // External caller is msg.sender
+               .address = caller_addr_,
+               .is_static = false},
+  };
+
+  EVM evm(state_context_, Fork::Shanghai);
+  const auto result = evm.execute(env);
+
+  EXPECT_EQ(result.status, ExecutionStatus::Success);
+
+  // The CALLER opcode in third_addr (via DELEGATECALL chain) should see external_caller
+  // And it should be stored in caller_addr_'s storage (not third_addr's)
+  const auto stored = storage_.load(caller_addr_, ethereum::StorageSlot(types::Uint256::zero()));
+  EXPECT_EQ(stored.get(), external_caller.to_uint256());
+}
+
+// ============================================================================
+// CALLCODE Tests
+// ============================================================================
+
+TEST_F(EvmCallTest, CallCodeWritesToCallerStorage) {
+  // CALLCODE like DELEGATECALL writes to caller's storage
+
+  code_provider_.set_code(callee_addr_, {
+                                            0x60, 0x55,  // PUSH1 85
+                                            0x60, 0x00,  // PUSH1 0
+                                            0x55,        // SSTORE
+                                            0x00         // STOP
+                                        });
+
+  std::vector<uint8_t> code;
+  code.push_back(0x60);
+  code.push_back(0x00);  // retSize
+  code.push_back(0x60);
+  code.push_back(0x00);  // retOffset
+  code.push_back(0x60);
+  code.push_back(0x00);  // argsSize
+  code.push_back(0x60);
+  code.push_back(0x00);  // argsOffset
+  code.push_back(0x60);
+  code.push_back(0x00);  // value
+  push_address(code, callee_addr_);
+  code.push_back(0x61);
+  code.push_back(0x27);
+  code.push_back(0x10);  // gas
+  code.push_back(0xF2);  // CALLCODE
+  code.push_back(0x00);  // STOP
+
+  EVM evm(state_context_, Fork::Shanghai);
+  const auto env = make_env(code, 500000);
+  const auto result = evm.execute(env);
+
+  EXPECT_EQ(result.status, ExecutionStatus::Success);
+
+  // Callee's storage should be EMPTY
+  const auto callee_stored =
+      storage_.load(callee_addr_, ethereum::StorageSlot(types::Uint256::zero()));
+  EXPECT_EQ(callee_stored.get(), types::Uint256::zero());
+
+  // Caller's storage should have the value (85)
+  const auto caller_stored =
+      storage_.load(caller_addr_, ethereum::StorageSlot(types::Uint256::zero()));
+  EXPECT_EQ(caller_stored.get(), types::Uint256(85));
+}
+
+TEST_F(EvmCallTest, CallCodeSetsMsgSenderToCurrent) {
+  // Key difference: CALLCODE sets msg.sender to current contract
+  // (unlike DELEGATECALL which preserves original sender)
+
+  const types::Address external_caller{types::Uint256(0x9999)};
+
+  // Callee stores CALLER to slot 0
+  code_provider_.set_code(callee_addr_, {
+                                            0x33,        // CALLER
+                                            0x60, 0x00,  // PUSH1 0
+                                            0x55,        // SSTORE
+                                            0x00         // STOP
+                                        });
+
+  std::vector<uint8_t> code;
+  code.push_back(0x60);
+  code.push_back(0x00);
+  code.push_back(0x60);
+  code.push_back(0x00);
+  code.push_back(0x60);
+  code.push_back(0x00);
+  code.push_back(0x60);
+  code.push_back(0x00);
+  code.push_back(0x60);
+  code.push_back(0x00);  // value
+  push_address(code, callee_addr_);
+  code.push_back(0x61);
+  code.push_back(0x27);
+  code.push_back(0x10);
+  code.push_back(0xF2);  // CALLCODE
+  code.push_back(0x00);
+
+  const ExecutionEnvironment env = {
+      .block = &block_ctx_,
+      .tx = {.origin = external_caller, .gas_price = types::Uint256::zero(), .blob_hashes = {}},
+      .call = {.value = types::Uint256::zero(),
+               .gas = 500000,
+               .code = code,
+               .input = {},
+               .caller = external_caller,
+               .address = caller_addr_,
+               .is_static = false},
+  };
+
+  EVM evm(state_context_, Fork::Shanghai);
+  const auto result = evm.execute(env);
+
+  EXPECT_EQ(result.status, ExecutionStatus::Success);
+
+  // CALLCODE sets msg.sender to caller_addr_ (the current contract)
+  // NOT external_caller (unlike DELEGATECALL)
+  const auto stored = storage_.load(caller_addr_, ethereum::StorageSlot(types::Uint256::zero()));
+  EXPECT_EQ(stored.get(), caller_addr_.to_uint256());
+}
+
+// ============================================================================
+// Comparison Tests - CALL vs DELEGATECALL vs CALLCODE storage behavior
+// ============================================================================
+
+TEST_F(EvmCallTest, CallWritesToTargetStorage) {
+  // Regular CALL writes to TARGET's storage
+
+  code_provider_.set_code(callee_addr_, {
+                                            0x60, 0x99,  // PUSH1 153
+                                            0x60, 0x00,  // PUSH1 0
+                                            0x55,        // SSTORE
+                                            0x00         // STOP
+                                        });
+
+  std::vector<uint8_t> code;
+  code.push_back(0x60);
+  code.push_back(0x00);
+  code.push_back(0x60);
+  code.push_back(0x00);
+  code.push_back(0x60);
+  code.push_back(0x00);
+  code.push_back(0x60);
+  code.push_back(0x00);
+  code.push_back(0x60);
+  code.push_back(0x00);  // value
+  push_address(code, callee_addr_);
+  code.push_back(0x61);
+  code.push_back(0x27);
+  code.push_back(0x10);
+  code.push_back(0xF1);  // CALL
+  code.push_back(0x00);
+
+  EVM evm(state_context_, Fork::Shanghai);
+  const auto env = make_env(code, 500000);
+  const auto result = evm.execute(env);
+
+  EXPECT_EQ(result.status, ExecutionStatus::Success);
+
+  // CALL writes to callee's storage
+  const auto callee_stored =
+      storage_.load(callee_addr_, ethereum::StorageSlot(types::Uint256::zero()));
+  EXPECT_EQ(callee_stored.get(), types::Uint256(153));
+
+  // Caller's storage should be EMPTY
+  const auto caller_stored =
+      storage_.load(caller_addr_, ethereum::StorageSlot(types::Uint256::zero()));
+  EXPECT_EQ(caller_stored.get(), types::Uint256::zero());
+}
+
+// ============================================================================
+// Stack underflow tests
+// ============================================================================
+
+TEST_F(EvmCallTest, StaticCallStackUnderflow) {
+  EVM evm(state_context_, Fork::Shanghai);
+  const std::vector<uint8_t> code = {0xFA};  // STATICCALL with empty stack
+  const auto env = make_env(code, 100000);
+  const auto result = evm.execute(env);
+  EXPECT_EQ(result.status, ExecutionStatus::StackUnderflow);
+}
+
+TEST_F(EvmCallTest, DelegateCallStackUnderflow) {
+  EVM evm(state_context_, Fork::Shanghai);
+  const std::vector<uint8_t> code = {0xF4};  // DELEGATECALL with empty stack
+  const auto env = make_env(code, 100000);
+  const auto result = evm.execute(env);
+  EXPECT_EQ(result.status, ExecutionStatus::StackUnderflow);
+}
+
+TEST_F(EvmCallTest, CallCodeStackUnderflow) {
+  EVM evm(state_context_, Fork::Shanghai);
+  const std::vector<uint8_t> code = {0xF2};  // CALLCODE with empty stack
+  const auto env = make_env(code, 100000);
+  const auto result = evm.execute(env);
+  EXPECT_EQ(result.status, ExecutionStatus::StackUnderflow);
+}
+
+// ============================================================================
+// Return data tests
+// ============================================================================
+
+TEST_F(EvmCallTest, StaticCallReturnsData) {
+  // Callee returns 32 bytes of data
+  code_provider_.set_code(callee_addr_, {
+                                            0x60, 0xAB,  // PUSH1 0xAB
+                                            0x60, 0x00,  // PUSH1 0
+                                            0x52,        // MSTORE
+                                            0x60, 0x20,  // PUSH1 32
+                                            0x60, 0x00,  // PUSH1 0
+                                            0xF3         // RETURN
+                                        });
+
+  std::vector<uint8_t> code;
+  code.push_back(0x60);
+  code.push_back(0x20);  // retSize = 32
+  code.push_back(0x60);
+  code.push_back(0x00);  // retOffset = 0
+  code.push_back(0x60);
+  code.push_back(0x00);
+  code.push_back(0x60);
+  code.push_back(0x00);
+  push_address(code, callee_addr_);
+  code.push_back(0x61);
+  code.push_back(0x27);
+  code.push_back(0x10);
+  code.push_back(0xFA);  // STATICCALL
+  // Load from memory offset 0
+  code.push_back(0x60);
+  code.push_back(0x00);
+  code.push_back(0x51);  // MLOAD
+  // Store in slot 0
+  code.push_back(0x60);
+  code.push_back(0x00);
+  code.push_back(0x55);  // SSTORE
+  code.push_back(0x00);
+
+  EVM evm(state_context_, Fork::Shanghai);
+  const auto env = make_env(code, 500000);
+  const auto result = evm.execute(env);
+
+  EXPECT_EQ(result.status, ExecutionStatus::Success);
+
+  // Should have stored 0xAB (padded to 32 bytes)
+  const auto stored = storage_.load(caller_addr_, ethereum::StorageSlot(types::Uint256::zero()));
+  EXPECT_EQ(stored.get(), types::Uint256(0xAB));
+}
+
+TEST_F(EvmCallTest, DelegateCallReturnsData) {
+  // Callee returns data via RETURN
+  code_provider_.set_code(callee_addr_, {
+                                            0x60, 0xCD,  // PUSH1 0xCD
+                                            0x60, 0x00,  // PUSH1 0
+                                            0x52,        // MSTORE
+                                            0x60, 0x20,  // PUSH1 32
+                                            0x60, 0x00,  // PUSH1 0
+                                            0xF3         // RETURN
+                                        });
+
+  std::vector<uint8_t> code;
+  code.push_back(0x60);
+  code.push_back(0x20);  // retSize = 32
+  code.push_back(0x60);
+  code.push_back(0x00);  // retOffset = 0
+  code.push_back(0x60);
+  code.push_back(0x00);
+  code.push_back(0x60);
+  code.push_back(0x00);
+  push_address(code, callee_addr_);
+  code.push_back(0x61);
+  code.push_back(0x27);
+  code.push_back(0x10);
+  code.push_back(0xF4);  // DELEGATECALL
+  code.push_back(0x60);
+  code.push_back(0x00);
+  code.push_back(0x51);  // MLOAD
+  code.push_back(0x60);
+  code.push_back(0x01);  // slot 1 (avoid conflict with callee's SSTORE)
+  code.push_back(0x55);  // SSTORE
+  code.push_back(0x00);
+
+  EVM evm(state_context_, Fork::Shanghai);
+  const auto env = make_env(code, 500000);
+  const auto result = evm.execute(env);
+
+  EXPECT_EQ(result.status, ExecutionStatus::Success);
+
+  const auto stored = storage_.load(caller_addr_, ethereum::StorageSlot(types::Uint256(1)));
+  EXPECT_EQ(stored.get(), types::Uint256(0xCD));
+}
+
 }  // namespace
 }  // namespace div0::evm

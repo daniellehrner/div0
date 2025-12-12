@@ -1,5 +1,5 @@
-#ifndef DIV0_EVM_OPCODES_CONTROL_FLOW_H
-#define DIV0_EVM_OPCODES_CONTROL_FLOW_H
+#ifndef DIV0_EVM_OPCODES_CALL_H
+#define DIV0_EVM_OPCODES_CALL_H
 
 #include <cstdint>
 
@@ -26,8 +26,8 @@ template <bool IsReturn>
     return FrameResult::error(ExecutionStatus::StackUnderflow);
   }
 
-  uint64_t offset;
-  uint64_t size;
+  uint64_t offset = 0;
+  uint64_t size = 0;
   if (!stack[0].to_uint64(offset)) [[unlikely]] {
     return FrameResult::error(ExecutionStatus::OutOfGas);
   }
@@ -610,4 +610,4 @@ struct CallSetup {
 
 }  // namespace div0::evm::opcodes
 
-#endif  // DIV0_EVM_OPCODES_CONTROL_FLOW_H
+#endif  // DIV0_EVM_OPCODES_CALL_H

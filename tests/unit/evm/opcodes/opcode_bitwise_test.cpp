@@ -39,7 +39,7 @@ TEST(OpcodeAnd, BasicAnd) {
   (void)stack.push(Uint256(0b1100));  // b
   (void)stack.push(Uint256(0b1010));  // a (top)
 
-  const auto result = and_(stack, gas, GAS_AND);
+  const auto result = op_and(stack, gas, GAS_AND);
 
   EXPECT_EQ(result, ExecutionStatus::Success);
   EXPECT_EQ(stack.size(), 1);
@@ -53,7 +53,7 @@ TEST(OpcodeAnd, AndWithZero) {
   (void)stack.push(Uint256(0));
   (void)stack.push(Uint256(0xFF));
 
-  const auto result = and_(stack, gas, GAS_AND);
+  const auto result = op_and(stack, gas, GAS_AND);
 
   EXPECT_EQ(result, ExecutionStatus::Success);
   EXPECT_EQ(stack[0], ZERO);
@@ -66,7 +66,7 @@ TEST(OpcodeAnd, AndWithMax) {
   (void)stack.push(max_val);
   (void)stack.push(Uint256(0x12345678));
 
-  const auto result = and_(stack, gas, GAS_AND);
+  const auto result = op_and(stack, gas, GAS_AND);
 
   EXPECT_EQ(result, ExecutionStatus::Success);
   EXPECT_EQ(stack[0], Uint256(0x12345678));
@@ -77,7 +77,7 @@ TEST(OpcodeAnd, StackUnderflow) {
   uint64_t gas = 100;
   (void)stack.push(Uint256(5));
 
-  const auto result = and_(stack, gas, GAS_AND);
+  const auto result = op_and(stack, gas, GAS_AND);
 
   EXPECT_EQ(result, ExecutionStatus::StackUnderflow);
 }
@@ -92,7 +92,7 @@ TEST(OpcodeOr, BasicOr) {
   (void)stack.push(Uint256(0b1100));
   (void)stack.push(Uint256(0b1010));
 
-  const auto result = or_(stack, gas, GAS_OR);
+  const auto result = op_or(stack, gas, GAS_OR);
 
   EXPECT_EQ(result, ExecutionStatus::Success);
   EXPECT_EQ(stack[0], Uint256(0b1110));  // 1010 | 1100 = 1110
@@ -105,7 +105,7 @@ TEST(OpcodeOr, OrWithZero) {
   (void)stack.push(ZERO);
   (void)stack.push(Uint256(0xFF));
 
-  const auto result = or_(stack, gas, GAS_OR);
+  const auto result = op_or(stack, gas, GAS_OR);
 
   EXPECT_EQ(result, ExecutionStatus::Success);
   EXPECT_EQ(stack[0], Uint256(0xFF));
@@ -121,7 +121,7 @@ TEST(OpcodeXor, BasicXor) {
   (void)stack.push(Uint256(0b1100));
   (void)stack.push(Uint256(0b1010));
 
-  const auto result = xor_(stack, gas, GAS_XOR);
+  const auto result = op_xor(stack, gas, GAS_XOR);
 
   EXPECT_EQ(result, ExecutionStatus::Success);
   EXPECT_EQ(stack[0], Uint256(0b0110));  // 1010 ^ 1100 = 0110
@@ -134,7 +134,7 @@ TEST(OpcodeXor, XorWithSelf) {
   (void)stack.push(Uint256(0x12345678));
   (void)stack.push(Uint256(0x12345678));
 
-  const auto result = xor_(stack, gas, GAS_XOR);
+  const auto result = op_xor(stack, gas, GAS_XOR);
 
   EXPECT_EQ(result, ExecutionStatus::Success);
   EXPECT_EQ(stack[0], ZERO);  // x ^ x = 0
@@ -149,7 +149,7 @@ TEST(OpcodeNot, NotZero) {
   uint64_t gas = 1000;
   (void)stack.push(ZERO);
 
-  const auto result = not_(stack, gas, GAS_NOT);
+  const auto result = op_not(stack, gas, GAS_NOT);
 
   EXPECT_EQ(result, ExecutionStatus::Success);
   EXPECT_EQ(stack[0], Uint256::max());
@@ -161,7 +161,7 @@ TEST(OpcodeNot, NotMax) {
   uint64_t gas = 100;
   (void)stack.push(Uint256::max());
 
-  const auto result = not_(stack, gas, GAS_NOT);
+  const auto result = op_not(stack, gas, GAS_NOT);
 
   EXPECT_EQ(result, ExecutionStatus::Success);
   EXPECT_EQ(stack[0], ZERO);
@@ -173,8 +173,8 @@ TEST(OpcodeNot, DoubleNot) {
   const auto original = Uint256(0x12345678);
   (void)stack.push(original);
 
-  not_(stack, gas, GAS_NOT);
-  not_(stack, gas, GAS_NOT);
+  op_not(stack, gas, GAS_NOT);
+  op_not(stack, gas, GAS_NOT);
 
   EXPECT_EQ(stack[0], original);  // ~~x = x
 }
@@ -489,7 +489,7 @@ TEST(OpcodeBitwise, OutOfGas) {
   (void)stack.push(Uint256(1));
   (void)stack.push(Uint256(2));
 
-  const auto result = and_(stack, gas, GAS_AND);
+  const auto result = op_and(stack, gas, GAS_AND);
 
   EXPECT_EQ(result, ExecutionStatus::OutOfGas);
 }
@@ -498,7 +498,7 @@ TEST(OpcodeBitwise, StackUnderflowNot) {
   Stack stack;
   uint64_t gas = 100;
 
-  const auto result = not_(stack, gas, GAS_NOT);
+  const auto result = op_not(stack, gas, GAS_NOT);
 
   EXPECT_EQ(result, ExecutionStatus::StackUnderflow);
 }

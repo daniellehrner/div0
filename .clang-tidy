@@ -1,6 +1,6 @@
 ---
 # Check headers in include/ and src/ (not system headers, _deps, or build directories)
-HeaderFilterRegex: '.*/(include|src)/div0/.*'
+HeaderFilterRegex: '.*/div0/(include/div0|src)/.*'
 
 # Note: clang-analyzer-optin.cplusplus.UninitializedObject is disabled due to
 # false positives from spdlog's bundled fmt library template instantiations.

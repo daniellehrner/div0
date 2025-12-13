@@ -576,10 +576,10 @@ op_exp: {
   OPCODE_HANDLER(is_zero, opcodes::is_zero, ISZERO)
 
   // Bitwise opcodes
-  OPCODE_HANDLER(and, opcodes::and_, AND)
-  OPCODE_HANDLER(or, opcodes::or_, OR)
-  OPCODE_HANDLER(xor, opcodes::xor_, XOR)
-  OPCODE_HANDLER(not, opcodes::not_, NOT)
+  OPCODE_HANDLER(and, opcodes::op_and, AND)
+  OPCODE_HANDLER(or, opcodes::op_or, OR)
+  OPCODE_HANDLER(xor, opcodes::op_xor, XOR)
+  OPCODE_HANDLER(not, opcodes::op_not, NOT)
   OPCODE_HANDLER(byte, opcodes::byte, BYTE)
   OPCODE_HANDLER(shl, opcodes::shl, SHL)
   OPCODE_HANDLER(shr, opcodes::shr, SHR)

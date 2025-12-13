@@ -233,10 +233,12 @@ template <typename MemoryCostFn>
     // Copy what we can from calldata
     const size_t bytes_available = calldata.size() - src_offset;
     const size_t bytes_to_copy = std::min(bytes_available, static_cast<size_t>(size));
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
     std::memcpy(dest.data(), calldata.data() + src_offset, bytes_to_copy);
 
     // Zero-fill the rest
     if (bytes_to_copy < size) {
+      // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
       std::memset(dest.data() + bytes_to_copy, 0, size - bytes_to_copy);
     }
   } else {

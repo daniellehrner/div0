@@ -9,26 +9,26 @@ namespace div0::evm::opcodes {
 // Bitwise Logic Operations
 // =============================================================================
 
-[[gnu::always_inline]] inline ExecutionStatus and_(Stack& stack, uint64_t& gas,
-                                                   const uint64_t gas_cost) noexcept {
+[[gnu::always_inline]] inline ExecutionStatus op_and(Stack& stack, uint64_t& gas,
+                                                     const uint64_t gas_cost) noexcept {
   return binary_static_gas_op(
       stack, gas, gas_cost, [](const types::Uint256& a, const types::Uint256& b) { return a & b; });
 }
 
-[[gnu::always_inline]] inline ExecutionStatus or_(Stack& stack, uint64_t& gas,
-                                                  const uint64_t gas_cost) noexcept {
+[[gnu::always_inline]] inline ExecutionStatus op_or(Stack& stack, uint64_t& gas,
+                                                    const uint64_t gas_cost) noexcept {
   return binary_static_gas_op(
       stack, gas, gas_cost, [](const types::Uint256& a, const types::Uint256& b) { return a | b; });
 }
 
-[[gnu::always_inline]] inline ExecutionStatus xor_(Stack& stack, uint64_t& gas,
-                                                   const uint64_t gas_cost) noexcept {
+[[gnu::always_inline]] inline ExecutionStatus op_xor(Stack& stack, uint64_t& gas,
+                                                     const uint64_t gas_cost) noexcept {
   return binary_static_gas_op(
       stack, gas, gas_cost, [](const types::Uint256& a, const types::Uint256& b) { return a ^ b; });
 }
 
-[[gnu::always_inline]] inline ExecutionStatus not_(Stack& stack, uint64_t& gas,
-                                                   const uint64_t gas_cost) noexcept {
+[[gnu::always_inline]] inline ExecutionStatus op_not(Stack& stack, uint64_t& gas,
+                                                     const uint64_t gas_cost) noexcept {
   return unary_static_gas_op(stack, gas, gas_cost, [](const types::Uint256& a) { return ~a; });
 }
 

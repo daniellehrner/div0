@@ -30,7 +30,7 @@ namespace div0::evm::opcodes {
   // EVM offsets are Uint256, but practical memory addressing uses uint64.
   // An offset > 2^64 would require gas far exceeding any block gas limit
   // (memory cost grows quadratically), so we treat conversion failure as OutOfGas.
-  uint64_t offset;
+  uint64_t offset = 0;
   if (!stack[0].to_uint64(offset)) [[unlikely]] {
     return ExecutionStatus::OutOfGas;
   }
@@ -48,7 +48,7 @@ namespace div0::evm::opcodes {
     return ExecutionStatus::OutOfGas;
   }
 
-  uint64_t total_cost;
+  uint64_t total_cost = 0;
   if (__builtin_add_overflow(static_cost, mem_cost, &total_cost)) [[unlikely]] {
     return ExecutionStatus::OutOfGas;
   }
@@ -86,7 +86,7 @@ namespace div0::evm::opcodes {
   // EVM offsets are Uint256, but practical memory addressing uses uint64.
   // An offset > 2^64 would require gas far exceeding any block gas limit
   // (memory cost grows quadratically), so we treat conversion failure as OutOfGas.
-  uint64_t offset;
+  uint64_t offset = 0;
   if (!stack[0].to_uint64(offset)) [[unlikely]] {
     return ExecutionStatus::OutOfGas;
   }
@@ -104,7 +104,7 @@ namespace div0::evm::opcodes {
     return ExecutionStatus::OutOfGas;
   }
 
-  uint64_t total_cost;
+  uint64_t total_cost = 0;
   if (__builtin_add_overflow(static_cost, mem_cost, &total_cost)) [[unlikely]] {
     return ExecutionStatus::OutOfGas;
   }
@@ -147,7 +147,7 @@ namespace div0::evm::opcodes {
   // EVM offsets are Uint256, but practical memory addressing uses uint64.
   // An offset > 2^64 would require gas far exceeding any block gas limit
   // (memory cost grows quadratically), so we treat conversion failure as OutOfGas.
-  uint64_t offset;
+  uint64_t offset = 0;
   if (!stack[0].to_uint64(offset)) [[unlikely]] {
     return ExecutionStatus::OutOfGas;
   }
@@ -159,7 +159,7 @@ namespace div0::evm::opcodes {
     return ExecutionStatus::OutOfGas;
   }
 
-  uint64_t total_cost;
+  uint64_t total_cost = 0;
   if (__builtin_add_overflow(static_cost, mem_cost, &total_cost)) [[unlikely]] {
     return ExecutionStatus::OutOfGas;
   }

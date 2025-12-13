@@ -41,9 +41,11 @@ class Bytes32 {
   /// Access as span
   [[nodiscard]] constexpr std::span<const uint8_t, 32> span() const noexcept { return data_; }
 
+  // NOLINTBEGIN(cppcoreguidelines-pro-bounds-constant-array-index)
   /// Array access
   [[nodiscard]] constexpr uint8_t operator[](size_t i) const noexcept { return data_[i]; }
   [[nodiscard]] constexpr uint8_t& operator[](size_t i) noexcept { return data_[i]; }
+  // NOLINTEND(cppcoreguidelines-pro-bounds-constant-array-index)
 
   /// Size (always 32)
   [[nodiscard]] static constexpr size_t size() noexcept { return 32; }
@@ -79,37 +81,29 @@ class Bytes32 {
     // data_[16..23] -> limb 1
     // data_[8..15]  -> limb 2
     // data_[0..7]   -> limb 3 (most significant)
-    const uint64_t l0 = (static_cast<uint64_t>(data_[24]) << 56) |
-                        (static_cast<uint64_t>(data_[25]) << 48) |
-                        (static_cast<uint64_t>(data_[26]) << 40) |
-                        (static_cast<uint64_t>(data_[27]) << 32) |
-                        (static_cast<uint64_t>(data_[28]) << 24) |
-                        (static_cast<uint64_t>(data_[29]) << 16) |
-                        (static_cast<uint64_t>(data_[30]) << 8) | static_cast<uint64_t>(data_[31]);
+    const uint64_t l0 =
+        (static_cast<uint64_t>(data_[24]) << 56) | (static_cast<uint64_t>(data_[25]) << 48) |
+        (static_cast<uint64_t>(data_[26]) << 40) | (static_cast<uint64_t>(data_[27]) << 32) |
+        (static_cast<uint64_t>(data_[28]) << 24) | (static_cast<uint64_t>(data_[29]) << 16) |
+        (static_cast<uint64_t>(data_[30]) << 8) | static_cast<uint64_t>(data_[31]);
 
-    const uint64_t l1 = (static_cast<uint64_t>(data_[16]) << 56) |
-                        (static_cast<uint64_t>(data_[17]) << 48) |
-                        (static_cast<uint64_t>(data_[18]) << 40) |
-                        (static_cast<uint64_t>(data_[19]) << 32) |
-                        (static_cast<uint64_t>(data_[20]) << 24) |
-                        (static_cast<uint64_t>(data_[21]) << 16) |
-                        (static_cast<uint64_t>(data_[22]) << 8) | static_cast<uint64_t>(data_[23]);
+    const uint64_t l1 =
+        (static_cast<uint64_t>(data_[16]) << 56) | (static_cast<uint64_t>(data_[17]) << 48) |
+        (static_cast<uint64_t>(data_[18]) << 40) | (static_cast<uint64_t>(data_[19]) << 32) |
+        (static_cast<uint64_t>(data_[20]) << 24) | (static_cast<uint64_t>(data_[21]) << 16) |
+        (static_cast<uint64_t>(data_[22]) << 8) | static_cast<uint64_t>(data_[23]);
 
-    const uint64_t l2 = (static_cast<uint64_t>(data_[8]) << 56) |
-                        (static_cast<uint64_t>(data_[9]) << 48) |
-                        (static_cast<uint64_t>(data_[10]) << 40) |
-                        (static_cast<uint64_t>(data_[11]) << 32) |
-                        (static_cast<uint64_t>(data_[12]) << 24) |
-                        (static_cast<uint64_t>(data_[13]) << 16) |
-                        (static_cast<uint64_t>(data_[14]) << 8) | static_cast<uint64_t>(data_[15]);
+    const uint64_t l2 =
+        (static_cast<uint64_t>(data_[8]) << 56) | (static_cast<uint64_t>(data_[9]) << 48) |
+        (static_cast<uint64_t>(data_[10]) << 40) | (static_cast<uint64_t>(data_[11]) << 32) |
+        (static_cast<uint64_t>(data_[12]) << 24) | (static_cast<uint64_t>(data_[13]) << 16) |
+        (static_cast<uint64_t>(data_[14]) << 8) | static_cast<uint64_t>(data_[15]);
 
-    const uint64_t l3 = (static_cast<uint64_t>(data_[0]) << 56) |
-                        (static_cast<uint64_t>(data_[1]) << 48) |
-                        (static_cast<uint64_t>(data_[2]) << 40) |
-                        (static_cast<uint64_t>(data_[3]) << 32) |
-                        (static_cast<uint64_t>(data_[4]) << 24) |
-                        (static_cast<uint64_t>(data_[5]) << 16) |
-                        (static_cast<uint64_t>(data_[6]) << 8) | static_cast<uint64_t>(data_[7]);
+    const uint64_t l3 =
+        (static_cast<uint64_t>(data_[0]) << 56) | (static_cast<uint64_t>(data_[1]) << 48) |
+        (static_cast<uint64_t>(data_[2]) << 40) | (static_cast<uint64_t>(data_[3]) << 32) |
+        (static_cast<uint64_t>(data_[4]) << 24) | (static_cast<uint64_t>(data_[5]) << 16) |
+        (static_cast<uint64_t>(data_[6]) << 8) | static_cast<uint64_t>(data_[7]);
 
     return Uint256(l0, l1, l2, l3);
   }

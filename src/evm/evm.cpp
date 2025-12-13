@@ -379,7 +379,9 @@ FrameResult EVM::execute_frame(CallFrame& frame) {
       dispatch_shanghai[op::MSTORE8] = &&op_mstore8;
       dispatch_shanghai[op::SLOAD] = &&op_sload;
       dispatch_shanghai[op::SSTORE] = &&op_sstore;
+      dispatch_shanghai[op::PC] = &&op_pc;
       dispatch_shanghai[op::MSIZE] = &&op_msize;
+      dispatch_shanghai[op::GAS] = &&op_gas;
       dispatch_shanghai[op::PUSH0] = &&op_push0;
       dispatch_shanghai[op::PUSH1] = &&op_push1;
       dispatch_shanghai[op::PUSH2] = &&op_push2;
@@ -711,6 +713,39 @@ op_msize: {
   }
   const uint64_t gas_cost = schedule_->static_costs[op::MSIZE];
   status = opcodes::msize(stack, gas, gas_cost, memory);
+  if (tracer_ != nullptr) [[unlikely]] {
+    tracer_->trace_post_execution(frame, status, gas_cost);
+  }
+  if (status != ExecutionStatus::Success) [[unlikely]] {
+    return FrameResult::error(status);
+  }
+}
+  DISPATCH_NEXT();
+
+  // PC opcode - push the program counter value (position of this instruction)
+op_pc: {
+  if (tracer_ != nullptr) [[unlikely]] {
+    tracer_->trace_pre_execution(frame);
+  }
+  const uint64_t gas_cost = schedule_->static_costs[op::PC];
+  // pc was already incremented by DISPATCH_NEXT, so subtract 1 to get the position of PC opcode
+  status = opcodes::pc(stack, gas, gas_cost, pc - 1);
+  if (tracer_ != nullptr) [[unlikely]] {
+    tracer_->trace_post_execution(frame, status, gas_cost);
+  }
+  if (status != ExecutionStatus::Success) [[unlikely]] {
+    return FrameResult::error(status);
+  }
+}
+  DISPATCH_NEXT();
+
+  // GAS opcode - push the remaining gas (after this instruction's cost)
+op_gas: {
+  if (tracer_ != nullptr) [[unlikely]] {
+    tracer_->trace_pre_execution(frame);
+  }
+  const uint64_t gas_cost = schedule_->static_costs[op::GAS];
+  status = opcodes::gas_op(stack, gas, gas_cost);
   if (tracer_ != nullptr) [[unlikely]] {
     tracer_->trace_post_execution(frame, status, gas_cost);
   }

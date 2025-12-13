@@ -247,6 +247,73 @@ template <typename MemoryCostFn>
   return ExecutionStatus::Success;
 }
 
+// =============================================================================
+// Program Counter and Gas Operations
+// =============================================================================
+
+/**
+ * @brief PC - Get the value of the program counter.
+ *
+ * Stack: [] => [pc]
+ * Gas: 2
+ *
+ * Pushes the value of the program counter prior to the increment corresponding
+ * to this instruction. This is the offset of this PC instruction in the code.
+ *
+ * @param stack EVM stack
+ * @param gas Remaining gas
+ * @param gas_cost Static gas cost
+ * @param pc Current program counter value (before this instruction)
+ * @return ExecutionStatus
+ */
+[[gnu::always_inline]] inline ExecutionStatus pc(Stack& stack, uint64_t& gas,
+                                                 const uint64_t gas_cost,
+                                                 uint64_t pc_value) noexcept {
+  if (!stack.has_space(1)) [[unlikely]] {
+    return ExecutionStatus::StackOverflow;
+  }
+
+  if (gas < gas_cost) [[unlikely]] {
+    return ExecutionStatus::OutOfGas;
+  }
+
+  gas -= gas_cost;
+
+  (void)stack.push(types::Uint256(pc_value));
+  return ExecutionStatus::Success;
+}
+
+/**
+ * @brief GAS - Get the amount of remaining gas.
+ *
+ * Stack: [] => [gas]
+ * Gas: 2
+ *
+ * Pushes the amount of gas remaining after this operation (gas after deducting
+ * the cost of this instruction).
+ *
+ * @param stack EVM stack
+ * @param gas Remaining gas (will be decremented)
+ * @param gas_cost Static gas cost
+ * @return ExecutionStatus
+ */
+[[gnu::always_inline]] inline ExecutionStatus gas_op(Stack& stack, uint64_t& gas,
+                                                     const uint64_t gas_cost) noexcept {
+  if (!stack.has_space(1)) [[unlikely]] {
+    return ExecutionStatus::StackOverflow;
+  }
+
+  if (gas < gas_cost) [[unlikely]] {
+    return ExecutionStatus::OutOfGas;
+  }
+
+  gas -= gas_cost;
+
+  // Push the remaining gas AFTER deducting the cost of this instruction
+  (void)stack.push(types::Uint256(gas));
+  return ExecutionStatus::Success;
+}
+
 }  // namespace div0::evm::opcodes
 
 #endif  // DIV0_EVM_OPCODES_CONTEXT_H

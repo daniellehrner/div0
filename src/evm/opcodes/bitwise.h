@@ -11,32 +11,25 @@ namespace div0::evm::opcodes {
 
 [[gnu::always_inline]] inline ExecutionStatus and_(Stack& stack, uint64_t& gas,
                                                    const uint64_t gas_cost) noexcept {
-  return binary_static_gas_op(stack, gas, gas_cost,
-                              [](const types::Uint256& a, const types::Uint256& b) {
-                                return a & b;
-                              });
+  return binary_static_gas_op(
+      stack, gas, gas_cost, [](const types::Uint256& a, const types::Uint256& b) { return a & b; });
 }
 
 [[gnu::always_inline]] inline ExecutionStatus or_(Stack& stack, uint64_t& gas,
                                                   const uint64_t gas_cost) noexcept {
-  return binary_static_gas_op(stack, gas, gas_cost,
-                              [](const types::Uint256& a, const types::Uint256& b) {
-                                return a | b;
-                              });
+  return binary_static_gas_op(
+      stack, gas, gas_cost, [](const types::Uint256& a, const types::Uint256& b) { return a | b; });
 }
 
 [[gnu::always_inline]] inline ExecutionStatus xor_(Stack& stack, uint64_t& gas,
                                                    const uint64_t gas_cost) noexcept {
-  return binary_static_gas_op(stack, gas, gas_cost,
-                              [](const types::Uint256& a, const types::Uint256& b) {
-                                return a ^ b;
-                              });
+  return binary_static_gas_op(
+      stack, gas, gas_cost, [](const types::Uint256& a, const types::Uint256& b) { return a ^ b; });
 }
 
 [[gnu::always_inline]] inline ExecutionStatus not_(Stack& stack, uint64_t& gas,
                                                    const uint64_t gas_cost) noexcept {
-  return unary_static_gas_op(stack, gas, gas_cost,
-                             [](const types::Uint256& a) { return ~a; });
+  return unary_static_gas_op(stack, gas, gas_cost, [](const types::Uint256& a) { return ~a; });
 }
 
 // =============================================================================
@@ -99,35 +92,34 @@ namespace div0::evm::opcodes {
 /// Stack: [shift, value] -> [value >> shift] with sign extension
 [[gnu::always_inline]] inline ExecutionStatus sar(Stack& stack, uint64_t& gas,
                                                   const uint64_t gas_cost) noexcept {
-  return binary_static_gas_op(stack, gas, gas_cost,
-                              [](const types::Uint256& shift, const types::Uint256& value) {
-                                // If shift >= 256, result depends on sign
-                                if (!shift.fits_uint64() || shift.to_uint64_unsafe() >= 256) {
-                                  // If negative (high bit set), result is all 1s (-1)
-                                  // If non-negative, result is 0
-                                  return value.is_negative() ? types::Uint256::max()
-                                                             : types::Uint256::zero();
-                                }
+  return binary_static_gas_op(
+      stack, gas, gas_cost, [](const types::Uint256& shift, const types::Uint256& value) {
+        // If shift >= 256, result depends on sign
+        if (!shift.fits_uint64() || shift.to_uint64_unsafe() >= 256) {
+          // If negative (high bit set), result is all 1s (-1)
+          // If non-negative, result is 0
+          return value.is_negative() ? types::Uint256::max() : types::Uint256::zero();
+        }
 
-                                // Perform logical shift
-                                types::Uint256 result = value >> shift;
+        // Perform logical shift
+        types::Uint256 result = value >> shift;
 
-                                // If the value was negative, fill in the high bits with 1s
-                                if (value.is_negative()) {
-                                  const auto s = shift.to_uint64_unsafe();
-                                  // Create a mask of s high bits
-                                  // e.g., if s=8, we want bits 248-255 to be 1
-                                  // This is equivalent to ~((1 << (256 - s)) - 1) but we compute
-                                  // it as all 1s shifted left by (256 - s)
-                                  if (s > 0) {
-                                    const types::Uint256 ones = types::Uint256::max();
-                                    const types::Uint256 mask = ones << types::Uint256(256 - s);
-                                    result = result | mask;
-                                  }
-                                }
+        // If the value was negative, fill in the high bits with 1s
+        if (value.is_negative()) {
+          const auto s = shift.to_uint64_unsafe();
+          // Create a mask of s high bits
+          // e.g., if s=8, we want bits 248-255 to be 1
+          // This is equivalent to ~((1 << (256 - s)) - 1) but we compute
+          // it as all 1s shifted left by (256 - s)
+          if (s > 0) {
+            const types::Uint256 ones = types::Uint256::max();
+            const types::Uint256 mask = ones << types::Uint256(256 - s);
+            result = result | mask;
+          }
+        }
 
-                                return result;
-                              });
+        return result;
+      });
 }
 
 // =============================================================================

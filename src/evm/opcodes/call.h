@@ -89,6 +89,7 @@ template <bool IsReturn>
 // CALL family opcodes
 // ============================================================================
 
+// NOLINTBEGIN(clang-analyzer-optin.performance.Padding)
 /// Result of preparing a CALL operation
 struct CallSetup {
   ExecutionStatus status{ExecutionStatus::Success};
@@ -100,6 +101,7 @@ struct CallSetup {
   uint64_t ret_offset{0};
   uint64_t ret_size{0};
 };
+// NOLINTEND(clang-analyzer-optin.performance.Padding)
 
 /**
  * @brief Prepare a CALL operation - validates inputs, calculates gas, expands memory.

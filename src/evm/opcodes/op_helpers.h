@@ -23,7 +23,7 @@ namespace div0::evm::opcodes {
 template <typename UnaryOp>
 [[gnu::always_inline]] ExecutionStatus unary_static_gas_op(Stack& stack, uint64_t& gas,
                                                            const uint64_t gas_cost,
-                                                           UnaryOp&& op) noexcept {
+                                                           const UnaryOp& op) noexcept {
   if (!stack.has_items(1)) [[unlikely]] {
     return ExecutionStatus::StackUnderflow;
   }
@@ -56,7 +56,7 @@ template <typename UnaryOp>
 template <typename BinaryOp>
 [[gnu::always_inline]] ExecutionStatus binary_static_gas_op(Stack& stack, uint64_t& gas,
                                                             const uint64_t gas_cost,
-                                                            BinaryOp&& op) noexcept {
+                                                            const BinaryOp& op) noexcept {
   if (!stack.has_items(2)) [[unlikely]] {
     return ExecutionStatus::StackUnderflow;
   }
@@ -94,7 +94,7 @@ template <typename BinaryOp>
 template <typename TernaryOp>
 [[gnu::always_inline]] ExecutionStatus ternary_static_gas_op(Stack& stack, uint64_t& gas,
                                                              const uint64_t gas_cost,
-                                                             TernaryOp&& op) noexcept {
+                                                             const TernaryOp& op) noexcept {
   if (!stack.has_items(3)) [[unlikely]] {
     return ExecutionStatus::StackUnderflow;
   }

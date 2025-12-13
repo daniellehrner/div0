@@ -7,6 +7,8 @@
 #include <cstring>
 #include <span>
 
+#include "div0/types/uint256.h"
+
 namespace div0::types {
 
 /**
@@ -39,9 +41,11 @@ class Bytes32 {
   /// Access as span
   [[nodiscard]] constexpr std::span<const uint8_t, 32> span() const noexcept { return data_; }
 
+  // NOLINTBEGIN(cppcoreguidelines-pro-bounds-constant-array-index)
   /// Array access
   [[nodiscard]] constexpr uint8_t operator[](size_t i) const noexcept { return data_[i]; }
   [[nodiscard]] constexpr uint8_t& operator[](size_t i) noexcept { return data_[i]; }
+  // NOLINTEND(cppcoreguidelines-pro-bounds-constant-array-index)
 
   /// Size (always 32)
   [[nodiscard]] static constexpr size_t size() noexcept { return 32; }
@@ -67,6 +71,53 @@ class Bytes32 {
 
   /// Create zero value
   [[nodiscard]] static constexpr Bytes32 zero() noexcept { return Bytes32{}; }
+
+  /// Convert to Uint256 (for stack operations)
+  /// Bytes32 is big-endian: data_[0] is MSB, data_[31] is LSB
+  /// Uint256 is little-endian limbs: limb(0) is least significant
+  [[nodiscard]] Uint256 to_uint256() const noexcept {
+    // Convert big-endian bytes to little-endian limbs
+    // data_[24..31] -> limb 0 (least significant)
+    // data_[16..23] -> limb 1
+    // data_[8..15]  -> limb 2
+    // data_[0..7]   -> limb 3 (most significant)
+    const uint64_t l0 =
+        (static_cast<uint64_t>(data_[24]) << 56) | (static_cast<uint64_t>(data_[25]) << 48) |
+        (static_cast<uint64_t>(data_[26]) << 40) | (static_cast<uint64_t>(data_[27]) << 32) |
+        (static_cast<uint64_t>(data_[28]) << 24) | (static_cast<uint64_t>(data_[29]) << 16) |
+        (static_cast<uint64_t>(data_[30]) << 8) | static_cast<uint64_t>(data_[31]);
+
+    const uint64_t l1 =
+        (static_cast<uint64_t>(data_[16]) << 56) | (static_cast<uint64_t>(data_[17]) << 48) |
+        (static_cast<uint64_t>(data_[18]) << 40) | (static_cast<uint64_t>(data_[19]) << 32) |
+        (static_cast<uint64_t>(data_[20]) << 24) | (static_cast<uint64_t>(data_[21]) << 16) |
+        (static_cast<uint64_t>(data_[22]) << 8) | static_cast<uint64_t>(data_[23]);
+
+    const uint64_t l2 =
+        (static_cast<uint64_t>(data_[8]) << 56) | (static_cast<uint64_t>(data_[9]) << 48) |
+        (static_cast<uint64_t>(data_[10]) << 40) | (static_cast<uint64_t>(data_[11]) << 32) |
+        (static_cast<uint64_t>(data_[12]) << 24) | (static_cast<uint64_t>(data_[13]) << 16) |
+        (static_cast<uint64_t>(data_[14]) << 8) | static_cast<uint64_t>(data_[15]);
+
+    const uint64_t l3 =
+        (static_cast<uint64_t>(data_[0]) << 56) | (static_cast<uint64_t>(data_[1]) << 48) |
+        (static_cast<uint64_t>(data_[2]) << 40) | (static_cast<uint64_t>(data_[3]) << 32) |
+        (static_cast<uint64_t>(data_[4]) << 24) | (static_cast<uint64_t>(data_[5]) << 16) |
+        (static_cast<uint64_t>(data_[6]) << 8) | static_cast<uint64_t>(data_[7]);
+
+    return Uint256(l0, l1, l2, l3);
+  }
+
+  /// Create from span of arbitrary size (right-padded with zeros)
+  /// If input is smaller than 32 bytes, fills remaining bytes with zeros.
+  /// If input is larger, only first 32 bytes are used.
+  [[nodiscard]] static Bytes32 from_span_padded(std::span<const uint8_t> data) noexcept {
+    Bytes32 result{};
+    const size_t copy_size = std::min(data.size(), size_t{32});
+    std::memcpy(result.data_.data(), data.data(), copy_size);
+    // Remaining bytes are already zero-initialized
+    return result;
+  }
 
  private:
   std::array<uint8_t, 32> data_{};

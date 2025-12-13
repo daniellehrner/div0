@@ -9,9 +9,11 @@
 #include "div0/evm/opcodes.h"
 #include "gas/static_costs.h"
 #include "opcodes/arithmetic.h"
+#include "opcodes/bitwise.h"
 #include "opcodes/call.h"
 #include "opcodes/comparison.h"
 #include "opcodes/context.h"
+#include "opcodes/control_flow.h"
 #include "opcodes/dup.h"
 #include "opcodes/keccak256.h"
 #include "opcodes/memory.h"
@@ -354,16 +356,32 @@ FrameResult EVM::execute_frame(CallFrame& frame) {
       dispatch_shanghai[op::SIGNEXTEND] = &&op_signextend;
       dispatch_shanghai[op::LT] = &&op_lt;
       dispatch_shanghai[op::GT] = &&op_gt;
+      dispatch_shanghai[op::SLT] = &&op_slt;
+      dispatch_shanghai[op::SGT] = &&op_sgt;
       dispatch_shanghai[op::EQ] = &&op_eq;
       dispatch_shanghai[op::ISZERO] = &&op_is_zero;
+      dispatch_shanghai[op::AND] = &&op_and;
+      dispatch_shanghai[op::OR] = &&op_or;
+      dispatch_shanghai[op::XOR] = &&op_xor;
+      dispatch_shanghai[op::NOT] = &&op_not;
+      dispatch_shanghai[op::BYTE] = &&op_byte;
+      dispatch_shanghai[op::SHL] = &&op_shl;
+      dispatch_shanghai[op::SHR] = &&op_shr;
+      dispatch_shanghai[op::SAR] = &&op_sar;
       dispatch_shanghai[op::KECCAK256] = &&op_sha3;
       dispatch_shanghai[op::CALLER] = &&op_caller;
+      dispatch_shanghai[op::CALLDATALOAD] = &&op_calldataload;
+      dispatch_shanghai[op::CALLDATASIZE] = &&op_calldatasize;
+      dispatch_shanghai[op::CALLDATACOPY] = &&op_calldatacopy;
+      dispatch_shanghai[op::POP] = &&op_pop;
       dispatch_shanghai[op::MLOAD] = &&op_mload;
       dispatch_shanghai[op::MSTORE] = &&op_mstore;
       dispatch_shanghai[op::MSTORE8] = &&op_mstore8;
       dispatch_shanghai[op::SLOAD] = &&op_sload;
       dispatch_shanghai[op::SSTORE] = &&op_sstore;
+      dispatch_shanghai[op::PC] = &&op_pc;
       dispatch_shanghai[op::MSIZE] = &&op_msize;
+      dispatch_shanghai[op::GAS] = &&op_gas;
       dispatch_shanghai[op::PUSH0] = &&op_push0;
       dispatch_shanghai[op::PUSH1] = &&op_push1;
       dispatch_shanghai[op::PUSH2] = &&op_push2;
@@ -552,8 +570,20 @@ op_exp: {
   // Comparison opcodes
   OPCODE_HANDLER(lt, opcodes::lt, LT)
   OPCODE_HANDLER(gt, opcodes::gt, GT)
+  OPCODE_HANDLER(slt, opcodes::slt, SLT)
+  OPCODE_HANDLER(sgt, opcodes::sgt, SGT)
   OPCODE_HANDLER(eq, opcodes::eq, EQ)
   OPCODE_HANDLER(is_zero, opcodes::is_zero, ISZERO)
+
+  // Bitwise opcodes
+  OPCODE_HANDLER(and, opcodes::op_and, AND)
+  OPCODE_HANDLER(or, opcodes::op_or, OR)
+  OPCODE_HANDLER(xor, opcodes::op_xor, XOR)
+  OPCODE_HANDLER(not, opcodes::op_not, NOT)
+  OPCODE_HANDLER(byte, opcodes::byte, BYTE)
+  OPCODE_HANDLER(shl, opcodes::shl, SHL)
+  OPCODE_HANDLER(shr, opcodes::shr, SHR)
+  OPCODE_HANDLER(sar, opcodes::sar, SAR)
 
 op_sha3: {
   // SHA3 has dynamic gas cost (base + per-word + memory expansion)
@@ -579,6 +609,71 @@ op_caller: {
   }
   const uint64_t gas_cost = schedule_->static_costs[op::CALLER];
   status = opcodes::caller(stack, gas, gas_cost, frame.caller);
+  if (tracer_ != nullptr) [[unlikely]] {
+    tracer_->trace_post_execution(frame, status, gas_cost);
+  }
+  if (status != ExecutionStatus::Success) [[unlikely]] {
+    return FrameResult::error(status);
+  }
+}
+  DISPATCH_NEXT();
+
+  // CALLDATALOAD opcode
+op_calldataload: {
+  if (tracer_ != nullptr) [[unlikely]] {
+    tracer_->trace_pre_execution(frame);
+  }
+  const uint64_t gas_cost = schedule_->static_costs[op::CALLDATALOAD];
+  status = opcodes::calldataload(stack, gas, gas_cost, frame.input());
+  if (tracer_ != nullptr) [[unlikely]] {
+    tracer_->trace_post_execution(frame, status, gas_cost);
+  }
+  if (status != ExecutionStatus::Success) [[unlikely]] {
+    return FrameResult::error(status);
+  }
+}
+  DISPATCH_NEXT();
+
+  // CALLDATASIZE opcode
+op_calldatasize: {
+  if (tracer_ != nullptr) [[unlikely]] {
+    tracer_->trace_pre_execution(frame);
+  }
+  const uint64_t gas_cost = schedule_->static_costs[op::CALLDATASIZE];
+  status = opcodes::calldatasize(stack, gas, gas_cost, frame.input_size);
+  if (tracer_ != nullptr) [[unlikely]] {
+    tracer_->trace_post_execution(frame, status, gas_cost);
+  }
+  if (status != ExecutionStatus::Success) [[unlikely]] {
+    return FrameResult::error(status);
+  }
+}
+  DISPATCH_NEXT();
+
+  // CALLDATACOPY opcode - has dynamic gas
+op_calldatacopy: {
+  if (tracer_ != nullptr) [[unlikely]] {
+    tracer_->trace_pre_execution(frame);
+  }
+  const uint64_t gas_before = gas;
+  status = opcodes::calldatacopy(stack, gas, schedule_->static_costs[op::CALLDATACOPY],
+                                 schedule_->memory_access, memory, frame.input());
+  if (tracer_ != nullptr) [[unlikely]] {
+    tracer_->trace_post_execution(frame, status, gas_before - gas);
+  }
+  if (status != ExecutionStatus::Success) [[unlikely]] {
+    return FrameResult::error(status);
+  }
+}
+  DISPATCH_NEXT();
+
+  // POP opcode
+op_pop: {
+  if (tracer_ != nullptr) [[unlikely]] {
+    tracer_->trace_pre_execution(frame);
+  }
+  const uint64_t gas_cost = schedule_->static_costs[op::POP];
+  status = opcodes::pop(stack, gas, gas_cost);
   if (tracer_ != nullptr) [[unlikely]] {
     tracer_->trace_post_execution(frame, status, gas_cost);
   }
@@ -618,6 +713,39 @@ op_msize: {
   }
   const uint64_t gas_cost = schedule_->static_costs[op::MSIZE];
   status = opcodes::msize(stack, gas, gas_cost, memory);
+  if (tracer_ != nullptr) [[unlikely]] {
+    tracer_->trace_post_execution(frame, status, gas_cost);
+  }
+  if (status != ExecutionStatus::Success) [[unlikely]] {
+    return FrameResult::error(status);
+  }
+}
+  DISPATCH_NEXT();
+
+  // PC opcode - push the program counter value (position of this instruction)
+op_pc: {
+  if (tracer_ != nullptr) [[unlikely]] {
+    tracer_->trace_pre_execution(frame);
+  }
+  const uint64_t gas_cost = schedule_->static_costs[op::PC];
+  // pc was already incremented by DISPATCH_NEXT, so subtract 1 to get the position of PC opcode
+  status = opcodes::pc(stack, gas, gas_cost, pc - 1);
+  if (tracer_ != nullptr) [[unlikely]] {
+    tracer_->trace_post_execution(frame, status, gas_cost);
+  }
+  if (status != ExecutionStatus::Success) [[unlikely]] {
+    return FrameResult::error(status);
+  }
+}
+  DISPATCH_NEXT();
+
+  // GAS opcode - push the remaining gas (after this instruction's cost)
+op_gas: {
+  if (tracer_ != nullptr) [[unlikely]] {
+    tracer_->trace_pre_execution(frame);
+  }
+  const uint64_t gas_cost = schedule_->static_costs[op::GAS];
+  status = opcodes::gas_op(stack, gas, gas_cost);
   if (tracer_ != nullptr) [[unlikely]] {
     tracer_->trace_post_execution(frame, status, gas_cost);
   }

@@ -36,8 +36,8 @@ namespace div0::evm::opcodes {
   // - Memory cost grows quadratically: 3*words + words²/512
   // - At 2^64 bytes (~18 exabytes), cost would be astronomically high
   // We treat conversion failure as OutOfGas since the operation is economically impossible.
-  uint64_t offset;
-  uint64_t length;
+  uint64_t offset = 0;
+  uint64_t length = 0;
   if (!stack[0].to_uint64(offset)) [[unlikely]] {
     return ExecutionStatus::OutOfGas;
   }
@@ -46,12 +46,12 @@ namespace div0::evm::opcodes {
   }
 
   // Calculate word cost: word_cost * ceil(length / 32)
-  uint64_t words_numerator;
+  uint64_t words_numerator = 0;
   if (__builtin_add_overflow(length, 31, &words_numerator)) [[unlikely]] {
     return ExecutionStatus::OutOfGas;
   }
   const uint64_t words = words_numerator / 32;
-  uint64_t dynamic_cost;
+  uint64_t dynamic_cost = 0;
   if (__builtin_mul_overflow(word_cost, words, &dynamic_cost)) [[unlikely]] {
     return ExecutionStatus::OutOfGas;
   }
@@ -70,7 +70,7 @@ namespace div0::evm::opcodes {
   }
 
   // Total cost = static + word_cost * words + memory_expansion
-  uint64_t total_cost;
+  uint64_t total_cost = 0;
   if (__builtin_add_overflow(static_cost, dynamic_cost, &total_cost)) [[unlikely]] {
     return ExecutionStatus::OutOfGas;
   }

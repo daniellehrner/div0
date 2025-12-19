@@ -1,0 +1,79 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  LLVM_VERSION: 21
+
+jobs:
+  check:
+    name: Static Analysis
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: ./.github/actions/setup
+        with:
+          version: ${{ env.LLVM_VERSION }}
+
+      - name: Check formatting
+        run: make format-check
+
+      - name: Configure debug build
+        run: cmake --preset=debug
+
+      - name: Run clang-tidy
+        run: make clang-tidy
+
+  test:
+    name: Test (${{ matrix.preset }})
+    needs: check
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        preset: [debug, threadsan, riscv64]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: ./.github/actions/setup
+        with:
+          version: ${{ env.LLVM_VERSION }}
+
+      - name: Cache FetchContent dependencies
+        uses: actions/cache@v4
+        with:
+          path: build/${{ matrix.preset }}/_deps
+          key: deps-${{ matrix.preset }}-${{ hashFiles('cmake/Dependencies.cmake') }}
+
+      - name: Configure ccache
+        run: |
+          ccache --set-config=cache_dir=$HOME/.ccache
+          ccache --set-config=max_size=500M
+          ccache --set-config=compression=true
+          ccache -z
+
+      - name: Cache ccache
+        uses: actions/cache@v4
+        with:
+          path: ~/.ccache
+          key: ccache-${{ matrix.preset }}-${{ runner.os }}-llvm${{ env.LLVM_VERSION }}
+          restore-keys: |
+            ccache-${{ matrix.preset }}-${{ runner.os }}-
+
+      - name: Configure
+        run: cmake --preset=${{ matrix.preset }}
+
+      - name: Build
+        run: cmake --build build/${{ matrix.preset }}
+
+      - name: Test
+        run: ctest --preset=${{ matrix.preset }}

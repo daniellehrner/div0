@@ -13,6 +13,10 @@
 // NOLINTNEXTLINE(misc-include-cleaner)
 #include "div0/types/uint256.h"
 
+// Memory management
+// NOLINTNEXTLINE(misc-include-cleaner)
+#include "div0/mem/arena.h"
+
 // EVM components
 // NOLINTNEXTLINE(misc-include-cleaner)
 #include "div0/evm/evm.h"

@@ -7,6 +7,12 @@ include(FetchContent)
 set(FETCHCONTENT_QUIET OFF)
 
 # ============================================================================
+# Container Library
+# ============================================================================
+
+include(dependencies/STC)
+
+# ============================================================================
 # Testing
 # ============================================================================
 
@@ -29,6 +35,7 @@ endif()
 
 message(STATUS "")
 message(STATUS "Dependencies configured:")
+message(STATUS "  - STC          : Container library (header-only)")
 if(DIV0_BUILD_TESTS)
   message(STATUS "  - Unity        : C testing framework")
 endif()

@@ -27,6 +27,6 @@ void evm_context_init(evm_context_t *ctx, const uint8_t *code, size_t code_size,
 /// Executes bytecode until termination or error.
 /// @param ctx Initialized execution context
 /// @return EVM_RESULT_STOP on success, EVM_RESULT_ERROR on failure (check ctx->status)
-evm_result_t evm_execute(evm_context_t *ctx);
+[[nodiscard]] evm_result_t evm_execute(evm_context_t *ctx);
 
 #endif // DIV0_EVM_EVM_H

@@ -4,16 +4,16 @@
 #include <string.h>
 
 // Constants for uint256 byte operations
-#define UINT256_BYTES 32
-#define UINT256_LIMBS 4
-#define BYTES_PER_LIMB 8
-#define BYTE_MASK 0xFFU
-#define BITS_PER_BYTE 8
+constexpr size_t UINT256_BYTES = 32;
+constexpr int UINT256_LIMBS = 4;
+constexpr int BYTES_PER_LIMB = 8;
+constexpr uint8_t BYTE_MASK = 0xFF;
+constexpr int BITS_PER_BYTE = 8;
 
 uint256_t uint256_from_bytes_be(const uint8_t *data, size_t len) {
   uint256_t result = uint256_zero();
 
-  if (len == 0 || data == NULL) {
+  if (len == 0 || data == nullptr) {
     return result;
   }
 

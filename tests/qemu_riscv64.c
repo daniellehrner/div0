@@ -8,8 +8,18 @@
 // QEMU user-mode emulates Linux syscalls, enabling bare-metal code to run
 // on a host system without actual RISC-V hardware.
 
+#include <stddef.h>
 #include <stdio.h>
 #include <unistd.h>
+
+// Portable stringification macros
+#define DIV0_STRINGIFY_(x) #x
+#define DIV0_STRINGIFY(x) DIV0_STRINGIFY_(x)
+
+// C23 unreachable() fallback for older libc
+#ifndef unreachable
+#define unreachable() __builtin_unreachable()
+#endif
 
 // Linux syscall numbers for RISC-V
 #define SYS_READ 63
@@ -46,25 +56,23 @@ static long syscall3(long n, long a0, long a1, long a2) {
 void _start(void) {
   int ret = main();
   syscall1(SYS_EXIT, ret);
-  __builtin_unreachable();
+  unreachable();
 }
 
 void _exit(int status) {
   syscall1(SYS_EXIT, status);
-  __builtin_unreachable();
+  unreachable();
 }
 
 // =============================================================================
 // picolibc tiny stdio support
 // =============================================================================
 
-static int stdio_putc(char c, FILE *file) {
-  (void)file;
+static int stdio_putc(char c, [[maybe_unused]] FILE *file) {
   return syscall3(SYS_WRITE, 1, (long)&c, 1) == 1 ? (unsigned char)c : EOF;
 }
 
-static int stdio_getc(FILE *file) {
-  (void)file;
+static int stdio_getc([[maybe_unused]] FILE *file) {
   char c;
   return syscall3(SYS_READ, 0, (long)&c, 1) == 1 ? (unsigned char)c : EOF;
 }
@@ -88,3 +96,14 @@ ssize_t write(int fd, const void *buf, size_t count) {
 ssize_t read(int fd, void *buf, size_t count) {
   return syscall3(SYS_READ, fd, (long)buf, count);
 }
+
+// =============================================================================
+// Heap support for picolibc sbrk
+// =============================================================================
+
+// 1MB static heap for QEMU user-mode testing
+// picolibc expects __heap_start and __heap_end to be linker symbols (addresses),
+// not pointer variables. The symbol names ARE the addresses.
+#define HEAP_SIZE (1024 * 1024)
+__attribute__((used, aligned(16))) char __heap_start[HEAP_SIZE];
+__asm__(".globl __heap_end\n.set __heap_end, __heap_start + " DIV0_STRINGIFY(HEAP_SIZE));

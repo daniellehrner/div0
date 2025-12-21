@@ -12,6 +12,8 @@ typedef struct {
   uint64_t limbs[4];
 } uint256_t;
 
+static_assert(sizeof(uint256_t) == 32, "uint256_t must be 32 bytes");
+
 /// Returns a zero-initialized uint256.
 static inline uint256_t uint256_zero(void) {
   return (uint256_t){{0, 0, 0, 0}};

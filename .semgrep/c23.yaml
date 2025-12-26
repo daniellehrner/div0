@@ -1,0 +1,46 @@
+rules:
+  # ============================================================================
+  # C23 Best Practices - Enforceable via Semgrep
+  # ============================================================================
+  # These rules catch patterns that clang-tidy's modernize-use-nullptr might miss,
+  # such as NULL in comparisons, ternary operators, and function arguments.
+
+  - id: use-nullptr-not-null
+    languages: [c]
+    message: "Use nullptr instead of NULL (C23)"
+    severity: ERROR
+    pattern-regex: \bNULL\b
+    paths:
+      include:
+        - /src/**
+        - /include/**
+        - /tests/**
+
+  - id: use-nullptr-not-zero-pointer
+    languages: [c]
+    message: "Use nullptr instead of 0 for null pointers (C23)"
+    severity: WARNING
+    patterns:
+      - pattern: $PTR = 0
+      - metavariable-regex:
+          metavariable: $PTR
+          regex: .*\*.*
+    paths:
+      include:
+        - /src/**
+        - /include/**
+        - /tests/**
+
+  - id: prefer-bool-literals
+    languages: [c]
+    message: "Use true/false instead of 1/0 for boolean values"
+    severity: WARNING
+    patterns:
+      - pattern-either:
+          - pattern: return 1;
+          - pattern: return 0;
+    paths:
+      include:
+        - /src/**
+        - /include/**
+        - /tests/**

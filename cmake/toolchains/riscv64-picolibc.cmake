@@ -38,8 +38,8 @@ if(DEFINED PICOLIBC_ROOT AND EXISTS "${PICOLIBC_ROOT}/include")
     set(RISCV_FLAGS "-march=rv64imac -mabi=lp64 -mcmodel=medany")
 
     # Freestanding and picolibc flags
-    # Use smaller arena block size (4KB) for bare-metal to reduce memory pressure
-    set(FREESTANDING_FLAGS "-ffreestanding -fno-builtin -DDIV0_ARENA_BLOCK_SIZE=4096")
+    # Use 64KB arena block size - must be >= 32KB to fit full EVM stack (1024 * 32 bytes)
+    set(FREESTANDING_FLAGS "-ffreestanding -fno-builtin -DDIV0_ARENA_BLOCK_SIZE=65536")
 
     # picolibc include path
     set(PICOLIBC_INCLUDE_FLAGS "-isystem ${PICOLIBC_ROOT}/include")
@@ -55,4 +55,11 @@ if(DEFINED PICOLIBC_ROOT AND EXISTS "${PICOLIBC_ROOT}/include")
     set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
     set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
     set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
+
+    # Override executable link command to wrap ALL inputs in --start-group/--end-group
+    # This is necessary for freestanding builds where object files depend on libc
+    # which may have internal dependencies requiring multiple passes
+    set(CMAKE_C_LINK_EXECUTABLE
+        "<CMAKE_C_COMPILER> <FLAGS> <CMAKE_C_LINK_FLAGS> <LINK_FLAGS> -Wl,--start-group <OBJECTS> <LINK_LIBRARIES> -Wl,--end-group -o <TARGET>"
+    )
 endif()

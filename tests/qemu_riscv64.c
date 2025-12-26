@@ -10,6 +10,7 @@
 
 #include <stddef.h>
 #include <stdio.h>
+#include <string.h>
 #include <unistd.h>
 
 // Portable stringification macros
@@ -50,10 +51,44 @@ static long syscall3(long n, long a0, long a1, long a2) {
 }
 
 // =============================================================================
+// TLS (Thread Local Storage) support
+// =============================================================================
+
+// Static TLS block for single-threaded bare-metal.
+// 64 bytes is plenty for errno (4 bytes) plus any future TLS variables.
+__attribute__((aligned(16))) static char tls_block[64];
+
+// Minimal TLS support for single-threaded bare-metal.
+// picolibc's CMake build doesn't include TLS initialization code,
+// so we provide our own simple implementation.
+static inline void _init_tls(void *tls) {
+  memset(tls, 0, sizeof(tls_block));
+}
+
+static inline void _set_tls(void *tls) {
+  // Set the thread pointer register (tp) on RISC-V
+  __asm__ volatile("mv tp, %0" : : "r"(tls));
+}
+
+// =============================================================================
 // Program entry and exit
 // =============================================================================
 
+// Global pointer symbol defined by linker
+extern char __global_pointer$[];
+
 void _start(void) {
+  // Initialize global pointer - required for accessing global/static variables
+  // The gp register must be set before any code that uses gp-relative addressing
+  __asm__ volatile(".option push\n"
+                   ".option norelax\n"
+                   "la gp, __global_pointer$\n"
+                   ".option pop\n");
+
+  // Initialize TLS before anything else - required for errno access in malloc
+  _init_tls(tls_block);
+  _set_tls(tls_block);
+
   int ret = main();
   syscall1(SYS_EXIT, ret);
   unreachable();
@@ -101,9 +136,10 @@ ssize_t read(int fd, void *buf, size_t count) {
 // Heap support for picolibc sbrk
 // =============================================================================
 
-// 1MB static heap for QEMU user-mode testing
+// 8MB static heap for QEMU user-mode testing
+// Sized for worst-case EVM memory usage with 60M gas (~5.4MB) plus overhead.
 // picolibc expects __heap_start and __heap_end to be linker symbols (addresses),
 // not pointer variables. The symbol names ARE the addresses.
-#define HEAP_SIZE (1024 * 1024)
+#define HEAP_SIZE (8 * 1024 * 1024)
 __attribute__((used, aligned(16))) char __heap_start[HEAP_SIZE];
 __asm__(".globl __heap_end\n.set __heap_end, __heap_start + " DIV0_STRINGIFY(HEAP_SIZE));

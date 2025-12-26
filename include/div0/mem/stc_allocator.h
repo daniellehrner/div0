@@ -32,15 +32,18 @@ static inline void *div0_arena_calloc(div0_arena_t *arena, size_t n, size_t sz) 
   size_t total = n * sz;
   void *ptr = div0_arena_alloc(arena, total);
   if (ptr) {
+    // NOLINTNEXTLINE(clang-analyzer-security.insecureAPI.DeprecatedOrUnsafeBufferHandling)
     memset(ptr, 0, total);
   }
   return ptr;
 }
 
 // Override STC's allocator macros
+// NOLINTBEGIN(readability-identifier-naming)
 #define c_malloc(sz) div0_arena_alloc(div0_stc_arena, (sz))
 #define c_calloc(n, sz) div0_arena_calloc(div0_stc_arena, (n), (sz))
 #define c_realloc(ptr, old_sz, new_sz) div0_arena_realloc(div0_stc_arena, (ptr), (old_sz), (new_sz))
 #define c_free(ptr, sz) div0_arena_free(div0_stc_arena, (ptr), (sz))
+// NOLINTEND(readability-identifier-naming)
 
 #endif // DIV0_MEM_STC_ALLOCATOR_H

@@ -14,7 +14,8 @@ High-performance EVM (Ethereum Virtual Machine) implementation in C23.
 ### macOS
 
 ```bash
-brew install cmake ninja ccache llvm lld
+brew install cmake ninja ccache llvm lld uv
+uv tool install semgrep
 ```
 
 ### Ubuntu 24.04
@@ -47,6 +48,10 @@ sudo ln -sf /usr/bin/clang-tidy-${LLVM_VERSION} /usr/bin/clang-tidy
 sudo ln -sf /usr/bin/clang-format-${LLVM_VERSION} /usr/bin/clang-format
 sudo ln -sf /usr/bin/lld-${LLVM_VERSION} /usr/bin/lld
 sudo ln -sf /usr/bin/ld.lld-${LLVM_VERSION} /usr/bin/ld.lld
+
+# Install uv and semgrep for C23 static analysis
+curl -LsSf https://astral.sh/uv/install.sh | sh
+uv tool install semgrep
 ```
 
 ### RISC-V Cross-Compilation (Ubuntu/Debian)
@@ -84,7 +89,9 @@ make release
 | `make bare-metal-riscv` | RISC-V 64-bit bare-metal build      |
 | `make test`        | Run unit tests                           |
 | `make format`      | Format code with clang-format            |
-| `make clang-tidy`  | Run static analysis                      |
+| `make clang-tidy`  | Run clang-tidy static analysis           |
+| `make semgrep`     | Run semgrep C23 checks                   |
+| `make check`       | Run all static analysis                  |
 
 ## Cross-Compilation
 
@@ -101,3 +108,7 @@ ctest --test-dir build/riscv64
 
 Requirements:
 - QEMU RISC-V 64-bit user-mode emulator (`qemu-riscv64`) for running tests
+
+## Documentation
+
+- [Arena Allocator](docs/arena-allocator.md) - Memory management system for EVM execution

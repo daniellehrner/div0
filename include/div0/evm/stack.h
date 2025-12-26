@@ -75,9 +75,9 @@ static inline bool evm_stack_has_space(const evm_stack_t *stack, uint16_t n) {
   if (new_capacity <= stack->capacity) {
     return false; // Already at max
   }
-  uint256_t *new_items = (uint256_t *)div0_arena_realloc(
-      stack->arena, stack->items, stack->capacity * sizeof(uint256_t),
-      new_capacity * sizeof(uint256_t));
+  uint256_t *new_items = (uint256_t *)div0_arena_realloc(stack->arena, stack->items,
+                                                         stack->capacity * sizeof(uint256_t),
+                                                         new_capacity * sizeof(uint256_t));
   if (!new_items) {
     return false;
   }

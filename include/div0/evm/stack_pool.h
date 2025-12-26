@@ -34,7 +34,6 @@ static inline void evm_stack_pool_init(evm_stack_pool_t *pool, div0_arena_t *are
 /// Return a stack to the pool.
 /// Currently a no-op; memory reclaimed on arena reset.
 static inline void evm_stack_pool_return([[maybe_unused]] evm_stack_pool_t *pool,
-                                         [[maybe_unused]] evm_stack_t *stack) {
-}
+                                         [[maybe_unused]] evm_stack_t *stack) {}
 
 #endif // DIV0_EVM_STACK_POOL_H

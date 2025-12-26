@@ -7,12 +7,16 @@
 #include <stdlib.h>
 #include <string.h>
 
+/// Alignment for arena allocations (8 bytes).
+static constexpr size_t DIV0_ARENA_ALIGNMENT = 8;
+static constexpr size_t DIV0_ARENA_ALIGN_MASK = DIV0_ARENA_ALIGNMENT - 1;
+
 /// Block size for arena allocations.
 /// Note: Using #define instead of constexpr because this is used as an array
 /// size in div0_arena_block_t and some compilers (especially with bare-metal
 /// toolchains) may have issues with constexpr in this context.
 #ifndef DIV0_ARENA_BLOCK_SIZE
-#define DIV0_ARENA_BLOCK_SIZE (64 * 1024)
+#define DIV0_ARENA_BLOCK_SIZE ((size_t)64 * 1024)
 #endif
 
 /// Arena block - a single 64KB memory region.
@@ -55,7 +59,7 @@ typedef struct {
   }
 
   // Align size to 8 bytes
-  size_t aligned_size = (size + 7) & ~(size_t)7;
+  size_t aligned_size = (size + DIV0_ARENA_ALIGN_MASK) & ~DIV0_ARENA_ALIGN_MASK;
 
   // Allocation larger than block size not supported
   if (aligned_size > DIV0_ARENA_BLOCK_SIZE) {
@@ -64,7 +68,7 @@ typedef struct {
 
   // Try current block
   div0_arena_block_t *block = arena->current;
-  size_t aligned_offset = (block->offset + 7) & ~(size_t)7;
+  size_t aligned_offset = (block->offset + DIV0_ARENA_ALIGN_MASK) & ~DIV0_ARENA_ALIGN_MASK;
 
   if (aligned_offset + aligned_size <= DIV0_ARENA_BLOCK_SIZE) {
     void *ptr = block->data + aligned_offset;
@@ -107,16 +111,15 @@ typedef struct {
   }
   if (ptr && old_size > 0) {
     size_t copy_size = old_size < new_size ? old_size : new_size;
+    // NOLINTNEXTLINE(clang-analyzer-security.insecureAPI.DeprecatedOrUnsafeBufferHandling)
     memcpy(new_ptr, ptr, copy_size);
   }
   return new_ptr;
 }
 
 /// Free memory (no-op - memory reclaimed via reset).
-static inline void div0_arena_free([[maybe_unused]] div0_arena_t *arena,
-                                   [[maybe_unused]] void *ptr,
-                                   [[maybe_unused]] size_t size) {
-}
+static inline void div0_arena_free([[maybe_unused]] div0_arena_t *arena, [[maybe_unused]] void *ptr,
+                                   [[maybe_unused]] size_t size) {}
 
 /// Reset arena for reuse (keeps blocks allocated).
 /// All previous allocations become invalid.

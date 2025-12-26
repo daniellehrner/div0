@@ -12,7 +12,10 @@ typedef struct {
   uint64_t limbs[4];
 } uint256_t;
 
-static_assert(sizeof(uint256_t) == 32, "uint256_t must be 32 bytes");
+/// Size of uint256 in bytes.
+static constexpr size_t UINT256_SIZE_BYTES = 32;
+
+static_assert(sizeof(uint256_t) == UINT256_SIZE_BYTES, "uint256_t must be 32 bytes");
 
 /// Returns a zero-initialized uint256.
 static inline uint256_t uint256_zero(void) {
@@ -22,6 +25,12 @@ static inline uint256_t uint256_zero(void) {
 /// Creates a uint256 from a 64-bit value.
 static inline uint256_t uint256_from_u64(uint64_t value) {
   return (uint256_t){{value, 0, 0, 0}};
+}
+
+/// Creates a uint256 from four 64-bit limbs (little-endian: limb0 = LSB).
+static inline uint256_t uint256_from_limbs(uint64_t limb0, uint64_t limb1, uint64_t limb2,
+                                           uint64_t limb3) {
+  return (uint256_t){{limb0, limb1, limb2, limb3}};
 }
 
 /// Checks if a uint256 is zero.
@@ -49,6 +58,42 @@ static inline uint256_t uint256_add(uint256_t a, uint256_t b) {
 
   return result;
 }
+
+/// Subtracts two uint256 values. Wraps on underflow.
+static inline uint256_t uint256_sub(uint256_t a, uint256_t b) {
+  uint256_t result;
+  unsigned long long borrow = 0;
+
+  result.limbs[0] = __builtin_subcll(a.limbs[0], b.limbs[0], borrow, &borrow);
+  result.limbs[1] = __builtin_subcll(a.limbs[1], b.limbs[1], borrow, &borrow);
+  result.limbs[2] = __builtin_subcll(a.limbs[2], b.limbs[2], borrow, &borrow);
+  result.limbs[3] = __builtin_subcll(a.limbs[3], b.limbs[3], borrow, &borrow);
+
+  return result;
+}
+
+/// Compares two uint256 values. Returns true if a < b.
+static inline bool uint256_lt(uint256_t a, uint256_t b) {
+  if (a.limbs[3] != b.limbs[3]) {
+    return a.limbs[3] < b.limbs[3];
+  }
+  if (a.limbs[2] != b.limbs[2]) {
+    return a.limbs[2] < b.limbs[2];
+  }
+  if (a.limbs[1] != b.limbs[1]) {
+    return a.limbs[1] < b.limbs[1];
+  }
+  return a.limbs[0] < b.limbs[0];
+}
+
+/// Multiplies two uint256 values. Wraps on overflow (mod 2^256).
+uint256_t uint256_mul(uint256_t a, uint256_t b);
+
+/// Divides two uint256 values. Returns 0 if divisor is zero (EVM semantics).
+uint256_t uint256_div(uint256_t a, uint256_t b);
+
+/// Computes modulo of two uint256 values. Returns 0 if divisor is zero (EVM semantics).
+uint256_t uint256_mod(uint256_t a, uint256_t b);
 
 /// Creates a uint256 from big-endian bytes.
 /// @param data Pointer to big-endian byte array

@@ -33,6 +33,12 @@ jobs:
       - name: Run clang-tidy
         run: make clang-tidy
 
+      - name: Install semgrep
+        run: pip install semgrep
+
+      - name: Run semgrep C23 checks
+        run: make semgrep
+
   test:
     name: Test (${{ matrix.preset }})
     needs: check

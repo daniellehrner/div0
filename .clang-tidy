@@ -5,6 +5,8 @@ Checks: >
   cert-*,
   clang-analyzer-*,
   misc-*,
+  modernize-macro-to-enum,
+  modernize-use-nullptr,
   performance-*,
   portability-*,
   readability-*,

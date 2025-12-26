@@ -9,8 +9,8 @@
 #include <stdint.h>
 
 // Constants for dispatch table
-#define OPCODE_TABLE_SIZE 256
-#define OPCODE_MAX 0xFF
+static constexpr int OPCODE_TABLE_SIZE = 256;
+static constexpr uint8_t OPCODE_MAX = 0xFF;
 
 void evm_context_init(evm_context_t *ctx, const uint8_t *code, size_t code_size,
                       evm_stack_t *stack) {
@@ -73,7 +73,7 @@ op_stop:
   return EVM_RESULT_STOP;
 
 op_add:
-  if (evm_stack_size(ctx->stack) < 2) {
+  if (!evm_stack_has_items(ctx->stack, 2)) {
     ctx->status = EVM_STACK_UNDERFLOW;
     return EVM_RESULT_ERROR;
   }
@@ -114,7 +114,7 @@ op_push29:
 op_push30:
 op_push31:
 op_push32: {
-  if (!evm_stack_can_push(ctx->stack)) {
+  if (!evm_stack_ensure_space(ctx->stack, 1)) {
     ctx->status = EVM_STACK_OVERFLOW;
     return EVM_RESULT_ERROR;
   }

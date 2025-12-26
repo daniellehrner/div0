@@ -23,8 +23,10 @@ endif()
 # ============================================================================
 
 # Detect if we're building for bare-metal (freestanding)
+message(STATUS "CMAKE_SYSTEM_NAME: ${CMAKE_SYSTEM_NAME}")
 if(CMAKE_SYSTEM_NAME STREQUAL "Generic")
   set(DIV0_FREESTANDING ON)
+  message(STATUS "Building for bare-metal (freestanding)")
 else()
   set(DIV0_FREESTANDING OFF)
 endif()
@@ -117,18 +119,29 @@ target_include_directories(div0_types PUBLIC
 )
 div0_target_options(div0_types)
 
-# EVM library (stack, interpreter) - depends on types
+# Memory library (arena allocator) - no dependencies
+add_library(div0_mem STATIC
+  src/mem/arena.c
+)
+target_include_directories(div0_mem PUBLIC
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+  $<INSTALL_INTERFACE:include>
+)
+target_link_libraries(div0_mem PUBLIC stc_headers)
+div0_target_options(div0_mem)
+
+# EVM library (stack, interpreter) - depends on types, mem
 add_library(div0_evm STATIC
   src/evm/evm.c
 )
-target_link_libraries(div0_evm PUBLIC div0_types)
+target_link_libraries(div0_evm PUBLIC div0_types div0_mem)
 div0_target_options(div0_evm)
 # Computed goto dispatch tables intentionally override default entries
 target_compile_options(div0_evm PRIVATE -Wno-initializer-overrides)
 
 # Convenience interface library linking all components
 add_library(div0 INTERFACE)
-target_link_libraries(div0 INTERFACE div0_types div0_evm)
+target_link_libraries(div0 INTERFACE div0_types div0_mem div0_evm)
 
 # ============================================================================
 # Tests
@@ -164,6 +177,7 @@ if(DIV0_BUILD_TESTS)
       # The toolchain file sets CMAKE_C_LINK_EXECUTABLE to wrap everything in --start-group/--end-group
       target_link_libraries(div0_tests PRIVATE
         div0_types
+        div0_mem
         div0_evm
         "${DIV0_PICOLIBC_LIB}"
         "${DIV0_COMPILER_RT_LIB}"

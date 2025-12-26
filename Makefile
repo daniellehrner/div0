@@ -1,7 +1,7 @@
 # div0 - High-performance EVM implementation
 # Makefile wrapper for CMake builds
 
-.PHONY: all check debug release threadsan bare-metal-riscv test clean format clang-tidy help
+.PHONY: all check debug release threadsan bare-metal-riscv test clean distclean format clang-tidy semgrep help
 
 # Default compiler - must be Clang
 CC := clang
@@ -56,8 +56,21 @@ test: debug
 test-threadsan: threadsan
 	ctest --test-dir $(BUILD_THREADSAN) --output-on-failure
 
-# Clean all build artifacts
+# Clean project build artifacts (preserves external dependencies like picolibc)
 clean:
+	@for dir in $(BUILD_DEBUG) $(BUILD_RELEASE) $(BUILD_THREADSAN) $(BUILD_RISCV); do \
+		if [ -d "$$dir" ]; then \
+			echo "Cleaning $$dir (preserving external deps)..."; \
+			rm -f "$$dir"/*.a "$$dir"/div0_tests "$$dir"/div0_tests.exe; \
+			rm -rf "$$dir"/CMakeFiles; \
+			rm -f "$$dir"/CMakeCache.txt "$$dir"/cmake_install.cmake; \
+			rm -f "$$dir"/build.ninja "$$dir"/.ninja_* "$$dir"/compile_commands.json; \
+			rm -f "$$dir"/CTestTestfile.cmake; \
+		fi; \
+	done
+
+# Deep clean - removes everything including external dependencies
+distclean:
 	rm -rf build
 
 # Format source code
@@ -72,7 +85,11 @@ format-check:
 clang-tidy: debug
 	find src include -name '*.c' -o -name '*.h' | xargs clang-tidy -p $(BUILD_DEBUG)
 
-check: format-check clang-tidy
+# Run semgrep C23 checks (only fail on ERROR, not WARNING)
+semgrep:
+	semgrep --config .semgrep/c23.yaml --error --severity=ERROR
+
+check: format-check clang-tidy semgrep
 
 # Help
 help:
@@ -83,8 +100,11 @@ help:
 	@echo "  bare-metal-riscv - RISC-V 64-bit bare-metal build (requires PICOLIBC_ROOT)"
 	@echo "  test             - Run tests (debug build)"
 	@echo "  test-threadsan   - Run tests with ThreadSanitizer"
-	@echo "  clean            - Remove all build artifacts"
+	@echo "  clean            - Clean project artifacts (preserves external deps)"
+	@echo "  distclean        - Remove everything including external dependencies"
 	@echo "  format           - Format source code with clang-format"
 	@echo "  format-check     - Check formatting without modifying"
 	@echo "  clang-tidy       - Run clang-tidy static analysis"
+	@echo "  semgrep          - Run semgrep C23 checks"
+	@echo "  check            - Run all static analysis (format-check, clang-tidy, semgrep)"
 	@echo "  help             - Show this help message"

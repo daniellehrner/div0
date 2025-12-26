@@ -12,6 +12,14 @@
 // Core types
 // NOLINTNEXTLINE(misc-include-cleaner)
 #include "div0/types/uint256.h"
+// NOLINTNEXTLINE(misc-include-cleaner)
+#include "div0/types/bytes32.h"
+// NOLINTNEXTLINE(misc-include-cleaner)
+#include "div0/types/hash.h"
+// NOLINTNEXTLINE(misc-include-cleaner)
+#include "div0/types/address.h"
+// NOLINTNEXTLINE(misc-include-cleaner)
+#include "div0/types/bytes.h"
 
 // Memory management
 // NOLINTNEXTLINE(misc-include-cleaner)

@@ -61,8 +61,8 @@ __attribute__((aligned(16))) static char tls_block[64];
 // Minimal TLS support for single-threaded bare-metal.
 // picolibc's CMake build doesn't include TLS initialization code,
 // so we provide our own simple implementation.
-static inline void _init_tls(void *tls) {
-  memset(tls, 0, sizeof(tls_block));
+static inline void _init_tls(void) {
+  memset(tls_block, 0, sizeof(tls_block));
 }
 
 static inline void _set_tls(void *tls) {
@@ -86,7 +86,7 @@ void _start(void) {
                    ".option pop\n");
 
   // Initialize TLS before anything else - required for errno access in malloc
-  _init_tls(tls_block);
+  _init_tls();
   _set_tls(tls_block);
 
   int ret = main();

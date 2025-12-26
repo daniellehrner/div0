@@ -27,9 +27,12 @@ extern div0_arena_t *div0_stc_arena;
 /// @param arena Arena to allocate from
 /// @param n Number of elements
 /// @param sz Size of each element
-/// @return Pointer to zero-initialized memory, or nullptr on failure
+/// @return Pointer to zero-initialized memory, or nullptr on failure/overflow
 static inline void *div0_arena_calloc(div0_arena_t *arena, size_t n, size_t sz) {
-  size_t total = n * sz;
+  size_t total;
+  if (__builtin_mul_overflow(n, sz, &total)) {
+    return nullptr;
+  }
   void *ptr = div0_arena_alloc(arena, total);
   if (ptr) {
     // NOLINTNEXTLINE(clang-analyzer-security.insecureAPI.DeprecatedOrUnsafeBufferHandling)

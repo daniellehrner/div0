@@ -54,7 +54,7 @@ typedef struct {
 /// @param size Number of bytes to allocate
 /// @return Pointer to allocated memory, or nullptr if allocation fails
 [[nodiscard]] static inline void *div0_arena_alloc(div0_arena_t *arena, size_t size) {
-  if (size == 0) {
+  if (size == 0 || size > SIZE_MAX - DIV0_ARENA_ALIGN_MASK) {
     return nullptr;
   }
 

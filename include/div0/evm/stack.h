@@ -68,10 +68,9 @@ static inline bool evm_stack_has_space(const evm_stack_t *stack, uint16_t n) {
 /// @param stack Stack to grow
 /// @return true on success, false on allocation failure or max depth reached
 [[nodiscard]] static inline bool evm_stack_grow(evm_stack_t *stack) {
-  uint16_t new_capacity = stack->capacity * 2;
-  if (new_capacity > EVM_STACK_MAX_DEPTH) {
-    new_capacity = EVM_STACK_MAX_DEPTH;
-  }
+  // Check for overflow before doubling
+  uint16_t new_capacity =
+      stack->capacity >= EVM_STACK_MAX_DEPTH / 2 ? EVM_STACK_MAX_DEPTH : stack->capacity * 2;
   if (new_capacity <= stack->capacity) {
     return false; // Already at max
   }
@@ -107,6 +106,9 @@ static inline bool evm_stack_has_space(const evm_stack_t *stack, uint16_t n) {
 /// @param value Value to push
 /// @return true on success, false on allocation failure or stack overflow
 [[nodiscard]] static inline bool evm_stack_push(evm_stack_t *stack, uint256_t value) {
+  if (stack->top >= EVM_STACK_MAX_DEPTH) {
+    return false; // Stack overflow
+  }
   if (stack->top >= stack->capacity) {
     if (!evm_stack_grow(stack)) {
       return false;

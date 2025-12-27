@@ -24,6 +24,9 @@
 #include "crypto/test_keccak256.h"
 #include "crypto/test_secp256k1.h"
 
+// Test headers - rlp
+#include "rlp/test_rlp.h"
+
 // Global arena for tests (shared across test files)
 div0_arena_t test_arena;
 static bool arena_initialized = false;
@@ -178,6 +181,55 @@ int main(void) {
   RUN_TEST(test_secp256k1_ecrecover_invalid_v);
   RUN_TEST(test_secp256k1_ecrecover_zero_signature);
   RUN_TEST(test_secp256k1_recover_pubkey_invalid_recovery_id);
+
+  // RLP encoding tests
+  RUN_TEST(test_rlp_encode_empty_string);
+  RUN_TEST(test_rlp_encode_single_byte_00);
+  RUN_TEST(test_rlp_encode_single_byte_7f);
+  RUN_TEST(test_rlp_encode_short_string_dog);
+  RUN_TEST(test_rlp_encode_short_string_55_bytes);
+  RUN_TEST(test_rlp_encode_long_string_56_bytes);
+  RUN_TEST(test_rlp_encode_u64_zero);
+  RUN_TEST(test_rlp_encode_u64_small);
+  RUN_TEST(test_rlp_encode_u64_medium);
+  RUN_TEST(test_rlp_encode_uint256_zero);
+  RUN_TEST(test_rlp_encode_uint256_single_byte);
+  RUN_TEST(test_rlp_encode_uint256_multi_byte);
+  RUN_TEST(test_rlp_encode_address);
+  RUN_TEST(test_rlp_encode_empty_list);
+  RUN_TEST(test_rlp_encode_nested_list);
+
+  // RLP decoding tests
+  RUN_TEST(test_rlp_decode_empty_string);
+  RUN_TEST(test_rlp_decode_single_byte_00);
+  RUN_TEST(test_rlp_decode_single_byte_7f);
+  RUN_TEST(test_rlp_decode_short_string_dog);
+  RUN_TEST(test_rlp_decode_u64_zero);
+  RUN_TEST(test_rlp_decode_u64_small);
+  RUN_TEST(test_rlp_decode_u64_medium);
+  RUN_TEST(test_rlp_decode_uint256_zero);
+  RUN_TEST(test_rlp_decode_uint256_big);
+  RUN_TEST(test_rlp_decode_address_valid);
+  RUN_TEST(test_rlp_decode_address_wrong_size);
+  RUN_TEST(test_rlp_decode_empty_list);
+  RUN_TEST(test_rlp_decode_list_items);
+
+  // RLP decoding error tests
+  RUN_TEST(test_rlp_decode_error_input_too_short);
+  RUN_TEST(test_rlp_decode_error_leading_zeros);
+  RUN_TEST(test_rlp_decode_error_non_canonical);
+
+  // RLP roundtrip tests
+  RUN_TEST(test_rlp_roundtrip_bytes);
+  RUN_TEST(test_rlp_roundtrip_u64);
+  RUN_TEST(test_rlp_roundtrip_uint256);
+
+  // RLP helper tests
+  RUN_TEST(test_rlp_prefix_length);
+  RUN_TEST(test_rlp_length_of_length);
+  RUN_TEST(test_rlp_byte_length_u64);
+  RUN_TEST(test_rlp_is_string_prefix);
+  RUN_TEST(test_rlp_is_list_prefix);
 
   // Cleanup
   div0_arena_destroy(&test_arena);

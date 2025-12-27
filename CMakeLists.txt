@@ -163,9 +163,22 @@ if(DIV0_FREESTANDING)
   add_dependencies(div0_crypto secp256k1_ext xkcp_build)
 endif()
 
+# RLP library - depends on types
+add_library(div0_rlp STATIC
+  src/rlp/helpers.c
+  src/rlp/encode.c
+  src/rlp/decode.c
+)
+target_include_directories(div0_rlp PUBLIC
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+  $<INSTALL_INTERFACE:include>
+)
+target_link_libraries(div0_rlp PUBLIC div0_types)
+div0_target_options(div0_rlp)
+
 # Convenience interface library linking all components
 add_library(div0 INTERFACE)
-target_link_libraries(div0 INTERFACE div0_types div0_mem div0_evm div0_crypto)
+target_link_libraries(div0 INTERFACE div0_types div0_mem div0_evm div0_crypto div0_rlp)
 
 # ============================================================================
 # Tests
@@ -197,6 +210,8 @@ if(DIV0_BUILD_TESTS)
         # crypto tests
         tests/crypto/test_keccak256.c
         tests/crypto/test_secp256k1.c
+        # rlp tests
+        tests/rlp/test_rlp.c
         ${unity_SOURCE_DIR}/src/unity.c
       )
 
@@ -256,6 +271,8 @@ if(DIV0_BUILD_TESTS)
       # crypto tests
       tests/crypto/test_keccak256.c
       tests/crypto/test_secp256k1.c
+      # rlp tests
+      tests/rlp/test_rlp.c
       ${unity_SOURCE_DIR}/src/unity.c
     )
 

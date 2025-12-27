@@ -8,8 +8,20 @@
 // Empty Value Sentinel
 // =============================================================================
 
-/// Static sentinel byte used to mark "empty value exists" (data != nullptr, size == 0).
-/// This avoids allocating 1 byte per empty value.
+/// Static sentinel byte used to distinguish "empty value" from "no value".
+///
+/// In the MPT, we need to differentiate between:
+/// - Key not present: value.data == nullptr
+/// - Key present with empty value: value.data != nullptr && value.size == 0
+///
+/// Instead of allocating memory for each empty value, we point to this static
+/// sentinel. All empty values share this address, which is safe because:
+/// 1. We never dereference it (size == 0 means no data to read)
+/// 2. We only use the pointer for null-checking, not identity comparison
+/// 3. The RLP encoding correctly handles size == 0 as empty bytes
+///
+/// IMPORTANT: Do not compare value.data pointers directly to detect "same value".
+/// Always compare using size and memcmp of the actual data.
 static uint8_t empty_value_sentinel = 0;
 
 // =============================================================================
@@ -392,7 +404,7 @@ static mpt_node_t *collapse_branch(mpt_backend_t *backend, mpt_node_t *branch,
   // Check for zero children first
   if (single_child < 0) {
     size_t child_count = mpt_branch_child_count(&branch->branch);
-    // NOLINTNEXTLINE(readability-implicit-bool-conversion)
+    // NOLINTNEXTLINE(readability-implicit-bool-conversion) - bool in && is intentional
     if (child_count == 0 && has_value) {
       // No children, only value - convert to leaf with empty path
       mpt_node_t *new_leaf = backend->vtable->alloc_node(backend);

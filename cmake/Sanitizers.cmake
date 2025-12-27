@@ -22,39 +22,35 @@ endif()
 # Debug builds: ASan + UBSan by default
 # ============================================================================
 
-# Use a guard variable to prevent flag accumulation on reconfigure
-if(NOT DIV0_SANITIZERS_CONFIGURED)
-  set(DIV0_SANITIZERS_CONFIGURED TRUE CACHE INTERNAL "Sanitizers already configured")
+# Use add_compile_options/add_link_options to append flags without overwriting
+# user-specified CMAKE_C_FLAGS_DEBUG. Generator expressions ensure these only
+# apply to Debug builds.
+add_compile_options(
+  $<$<CONFIG:Debug>:-g>
+  $<$<CONFIG:Debug>:-fsanitize=address,undefined>
+  $<$<CONFIG:Debug>:-fno-omit-frame-pointer>
+  $<$<CONFIG:Debug>:-fno-optimize-sibling-calls>
+)
 
-  set(CMAKE_C_FLAGS_DEBUG
-    "-g -fsanitize=address,undefined -fno-omit-frame-pointer -fno-optimize-sibling-calls"
-    CACHE STRING "Flags used by C compiler during Debug builds" FORCE)
-
-  set(CMAKE_EXE_LINKER_FLAGS_DEBUG
-    "-fsanitize=address,undefined"
-    CACHE STRING "Flags used by linker during Debug builds" FORCE)
-
-  set(CMAKE_SHARED_LINKER_FLAGS_DEBUG
-    "-fsanitize=address,undefined"
-    CACHE STRING "Flags used by shared linker during Debug builds" FORCE)
-endif()
+add_link_options(
+  $<$<CONFIG:Debug>:-fsanitize=address,undefined>
+)
 
 # ============================================================================
 # TSan (Thread Sanitizer) - Separate build type
 # ============================================================================
 # Cannot be combined with ASan - requires separate build
 
-set(CMAKE_C_FLAGS_THREADSAN
-  "-O1 -g -fsanitize=thread -fno-omit-frame-pointer"
-  CACHE STRING "Flags used by C compiler during ThreadSan builds" FORCE)
+add_compile_options(
+  $<$<CONFIG:ThreadSan>:-O1>
+  $<$<CONFIG:ThreadSan>:-g>
+  $<$<CONFIG:ThreadSan>:-fsanitize=thread>
+  $<$<CONFIG:ThreadSan>:-fno-omit-frame-pointer>
+)
 
-set(CMAKE_EXE_LINKER_FLAGS_THREADSAN
-  "-fsanitize=thread"
-  CACHE STRING "Flags used by linker during ThreadSan builds" FORCE)
-
-set(CMAKE_SHARED_LINKER_FLAGS_THREADSAN
-  "-fsanitize=thread"
-  CACHE STRING "Flags used by shared linker during ThreadSan builds" FORCE)
+add_link_options(
+  $<$<CONFIG:ThreadSan>:-fsanitize=thread>
+)
 
 # ============================================================================
 # Mark custom build types as valid configurations

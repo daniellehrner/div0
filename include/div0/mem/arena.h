@@ -7,9 +7,8 @@
 #include <stdlib.h>
 #include <string.h>
 
-/// Alignment for arena allocations (8 bytes).
+/// Default alignment for arena allocations (8 bytes).
 static constexpr size_t DIV0_ARENA_ALIGNMENT = 8;
-static constexpr size_t DIV0_ARENA_ALIGN_MASK = DIV0_ARENA_ALIGNMENT - 1;
 
 /// Block size for arena allocations.
 /// Note: Using #define instead of constexpr because this is used as an array
@@ -49,17 +48,24 @@ typedef struct {
   return true;
 }
 
-/// Allocate memory from arena (8-byte aligned).
+/// Allocate memory from arena with specific alignment.
 /// @param arena Arena to allocate from
 /// @param size Number of bytes to allocate
+/// @param alignment Required alignment (must be power of 2)
 /// @return Pointer to allocated memory, or nullptr if allocation fails
-[[nodiscard]] static inline void *div0_arena_alloc(div0_arena_t *arena, size_t size) {
-  if (size == 0 || size > SIZE_MAX - DIV0_ARENA_ALIGN_MASK) {
+[[nodiscard]] static inline void *div0_arena_alloc_aligned(div0_arena_t *arena, size_t size,
+                                                           size_t alignment) {
+  if (size == 0 || alignment == 0 || (alignment & (alignment - 1)) != 0) {
+    return nullptr; // Invalid size or alignment not power of 2
+  }
+
+  size_t align_mask = alignment - 1;
+  if (size > SIZE_MAX - align_mask) {
     return nullptr;
   }
 
-  // Align size to 8 bytes
-  size_t aligned_size = (size + DIV0_ARENA_ALIGN_MASK) & ~DIV0_ARENA_ALIGN_MASK;
+  // Align size to requested alignment
+  size_t aligned_size = (size + align_mask) & ~align_mask;
 
   // Allocation larger than block size not supported
   if (aligned_size > DIV0_ARENA_BLOCK_SIZE) {
@@ -68,7 +74,11 @@ typedef struct {
 
   // Try current block
   div0_arena_block_t *block = arena->current;
-  size_t aligned_offset = (block->offset + DIV0_ARENA_ALIGN_MASK) & ~DIV0_ARENA_ALIGN_MASK;
+
+  // Calculate aligned offset within current block
+  uintptr_t current_addr = (uintptr_t)(block->data + block->offset);
+  uintptr_t aligned_addr = (current_addr + align_mask) & ~align_mask;
+  size_t aligned_offset = aligned_addr - (uintptr_t)block->data;
 
   if (aligned_offset + aligned_size <= DIV0_ARENA_BLOCK_SIZE) {
     void *ptr = block->data + aligned_offset;
@@ -79,8 +89,12 @@ typedef struct {
   // Current block full - check if next block exists (from previous execution)
   if (block->next) {
     arena->current = block->next;
-    void *ptr = arena->current->data;
-    arena->current->offset = aligned_size;
+    // Calculate aligned offset from start of new block
+    uintptr_t data_start = (uintptr_t)arena->current->data;
+    uintptr_t new_aligned_addr = (data_start + align_mask) & ~align_mask;
+    size_t new_aligned_offset = new_aligned_addr - data_start;
+    void *ptr = arena->current->data + new_aligned_offset;
+    arena->current->offset = new_aligned_offset + aligned_size;
     return ptr;
   }
 
@@ -90,11 +104,24 @@ typedef struct {
     return nullptr;
   }
   new_block->next = nullptr;
-  new_block->offset = aligned_size;
+
+  // Calculate aligned offset from start of new block
+  uintptr_t data_start = (uintptr_t)new_block->data;
+  uintptr_t new_aligned_addr = (data_start + align_mask) & ~align_mask;
+  size_t new_aligned_offset = new_aligned_addr - data_start;
+  new_block->offset = new_aligned_offset + aligned_size;
 
   block->next = new_block;
   arena->current = new_block;
-  return new_block->data;
+  return new_block->data + new_aligned_offset;
+}
+
+/// Allocate memory from arena (8-byte aligned).
+/// @param arena Arena to allocate from
+/// @param size Number of bytes to allocate
+/// @return Pointer to allocated memory, or nullptr if allocation fails
+[[nodiscard]] static inline void *div0_arena_alloc(div0_arena_t *arena, size_t size) {
+  return div0_arena_alloc_aligned(arena, size, DIV0_ARENA_ALIGNMENT);
 }
 
 /// Reallocate memory (allocates new space, copies data, old space wasted until reset).

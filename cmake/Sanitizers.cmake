@@ -22,17 +22,22 @@ endif()
 # Debug builds: ASan + UBSan by default
 # ============================================================================
 
-set(CMAKE_C_FLAGS_DEBUG
-  "${CMAKE_C_FLAGS_DEBUG} -fsanitize=address,undefined -fno-omit-frame-pointer -fno-optimize-sibling-calls"
-  CACHE STRING "Flags used by C compiler during Debug builds" FORCE)
+# Use a guard variable to prevent flag accumulation on reconfigure
+if(NOT DIV0_SANITIZERS_CONFIGURED)
+  set(DIV0_SANITIZERS_CONFIGURED TRUE CACHE INTERNAL "Sanitizers already configured")
 
-set(CMAKE_EXE_LINKER_FLAGS_DEBUG
-  "${CMAKE_EXE_LINKER_FLAGS_DEBUG} -fsanitize=address,undefined"
-  CACHE STRING "Flags used by linker during Debug builds" FORCE)
+  set(CMAKE_C_FLAGS_DEBUG
+    "-g -fsanitize=address,undefined -fno-omit-frame-pointer -fno-optimize-sibling-calls"
+    CACHE STRING "Flags used by C compiler during Debug builds" FORCE)
 
-set(CMAKE_SHARED_LINKER_FLAGS_DEBUG
-  "${CMAKE_SHARED_LINKER_FLAGS_DEBUG} -fsanitize=address,undefined"
-  CACHE STRING "Flags used by shared linker during Debug builds" FORCE)
+  set(CMAKE_EXE_LINKER_FLAGS_DEBUG
+    "-fsanitize=address,undefined"
+    CACHE STRING "Flags used by linker during Debug builds" FORCE)
+
+  set(CMAKE_SHARED_LINKER_FLAGS_DEBUG
+    "-fsanitize=address,undefined"
+    CACHE STRING "Flags used by shared linker during Debug builds" FORCE)
+endif()
 
 # ============================================================================
 # TSan (Thread Sanitizer) - Separate build type

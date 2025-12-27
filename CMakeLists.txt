@@ -159,6 +159,9 @@ target_link_libraries(div0_crypto
   PRIVATE xkcp secp256k1
 )
 div0_target_options(div0_crypto)
+if(DIV0_FREESTANDING)
+  add_dependencies(div0_crypto secp256k1_ext xkcp_build)
+endif()
 
 # Convenience interface library linking all components
 add_library(div0 INTERFACE)
@@ -189,6 +192,9 @@ if(DIV0_BUILD_TESTS)
         tests/evm/test_stack.c
         tests/evm/test_stack_pool.c
         tests/evm/test_evm.c
+        # crypto tests
+        tests/crypto/test_keccak256.c
+        tests/crypto/test_secp256k1.c
         ${unity_SOURCE_DIR}/src/unity.c
       )
 
@@ -202,7 +208,7 @@ if(DIV0_BUILD_TESTS)
         ${CMAKE_CURRENT_SOURCE_DIR}/tests
       )
 
-      add_dependencies(div0_tests picolibc_ext compiler_rt_ext)
+      add_dependencies(div0_tests picolibc_ext compiler_rt_ext xkcp_build secp256k1_ext)
 
       target_compile_options(div0_tests PRIVATE ${DIV0_WARNING_FLAGS} -Wno-conversion)
       target_compile_definitions(div0_tests PRIVATE DIV0_FREESTANDING=1)
@@ -213,6 +219,7 @@ if(DIV0_BUILD_TESTS)
         div0_types
         div0_mem
         div0_evm
+        div0_crypto
         "${DIV0_PICOLIBC_LIB}"
         "${DIV0_COMPILER_RT_LIB}"
       )

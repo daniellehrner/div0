@@ -87,11 +87,27 @@ set(XKCP_INCLUDE_DIR "${XKCP_INSTALL_DIR}/include")
 file(MAKE_DIRECTORY ${XKCP_INSTALL_DIR}/lib)
 file(MAKE_DIRECTORY ${XKCP_INSTALL_DIR}/include)
 
+# Set up cross-compilation for XKCP
+if(DIV0_FREESTANDING AND CMAKE_C_COMPILER_TARGET)
+  # Cross-compile: pass target to clang via environment
+  # XKCP's makefile respects CC and CFLAGS environment variables
+  set(XKCP_CC_VALUE "${CMAKE_C_COMPILER} --target=${CMAKE_C_COMPILER_TARGET}")
+  set(XKCP_CFLAGS_VALUE "-ffreestanding -fno-builtin -isystem${DIV0_PICOLIBC_INCLUDE_DIR}")
+  set(XKCP_ENV ${CMAKE_COMMAND} -E env "CC=${XKCP_CC_VALUE}" "CFLAGS=${XKCP_CFLAGS_VALUE}")
+  set(XKCP_BUILD_CMD ${XKCP_ENV} make ${XKCP_TARGET}/libXKCP.a)
+  set(XKCP_DEPENDS picolibc_ext)
+else()
+  # Native build
+  set(XKCP_BUILD_CMD make ${XKCP_TARGET}/libXKCP.a)
+  set(XKCP_DEPENDS "")
+endif()
+
 ExternalProject_Add(xkcp_build
   SOURCE_DIR ${xkcp_src_SOURCE_DIR}
   CONFIGURE_COMMAND ""
-  BUILD_COMMAND make ${XKCP_TARGET}/libXKCP.a
+  BUILD_COMMAND ${XKCP_BUILD_CMD}
   BUILD_IN_SOURCE TRUE
+  DEPENDS ${XKCP_DEPENDS}
   # Multiple COMMAND entries for install step
   INSTALL_COMMAND ${CMAKE_COMMAND} -E copy
     ${xkcp_src_SOURCE_DIR}/bin/${XKCP_TARGET}/libXKCP.a

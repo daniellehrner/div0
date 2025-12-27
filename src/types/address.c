@@ -1,8 +1,17 @@
 #include "div0/types/address.h"
 
 #include "div0/types/uint256.h"
+#include "div0/util/hex.h"
 
 #include <stdint.h>
+
+bool address_from_hex(const char *hex, address_t *out) {
+  if (out == nullptr) {
+    return false;
+  }
+  *out = address_zero();
+  return hex_decode(hex, out->bytes, ADDRESS_SIZE);
+}
 
 // Address is 20 bytes (160 bits), stored big-endian.
 // uint256 uses 4 little-endian 64-bit limbs.
@@ -11,8 +20,6 @@
 //   bytes[0..3]   = upper 32 bits (from limbs[2] lower 32 bits)
 //   bytes[4..11]  = middle 64 bits (from limbs[1])
 //   bytes[12..19] = lower 64 bits (from limbs[0])
-
-// NOLINTBEGIN(readability-magic-numbers)
 
 address_t address_from_uint256(const uint256_t *value) {
   address_t result;
@@ -72,5 +79,3 @@ uint256_t address_to_uint256(const address_t *addr) {
 
   return result;
 }
-
-// NOLINTEND(readability-magic-numbers)

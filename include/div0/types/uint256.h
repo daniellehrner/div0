@@ -105,4 +105,11 @@ uint256_t uint256_from_bytes_be(const uint8_t *data, size_t len);
 /// @param out Output buffer (must be at least 32 bytes)
 void uint256_to_bytes_be(uint256_t value, uint8_t *out);
 
+/// Parse a uint256 from a hex string.
+/// Accepts optional "0x" prefix. Requires exactly 64 hex characters.
+/// @param hex Hex string (with or without 0x prefix)
+/// @param out Output uint256
+/// @return true if parsing succeeded, false on invalid input
+bool uint256_from_hex(const char *hex, uint256_t *out);
+
 #endif // DIV0_TYPES_UINT256_H

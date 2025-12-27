@@ -17,6 +17,10 @@
 #include "evm/test_stack.h"
 #include "evm/test_stack_pool.h"
 
+// Test headers - crypto
+#include "crypto/test_keccak256.h"
+#include "crypto/test_secp256k1.h"
+
 // Global arena for tests (shared across test files)
 div0_arena_t test_arena;
 static bool arena_initialized = false;
@@ -131,6 +135,32 @@ int main(void) {
   RUN_TEST(test_evm_add_multiple);
   RUN_TEST(test_evm_invalid_opcode);
   RUN_TEST(test_evm_stack_underflow);
+
+  // keccak256 tests
+  RUN_TEST(test_keccak256_empty);
+  RUN_TEST(test_keccak256_single_zero);
+  RUN_TEST(test_keccak256_five_zeros);
+  RUN_TEST(test_keccak256_ten_zeros);
+  RUN_TEST(test_keccak256_32_zeros);
+  RUN_TEST(test_keccak256_hasher_empty);
+  RUN_TEST(test_keccak256_hasher_single_update);
+  RUN_TEST(test_keccak256_hasher_multiple_updates);
+  RUN_TEST(test_keccak256_hasher_byte_by_byte);
+  RUN_TEST(test_keccak256_hasher_reuse);
+  RUN_TEST(test_keccak256_hasher_reset);
+  RUN_TEST(test_keccak256_one_shot_matches_incremental);
+  RUN_TEST(test_keccak256_deterministic);
+  RUN_TEST(test_keccak256_avalanche);
+
+  // secp256k1 tests
+  RUN_TEST(test_secp256k1_ctx_create_destroy);
+  RUN_TEST(test_secp256k1_ecrecover_reth_vector);
+  RUN_TEST(test_secp256k1_ecrecover_v28);
+  RUN_TEST(test_secp256k1_ecrecover_eip155);
+  RUN_TEST(test_secp256k1_ecrecover_eip155_wrong_chain_id);
+  RUN_TEST(test_secp256k1_ecrecover_invalid_v);
+  RUN_TEST(test_secp256k1_ecrecover_zero_signature);
+  RUN_TEST(test_secp256k1_recover_pubkey_invalid_recovery_id);
 
   // Cleanup
   div0_arena_destroy(&test_arena);

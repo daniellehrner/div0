@@ -1,5 +1,7 @@
 #include "div0/types/uint256.h"
 
+#include "div0/util/hex.h"
+
 #include <stdint.h>
 #include <string.h>
 
@@ -16,7 +18,6 @@ static constexpr int BITS_PER_BYTE = 8;
 
 typedef unsigned __int128 uint128_t;
 
-// NOLINTBEGIN(readability-magic-numbers)
 uint256_t uint256_mul(uint256_t a, uint256_t b) {
   // Schoolbook multiplication using unsigned __int128 for 64x64->128 products.
   // Only compute products where i+j < 4 (result is mod 2^256).
@@ -54,14 +55,12 @@ uint256_t uint256_mul(uint256_t a, uint256_t b) {
 
   return uint256_from_limbs(r0, r1, r2, r3);
 }
-// NOLINTEND(readability-magic-numbers)
 
 // =============================================================================
 // Division - Reciprocal-based primitives
 // =============================================================================
 
 // Reciprocal lookup table for initial approximation (~10 bits precision)
-// NOLINTBEGIN(cppcoreguidelines-avoid-c-arrays)
 static const uint16_t RECIPROCAL_TABLE[256] = {
     2045, 2037, 2029, 2021, 2013, 2005, 1998, 1990, 1983, 1975, 1968, 1960, 1953, 1946, 1938, 1931,
     1924, 1917, 1910, 1903, 1896, 1889, 1883, 1876, 1869, 1863, 1856, 1849, 1843, 1836, 1830, 1824,
@@ -79,9 +78,7 @@ static const uint16_t RECIPROCAL_TABLE[256] = {
     1128, 1125, 1123, 1121, 1118, 1116, 1113, 1111, 1109, 1106, 1104, 1102, 1099, 1097, 1095, 1092,
     1090, 1088, 1086, 1083, 1081, 1079, 1077, 1074, 1072, 1070, 1068, 1066, 1064, 1061, 1059, 1057,
     1055, 1053, 1051, 1049, 1047, 1044, 1042, 1040, 1038, 1036, 1034, 1032, 1030, 1028, 1026, 1024};
-// NOLINTEND(cppcoreguidelines-avoid-c-arrays)
 
-// NOLINTBEGIN(readability-magic-numbers)
 // 64x64 -> 128 multiplication, returning {lo, hi}
 static inline void umul128(uint64_t x, uint64_t y, uint64_t *lo, uint64_t *hi) {
   uint128_t p = (uint128_t)x * y;
@@ -371,7 +368,6 @@ uint256_t uint256_mod(uint256_t a, uint256_t b) {
   uint256_divmod(a, b, &quotient, &remainder);
   return remainder;
 }
-// NOLINTEND(readability-magic-numbers)
 
 uint256_t uint256_from_bytes_be(const uint8_t *data, size_t len) {
   uint256_t result = uint256_zero();
@@ -420,4 +416,19 @@ void uint256_to_bytes_be(uint256_t value, uint8_t *out) {
       limb >>= BITS_PER_BYTE;
     }
   }
+}
+
+bool uint256_from_hex(const char *hex, uint256_t *out) {
+  if (out == nullptr) {
+    return false;
+  }
+  *out = uint256_zero();
+
+  uint8_t bytes[UINT256_BYTES];
+  if (!hex_decode(hex, bytes, UINT256_BYTES)) {
+    return false;
+  }
+
+  *out = uint256_from_bytes_be(bytes, UINT256_BYTES);
+  return true;
 }

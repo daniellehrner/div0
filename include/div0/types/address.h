@@ -49,6 +49,13 @@ static inline address_t address_from_bytes(const uint8_t *data) {
   return result;
 }
 
+/// Parse an address from a hex string.
+/// Accepts optional "0x" prefix. Requires exactly 40 hex characters.
+/// @param hex Hex string (with or without 0x prefix)
+/// @param out Output address
+/// @return true if parsing succeeded, false on invalid input
+bool address_from_hex(const char *hex, address_t *out);
+
 /// Creates an address from a uint256 (extracts lower 160 bits).
 /// @param value Source uint256
 /// @return address containing the lower 160 bits

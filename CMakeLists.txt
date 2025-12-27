@@ -109,16 +109,6 @@ endfunction()
 # Libraries
 # ============================================================================
 
-# Types library (uint256) - no dependencies
-add_library(div0_types STATIC
-  src/types/uint256.c
-)
-target_include_directories(div0_types PUBLIC
-  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-  $<INSTALL_INTERFACE:include>
-)
-div0_target_options(div0_types)
-
 # Memory library (arena allocator) - no dependencies
 add_library(div0_mem STATIC
   src/mem/arena.c
@@ -129,6 +119,21 @@ target_include_directories(div0_mem PUBLIC
 )
 target_link_libraries(div0_mem PUBLIC stc_headers)
 div0_target_options(div0_mem)
+
+# Types library (uint256, bytes32, hash, address, bytes) - bytes uses arena
+add_library(div0_types STATIC
+  src/types/uint256.c
+  src/types/bytes32.c
+  src/types/hash.c
+  src/types/address.c
+  src/types/bytes.c
+)
+target_include_directories(div0_types PUBLIC
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+  $<INSTALL_INTERFACE:include>
+)
+target_link_libraries(div0_types PUBLIC div0_mem)
+div0_target_options(div0_types)
 
 # EVM library (stack, interpreter) - depends on types, mem
 add_library(div0_evm STATIC
@@ -156,6 +161,18 @@ if(DIV0_BUILD_TESTS)
       add_executable(div0_tests
         tests/test_div0.c
         tests/qemu_riscv64.c
+        # types tests
+        tests/types/test_uint256.c
+        tests/types/test_bytes32.c
+        tests/types/test_hash.c
+        tests/types/test_address.c
+        tests/types/test_bytes.c
+        # mem tests
+        tests/mem/test_arena.c
+        # evm tests
+        tests/evm/test_stack.c
+        tests/evm/test_stack_pool.c
+        tests/evm/test_evm.c
         ${unity_SOURCE_DIR}/src/unity.c
       )
 
@@ -166,6 +183,7 @@ if(DIV0_BUILD_TESTS)
       target_include_directories(div0_tests PRIVATE
         ${unity_SOURCE_DIR}/src
         ${CMAKE_CURRENT_SOURCE_DIR}/include
+        ${CMAKE_CURRENT_SOURCE_DIR}/tests
       )
 
       add_dependencies(div0_tests picolibc_ext compiler_rt_ext)
@@ -196,11 +214,24 @@ if(DIV0_BUILD_TESTS)
     # Hosted tests - normal build
     add_executable(div0_tests
       tests/test_div0.c
+      # types tests
+      tests/types/test_uint256.c
+      tests/types/test_bytes32.c
+      tests/types/test_hash.c
+      tests/types/test_address.c
+      tests/types/test_bytes.c
+      # mem tests
+      tests/mem/test_arena.c
+      # evm tests
+      tests/evm/test_stack.c
+      tests/evm/test_stack_pool.c
+      tests/evm/test_evm.c
       ${unity_SOURCE_DIR}/src/unity.c
     )
 
     target_include_directories(div0_tests PRIVATE
       ${unity_SOURCE_DIR}/src
+      ${CMAKE_CURRENT_SOURCE_DIR}/tests
     )
 
     target_link_libraries(div0_tests PRIVATE div0)

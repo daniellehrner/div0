@@ -5,6 +5,10 @@
 #include <stddef.h>
 #include <stdint.h>
 
+// Ensure size_t fits in 64 bits for rlp_length_of_length() cast to uint64_t.
+// This is true on all common architectures (32-bit and 64-bit).
+static_assert(sizeof(size_t) <= sizeof(uint64_t), "size_t must fit in 64 bits");
+
 /// RLP encoding threshold for short vs long string/list encoding.
 static constexpr size_t RLP_SMALL_PREFIX_BARRIER = 56;
 

@@ -50,6 +50,7 @@ bytes_t rlp_encode_bytes(div0_arena_t *arena, const uint8_t *data, size_t len) {
 
   // Short string: 1-byte prefix
   if (len < RLP_SMALL_PREFIX_BARRIER) {
+    // Safe: len < 56, so 1 + len <= 56, no overflow possible
     bytes_reserve(&result, 1 + len);
     bytes_append_byte(&result, (uint8_t)(RLP_EMPTY_STRING_BYTE + len));
     if (len > 0) {
@@ -60,6 +61,8 @@ bytes_t rlp_encode_bytes(div0_arena_t *arena, const uint8_t *data, size_t len) {
 
   // Long string: multi-byte length prefix
   int len_bytes = rlp_length_of_length(len);
+  // Note: len_bytes <= 8. If len is near SIZE_MAX, this could overflow.
+  // bytes_reserve handles allocation failure gracefully by returning early.
   bytes_reserve(&result, 1 + (size_t)len_bytes + len);
   bytes_append_byte(&result, (uint8_t)(RLP_SHORT_STRING_MAX + len_bytes));
 
@@ -89,6 +92,7 @@ bytes_t rlp_encode_u64(div0_arena_t *arena, uint64_t value) {
 
   // Compute byte length
   int num_bytes = rlp_byte_length_u64(value);
+  // Safe: num_bytes <= 8 for uint64, so 1 + num_bytes <= 9, no overflow possible
   bytes_reserve(&result, 1 + (size_t)num_bytes);
   bytes_append_byte(&result, (uint8_t)(RLP_EMPTY_STRING_BYTE + num_bytes));
 
@@ -129,6 +133,7 @@ bytes_t rlp_encode_uint256(div0_arena_t *arena, const uint256_t *value) {
   }
 
   size_t num_bytes = 32 - start;
+  // Safe: num_bytes <= 32 for uint256, so 1 + num_bytes <= 33, no overflow possible
   bytes_reserve(&result, 1 + num_bytes);
   bytes_append_byte(&result, (uint8_t)(RLP_EMPTY_STRING_BYTE + num_bytes));
   bytes_append(&result, be_bytes + start, num_bytes);
@@ -162,6 +167,8 @@ void rlp_list_end(rlp_list_builder_t *builder) {
   size_t header_pos = builder->header_pos;
 
   // Calculate payload length (everything after the reserved header space)
+  // Safe: rlp_list_start() appended RLP_MAX_HEADER_SIZE bytes at header_pos,
+  // so output->size >= header_pos + RLP_MAX_HEADER_SIZE by construction.
   size_t payload_len = output->size - header_pos - RLP_MAX_HEADER_SIZE;
 
   // Determine actual header size
@@ -177,6 +184,7 @@ void rlp_list_end(rlp_list_builder_t *builder) {
     int len_bytes = rlp_length_of_length(payload_len);
     header[0] = (uint8_t)(RLP_SHORT_LIST_MAX + len_bytes);
     write_length_bytes(header + 1, payload_len);
+    // Safe: len_bytes <= 8, so 1 + len_bytes <= 9, no overflow possible
     actual_header_size = 1 + (size_t)len_bytes;
   }
 

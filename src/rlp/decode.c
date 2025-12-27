@@ -3,8 +3,9 @@
 #include <string.h>
 
 /// Helper: get remaining bytes in decoder.
+/// Returns 0 if pos >= size (defensive guard against underflow).
 static inline size_t remaining(const rlp_decoder_t *decoder) {
-  return decoder->size - decoder->pos;
+  return decoder->pos >= decoder->size ? 0 : decoder->size - decoder->pos;
 }
 
 /// Helper: read a single byte and advance position.
@@ -76,6 +77,7 @@ rlp_bytes_result_t rlp_decode_bytes(rlp_decoder_t *decoder) {
     result.data = decoder->input + decoder->pos;
     result.len = len;
     decoder->pos += len;
+    // Safe: len <= 55 (short string max), so 1 + len <= 56, no overflow possible
     result.bytes_consumed = 1 + len;
     return result;
   }
@@ -106,6 +108,8 @@ rlp_bytes_result_t rlp_decode_bytes(rlp_decoder_t *decoder) {
     result.data = decoder->input + decoder->pos;
     result.len = len;
     decoder->pos += len;
+    // Safe: len_of_len <= 8, len validated against remaining input size.
+    // Since len fits in addressable memory, 1 + 8 + len cannot overflow size_t.
     result.bytes_consumed = 1 + (size_t)len_of_len + len;
     return result;
   }
@@ -250,6 +254,7 @@ rlp_list_result_t rlp_decode_list_header(rlp_decoder_t *decoder) {
   }
 
   result.payload_length = payload_len;
+  // Safe: len_of_len <= 8, so 1 + len_of_len <= 9, no overflow possible
   result.bytes_consumed = 1 + (size_t)len_of_len;
   return result;
 }

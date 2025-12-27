@@ -187,31 +187,36 @@ target_link_libraries(div0 INTERFACE div0_types div0_mem div0_evm div0_crypto di
 if(DIV0_BUILD_TESTS)
   enable_testing()
 
+  # Common test sources - single list for both hosted and freestanding builds
+  set(DIV0_TEST_SOURCES
+    tests/test_div0.c
+    # types tests
+    tests/types/test_uint256.c
+    tests/types/test_bytes32.c
+    tests/types/test_hash.c
+    tests/types/test_address.c
+    tests/types/test_bytes.c
+    # mem tests
+    tests/mem/test_arena.c
+    # util tests
+    tests/util/test_hex.c
+    # evm tests
+    tests/evm/test_stack.c
+    tests/evm/test_stack_pool.c
+    tests/evm/test_evm.c
+    # crypto tests
+    tests/crypto/test_keccak256.c
+    tests/crypto/test_secp256k1.c
+    # rlp tests
+    tests/rlp/test_rlp.c
+  )
+
   if(DIV0_FREESTANDING)
     # Freestanding tests - need special linking for QEMU execution
     if(DIV0_FREESTANDING_TESTS AND DIV0_BUILD_PICOLIBC)
       add_executable(div0_tests
-        tests/test_div0.c
+        ${DIV0_TEST_SOURCES}
         tests/qemu_riscv64.c
-        # types tests
-        tests/types/test_uint256.c
-        tests/types/test_bytes32.c
-        tests/types/test_hash.c
-        tests/types/test_address.c
-        tests/types/test_bytes.c
-        # mem tests
-        tests/mem/test_arena.c
-        # util tests
-        tests/util/test_hex.c
-        # evm tests
-        tests/evm/test_stack.c
-        tests/evm/test_stack_pool.c
-        tests/evm/test_evm.c
-        # crypto tests
-        tests/crypto/test_keccak256.c
-        tests/crypto/test_secp256k1.c
-        # rlp tests
-        tests/rlp/test_rlp.c
         ${unity_SOURCE_DIR}/src/unity.c
       )
 
@@ -237,6 +242,7 @@ if(DIV0_BUILD_TESTS)
         div0_mem
         div0_evm
         div0_crypto
+        div0_rlp
         "${DIV0_PICOLIBC_LIB}"
         "${DIV0_COMPILER_RT_LIB}"
       )
@@ -253,26 +259,7 @@ if(DIV0_BUILD_TESTS)
   else()
     # Hosted tests - normal build
     add_executable(div0_tests
-      tests/test_div0.c
-      # types tests
-      tests/types/test_uint256.c
-      tests/types/test_bytes32.c
-      tests/types/test_hash.c
-      tests/types/test_address.c
-      tests/types/test_bytes.c
-      # mem tests
-      tests/mem/test_arena.c
-      # util tests
-      tests/util/test_hex.c
-      # evm tests
-      tests/evm/test_stack.c
-      tests/evm/test_stack_pool.c
-      tests/evm/test_evm.c
-      # crypto tests
-      tests/crypto/test_keccak256.c
-      tests/crypto/test_secp256k1.c
-      # rlp tests
-      tests/rlp/test_rlp.c
+      ${DIV0_TEST_SOURCES}
       ${unity_SOURCE_DIR}/src/unity.c
     )
 

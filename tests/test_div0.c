@@ -12,6 +12,9 @@
 // Test headers - mem
 #include "mem/test_arena.h"
 
+// Test headers - util
+#include "util/test_hex.h"
+
 // Test headers - evm
 #include "evm/test_evm.h"
 #include "evm/test_stack.h"
@@ -108,6 +111,20 @@ int main(void) {
   RUN_TEST(test_arena_alloc_aligned);
   RUN_TEST(test_arena_realloc);
   RUN_TEST(test_arena_reset);
+
+  // hex utility tests
+  RUN_TEST(test_hex_char_to_nibble_digits);
+  RUN_TEST(test_hex_char_to_nibble_lowercase);
+  RUN_TEST(test_hex_char_to_nibble_uppercase);
+  RUN_TEST(test_hex_char_to_nibble_invalid);
+  RUN_TEST(test_hex_decode_basic);
+  RUN_TEST(test_hex_decode_with_prefix);
+  RUN_TEST(test_hex_decode_uppercase);
+  RUN_TEST(test_hex_decode_mixed_case);
+  RUN_TEST(test_hex_decode_null_input);
+  RUN_TEST(test_hex_decode_null_output);
+  RUN_TEST(test_hex_decode_wrong_length);
+  RUN_TEST(test_hex_decode_invalid_char);
 
   // stack tests
   RUN_TEST(test_stack_init_is_empty);

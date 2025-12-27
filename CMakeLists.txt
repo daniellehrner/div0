@@ -188,6 +188,8 @@ if(DIV0_BUILD_TESTS)
         tests/types/test_bytes.c
         # mem tests
         tests/mem/test_arena.c
+        # util tests
+        tests/util/test_hex.c
         # evm tests
         tests/evm/test_stack.c
         tests/evm/test_stack_pool.c
@@ -245,6 +247,8 @@ if(DIV0_BUILD_TESTS)
       tests/types/test_bytes.c
       # mem tests
       tests/mem/test_arena.c
+      # util tests
+      tests/util/test_hex.c
       # evm tests
       tests/evm/test_stack.c
       tests/evm/test_stack_pool.c

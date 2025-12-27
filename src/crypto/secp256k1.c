@@ -40,6 +40,13 @@ pubkey_result_t secp256k1_recover_pubkey(const secp256k1_ctx_t *ctx, const uint8
                                          int recovery_id, const uint8_t signature[64]) {
   pubkey_result_t result = {.success = false, .pubkey = {0}};
 
+  // Validate parameters
+  if (ctx == nullptr || ctx->ctx == nullptr) {
+    return result;
+  }
+  if (message_hash == nullptr || signature == nullptr) {
+    return result;
+  }
   if (recovery_id < 0 || recovery_id > 3) {
     return result;
   }
@@ -71,6 +78,14 @@ ecrecover_result_t secp256k1_ecrecover(const secp256k1_ctx_t *ctx, const uint256
                                        uint64_t v, const uint256_t *r, const uint256_t *s,
                                        uint64_t chain_id) {
   ecrecover_result_t result = {.success = false, .address = address_zero()};
+
+  // Validate parameters
+  if (ctx == nullptr || ctx->ctx == nullptr) {
+    return result;
+  }
+  if (message_hash == nullptr || r == nullptr || s == nullptr) {
+    return result;
+  }
 
   // Decode recovery ID from v
   int recovery_id = 0;

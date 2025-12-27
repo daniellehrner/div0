@@ -8,6 +8,7 @@ bool hex_decode(const char *hex, uint8_t *out, size_t out_len) {
   }
 
   // Skip optional 0x prefix
+  // Note: hex[0] == '0' implies hex[0] != '\0', so hex[1] access is safe
   if (hex[0] == '0' && (hex[1] == 'x' || hex[1] == 'X')) {
     hex += 2;
   }

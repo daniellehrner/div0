@@ -20,25 +20,32 @@
 
 static uint256_t get_test_hash(void) {
   uint256_t result;
-  uint256_from_hex("daf5a779ae972f972197303d7b574746c7ef83eadac0f2791ad23db92e4c8e53", &result);
+  bool ok =
+      uint256_from_hex("daf5a779ae972f972197303d7b574746c7ef83eadac0f2791ad23db92e4c8e53", &result);
+  TEST_ASSERT_TRUE_MESSAGE(ok, "Failed to parse test hash");
   return result;
 }
 
 static uint256_t get_test_r(void) {
   uint256_t result;
-  uint256_from_hex("28ef61340bd939bc2195fe537567866003e1a15d3c71ff63e1590620aa636276", &result);
+  bool ok =
+      uint256_from_hex("28ef61340bd939bc2195fe537567866003e1a15d3c71ff63e1590620aa636276", &result);
+  TEST_ASSERT_TRUE_MESSAGE(ok, "Failed to parse test r value");
   return result;
 }
 
 static uint256_t get_test_s(void) {
   uint256_t result;
-  uint256_from_hex("67cbe9d8997f761aecb703304b3800ccf555c9f3dc64214b297fb1966a3b6d83", &result);
+  bool ok =
+      uint256_from_hex("67cbe9d8997f761aecb703304b3800ccf555c9f3dc64214b297fb1966a3b6d83", &result);
+  TEST_ASSERT_TRUE_MESSAGE(ok, "Failed to parse test s value");
   return result;
 }
 
 static address_t get_expected_address(void) {
   address_t result;
-  address_from_hex("9d8a62f656a8d1615c1294fd71e9cfb3e4855a4f", &result);
+  bool ok = address_from_hex("9d8a62f656a8d1615c1294fd71e9cfb3e4855a4f", &result);
+  TEST_ASSERT_TRUE_MESSAGE(ok, "Failed to parse expected address");
   return result;
 }
 

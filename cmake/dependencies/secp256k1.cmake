@@ -7,7 +7,8 @@
 # Source: https://github.com/bitcoin-core/secp256k1
 
 set(SECP256K1_GIT_REPO "https://github.com/bitcoin-core/secp256k1.git")
-set(SECP256K1_GIT_TAG "v0.7.0")
+# Pinned to v0.7.0 commit SHA for supply chain security
+set(SECP256K1_GIT_TAG "bf4f0bc877e4d6771e48611cc9e66ab9db576bac")
 
 # Common options
 set(SECP256K1_COMMON_OPTIONS

@@ -22,7 +22,7 @@ uv tool install semgrep
 
 ```bash
 # Install base tools
-sudo apt install ninja-build ccache wget gpg
+sudo apt install ninja-build ccache wget gpg xsltproc
 
 # Install CMake 4.x from Kitware APT repository (Ubuntu's default is too old)
 test -f /usr/share/doc/kitware-archive-keyring/copyright || \

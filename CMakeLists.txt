@@ -161,6 +161,18 @@ if(DIV0_BUILD_TESTS)
       add_executable(div0_tests
         tests/test_div0.c
         tests/qemu_riscv64.c
+        # types tests
+        tests/types/test_uint256.c
+        tests/types/test_bytes32.c
+        tests/types/test_hash.c
+        tests/types/test_address.c
+        tests/types/test_bytes.c
+        # mem tests
+        tests/mem/test_arena.c
+        # evm tests
+        tests/evm/test_stack.c
+        tests/evm/test_stack_pool.c
+        tests/evm/test_evm.c
         ${unity_SOURCE_DIR}/src/unity.c
       )
 
@@ -171,6 +183,7 @@ if(DIV0_BUILD_TESTS)
       target_include_directories(div0_tests PRIVATE
         ${unity_SOURCE_DIR}/src
         ${CMAKE_CURRENT_SOURCE_DIR}/include
+        ${CMAKE_CURRENT_SOURCE_DIR}/tests
       )
 
       add_dependencies(div0_tests picolibc_ext compiler_rt_ext)

@@ -1,3 +1,5 @@
+#include "test_uint256.h"
+
 #include "div0/types/uint256.h"
 
 #include "unity.h"

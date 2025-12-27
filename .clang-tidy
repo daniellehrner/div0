@@ -7,7 +7,7 @@ Checks: >
   misc-*,
   modernize-macro-to-enum,
   modernize-use-nullptr,
-  performance-*,
+  performance,
   portability-*,
   readability-*,
   -readability-identifier-length,

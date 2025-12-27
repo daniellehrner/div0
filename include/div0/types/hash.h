@@ -15,12 +15,10 @@ static constexpr size_t HASH_SIZE = 32;
 /// 32-byte cryptographic hash (Keccak-256).
 /// Storage is big-endian. Aligned for optimal performance.
 typedef struct {
-  // NOLINTNEXTLINE(readability-magic-numbers)
   alignas(HASH_SIZE) uint8_t bytes[HASH_SIZE];
 } hash_t;
 
 static_assert(sizeof(hash_t) == HASH_SIZE, "hash_t must be 32 bytes");
-// NOLINTNEXTLINE(readability-magic-numbers)
 static_assert(alignof(hash_t) == HASH_SIZE, "hash_t must be 32-byte aligned");
 
 /// Returns a zero-initialized hash.
@@ -51,6 +49,13 @@ static inline hash_t hash_from_bytes(const uint8_t *data) {
   memcpy(result.bytes, data, HASH_SIZE);
   return result;
 }
+
+/// Parse a hash from a hex string.
+/// Accepts optional "0x" prefix. Requires exactly 64 hex characters.
+/// @param hex Hex string (with or without 0x prefix)
+/// @param out Output hash
+/// @return true if parsing succeeded, false on invalid input
+bool hash_from_hex(const char *hex, hash_t *out);
 
 /// Converts a hash to a uint256.
 /// @param h Source hash

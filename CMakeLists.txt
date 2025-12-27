@@ -127,6 +127,7 @@ add_library(div0_types STATIC
   src/types/hash.c
   src/types/address.c
   src/types/bytes.c
+  src/util/hex.c
 )
 target_include_directories(div0_types PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
@@ -144,9 +145,24 @@ div0_target_options(div0_evm)
 # Computed goto dispatch tables intentionally override default entries
 target_compile_options(div0_evm PRIVATE -Wno-initializer-overrides)
 
+# Crypto library (Keccak-256, secp256k1) - depends on types
+add_library(div0_crypto STATIC
+  src/crypto/keccak256.c
+  src/crypto/secp256k1.c
+)
+target_include_directories(div0_crypto PUBLIC
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+  $<INSTALL_INTERFACE:include>
+)
+target_link_libraries(div0_crypto
+  PUBLIC div0_types
+  PRIVATE xkcp secp256k1
+)
+div0_target_options(div0_crypto)
+
 # Convenience interface library linking all components
 add_library(div0 INTERFACE)
-target_link_libraries(div0 INTERFACE div0_types div0_mem div0_evm)
+target_link_libraries(div0 INTERFACE div0_types div0_mem div0_evm div0_crypto)
 
 # ============================================================================
 # Tests
@@ -226,6 +242,9 @@ if(DIV0_BUILD_TESTS)
       tests/evm/test_stack.c
       tests/evm/test_stack_pool.c
       tests/evm/test_evm.c
+      # crypto tests
+      tests/crypto/test_keccak256.c
+      tests/crypto/test_secp256k1.c
       ${unity_SOURCE_DIR}/src/unity.c
     )
 

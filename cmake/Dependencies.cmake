@@ -30,12 +30,21 @@ if(DIV0_FREESTANDING AND DIV0_BUILD_PICOLIBC)
 endif()
 
 # ============================================================================
+# Cryptography
+# ============================================================================
+
+include(dependencies/XKCP)
+include(dependencies/secp256k1)
+
+# ============================================================================
 # Summary
 # ============================================================================
 
 message(STATUS "")
 message(STATUS "Dependencies configured:")
 message(STATUS "  - STC          : Container library (header-only)")
+message(STATUS "  - XKCP         : Keccak-256 hash function")
+message(STATUS "  - secp256k1    : ECDSA signature recovery")
 if(DIV0_BUILD_TESTS)
   message(STATUS "  - Unity        : C testing framework")
 endif()

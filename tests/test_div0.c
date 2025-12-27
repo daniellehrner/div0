@@ -27,6 +27,12 @@
 // Test headers - rlp
 #include "rlp/test_rlp.h"
 
+// Test headers - trie
+#include "trie/test_hex_prefix.h"
+#include "trie/test_mpt.h"
+#include "trie/test_nibbles.h"
+#include "trie/test_node.h"
+
 // Global arena for tests (shared across test files)
 div0_arena_t test_arena;
 static bool arena_initialized = false;
@@ -230,6 +236,111 @@ int main(void) {
   RUN_TEST(test_rlp_byte_length_u64);
   RUN_TEST(test_rlp_is_string_prefix);
   RUN_TEST(test_rlp_is_list_prefix);
+
+  // Nibbles tests
+  RUN_TEST(test_nibbles_from_bytes_empty);
+  RUN_TEST(test_nibbles_from_bytes_single);
+  RUN_TEST(test_nibbles_from_bytes_multiple);
+  RUN_TEST(test_nibbles_to_bytes_empty);
+  RUN_TEST(test_nibbles_to_bytes_single);
+  RUN_TEST(test_nibbles_to_bytes_multiple);
+  RUN_TEST(test_nibbles_to_bytes_alloc_works);
+  RUN_TEST(test_nibbles_common_prefix_none);
+  RUN_TEST(test_nibbles_common_prefix_partial);
+  RUN_TEST(test_nibbles_common_prefix_full);
+  RUN_TEST(test_nibbles_common_prefix_different_lengths);
+  RUN_TEST(test_nibbles_slice_full);
+  RUN_TEST(test_nibbles_slice_partial);
+  RUN_TEST(test_nibbles_slice_view);
+  RUN_TEST(test_nibbles_slice_empty);
+  RUN_TEST(test_nibbles_slice_out_of_bounds);
+  RUN_TEST(test_nibbles_copy_works);
+  RUN_TEST(test_nibbles_copy_empty);
+  RUN_TEST(test_nibbles_cmp_equal);
+  RUN_TEST(test_nibbles_cmp_less);
+  RUN_TEST(test_nibbles_cmp_greater);
+  RUN_TEST(test_nibbles_cmp_prefix);
+  RUN_TEST(test_nibbles_equal_works);
+  RUN_TEST(test_nibbles_is_empty);
+  RUN_TEST(test_nibbles_get);
+  RUN_TEST(test_nibbles_roundtrip);
+
+  // Hex-prefix tests
+  RUN_TEST(test_hex_prefix_encode_odd_extension);
+  RUN_TEST(test_hex_prefix_encode_even_extension);
+  RUN_TEST(test_hex_prefix_encode_odd_leaf);
+  RUN_TEST(test_hex_prefix_encode_even_leaf);
+  RUN_TEST(test_hex_prefix_encode_empty);
+  RUN_TEST(test_hex_prefix_encode_single_nibble);
+  RUN_TEST(test_hex_prefix_decode_odd_extension);
+  RUN_TEST(test_hex_prefix_decode_even_extension);
+  RUN_TEST(test_hex_prefix_decode_odd_leaf);
+  RUN_TEST(test_hex_prefix_decode_even_leaf);
+  RUN_TEST(test_hex_prefix_decode_empty);
+  RUN_TEST(test_hex_prefix_decode_null_input);
+  RUN_TEST(test_hex_prefix_roundtrip_various);
+
+  // Node tests
+  RUN_TEST(test_mpt_node_empty);
+  RUN_TEST(test_mpt_node_leaf);
+  RUN_TEST(test_mpt_node_extension);
+  RUN_TEST(test_mpt_node_branch);
+  RUN_TEST(test_node_ref_null);
+  RUN_TEST(test_node_ref_is_null);
+  RUN_TEST(test_mpt_node_encode_empty);
+  RUN_TEST(test_mpt_node_encode_leaf);
+  RUN_TEST(test_mpt_node_encode_extension);
+  RUN_TEST(test_mpt_node_encode_branch_empty);
+  RUN_TEST(test_mpt_node_hash_empty);
+  RUN_TEST(test_mpt_node_hash_leaf);
+  RUN_TEST(test_mpt_node_hash_caching);
+  RUN_TEST(test_mpt_node_ref_small_embeds);
+  RUN_TEST(test_mpt_node_ref_large_hashes);
+  RUN_TEST(test_mpt_branch_child_count);
+  RUN_TEST(test_mpt_empty_root_constant);
+
+  // MPT tests
+  RUN_TEST(test_mpt_init);
+  RUN_TEST(test_mpt_empty_is_empty);
+  RUN_TEST(test_mpt_empty_root_hash);
+  RUN_TEST(test_mpt_insert_single);
+  RUN_TEST(test_mpt_insert_overwrite);
+  RUN_TEST(test_mpt_insert_two_different_keys);
+  RUN_TEST(test_mpt_insert_common_prefix);
+  RUN_TEST(test_mpt_insert_branch_creation);
+  RUN_TEST(test_mpt_get_not_found);
+  RUN_TEST(test_mpt_get_after_insert);
+  RUN_TEST(test_mpt_contains_works);
+  RUN_TEST(test_mpt_root_hash_single_entry);
+  RUN_TEST(test_mpt_root_hash_deterministic);
+  RUN_TEST(test_mpt_root_hash_order_independent);
+  RUN_TEST(test_mpt_memory_backend_create);
+  RUN_TEST(test_mpt_memory_backend_alloc_node);
+
+  // Ethereum test vectors
+  RUN_TEST(test_mpt_ethereum_vector_dogs);
+  RUN_TEST(test_mpt_ethereum_vector_puppy);
+  RUN_TEST(test_mpt_ethereum_vector_foo);
+  RUN_TEST(test_mpt_ethereum_vector_small_values);
+  RUN_TEST(test_mpt_ethereum_vector_testy);
+  RUN_TEST(test_mpt_ethereum_vector_hex);
+  RUN_TEST(test_mpt_ethereum_vector_insert_middle_leaf);
+  RUN_TEST(test_mpt_ethereum_vector_branch_value_update);
+
+  // MPT edge case tests
+  RUN_TEST(test_mpt_empty_value);
+  RUN_TEST(test_mpt_contains_empty_value);
+  RUN_TEST(test_mpt_long_key);
+  RUN_TEST(test_mpt_binary_keys);
+  RUN_TEST(test_mpt_shared_prefix_keys);
+  RUN_TEST(test_mpt_many_keys);
+
+  // MPT delete tests
+  RUN_TEST(test_mpt_delete_single);
+  RUN_TEST(test_mpt_delete_not_found);
+  RUN_TEST(test_mpt_delete_from_branch);
+  RUN_TEST(test_mpt_delete_collapses_branch);
+  RUN_TEST(test_mpt_delete_and_reinsert);
 
   // Cleanup
   div0_arena_destroy(&test_arena);

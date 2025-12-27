@@ -176,9 +176,24 @@ target_include_directories(div0_rlp PUBLIC
 target_link_libraries(div0_rlp PUBLIC div0_types)
 div0_target_options(div0_rlp)
 
+# Trie library (Merkle Patricia Trie) - depends on types, crypto, rlp
+add_library(div0_trie STATIC
+  src/trie/nibbles.c
+  src/trie/hex_prefix.c
+  src/trie/node.c
+  src/trie/mpt.c
+  src/trie/mpt_memory.c
+)
+target_include_directories(div0_trie PUBLIC
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+  $<INSTALL_INTERFACE:include>
+)
+target_link_libraries(div0_trie PUBLIC div0_types div0_mem div0_crypto div0_rlp)
+div0_target_options(div0_trie)
+
 # Convenience interface library linking all components
 add_library(div0 INTERFACE)
-target_link_libraries(div0 INTERFACE div0_types div0_mem div0_evm div0_crypto div0_rlp)
+target_link_libraries(div0 INTERFACE div0_types div0_mem div0_evm div0_crypto div0_rlp div0_trie)
 
 # ============================================================================
 # Tests
@@ -209,6 +224,11 @@ if(DIV0_BUILD_TESTS)
     tests/crypto/test_secp256k1.c
     # rlp tests
     tests/rlp/test_rlp.c
+    # trie tests
+    tests/trie/test_nibbles.c
+    tests/trie/test_hex_prefix.c
+    tests/trie/test_node.c
+    tests/trie/test_mpt.c
   )
 
   if(DIV0_FREESTANDING)
@@ -243,6 +263,7 @@ if(DIV0_BUILD_TESTS)
         div0_evm
         div0_crypto
         div0_rlp
+        div0_trie
         "${DIV0_PICOLIBC_LIB}"
         "${DIV0_COMPILER_RT_LIB}"
       )

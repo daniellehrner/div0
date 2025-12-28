@@ -191,9 +191,21 @@ target_include_directories(div0_trie PUBLIC
 target_link_libraries(div0_trie PUBLIC div0_types div0_mem div0_crypto div0_rlp)
 div0_target_options(div0_trie)
 
+# State library (world state, accounts) - depends on types, crypto, rlp, trie
+add_library(div0_state STATIC
+  src/state/account.c
+  src/state/world_state.c
+)
+target_include_directories(div0_state PUBLIC
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+  $<INSTALL_INTERFACE:include>
+)
+target_link_libraries(div0_state PUBLIC div0_types div0_crypto div0_rlp div0_trie stc_headers)
+div0_target_options(div0_state)
+
 # Convenience interface library linking all components
 add_library(div0 INTERFACE)
-target_link_libraries(div0 INTERFACE div0_types div0_mem div0_evm div0_crypto div0_rlp div0_trie)
+target_link_libraries(div0 INTERFACE div0_types div0_mem div0_evm div0_crypto div0_rlp div0_trie div0_state)
 
 # ============================================================================
 # Tests
@@ -229,6 +241,9 @@ if(DIV0_BUILD_TESTS)
     tests/trie/test_hex_prefix.c
     tests/trie/test_node.c
     tests/trie/test_mpt.c
+    # state tests
+    tests/state/test_account.c
+    tests/state/test_world_state.c
   )
 
   if(DIV0_FREESTANDING)

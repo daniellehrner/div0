@@ -19,9 +19,10 @@
 
 #include <string.h>
 
-/// Global arena pointer for STC containers.
+/// Thread-local arena pointer for STC containers.
 /// Must be set before using any STC containers.
-extern div0_arena_t *div0_stc_arena;
+/// Thread-local to allow concurrent use of different world_state instances.
+extern _Thread_local div0_arena_t *div0_stc_arena;
 
 /// Allocate zero-initialized memory from arena.
 /// @param arena Arena to allocate from
@@ -42,11 +43,13 @@ static inline void *div0_arena_calloc(div0_arena_t *arena, size_t n, size_t sz) 
 }
 
 // Override STC's allocator macros
+// Cast sizes to size_t to silence sign-conversion warnings from STC internals
 // NOLINTBEGIN(readability-identifier-naming)
-#define c_malloc(sz) div0_arena_alloc(div0_stc_arena, (sz))
-#define c_calloc(n, sz) div0_arena_calloc(div0_stc_arena, (n), (sz))
-#define c_realloc(ptr, old_sz, new_sz) div0_arena_realloc(div0_stc_arena, (ptr), (old_sz), (new_sz))
-#define c_free(ptr, sz) div0_arena_free(div0_stc_arena, (ptr), (sz))
+#define c_malloc(sz) div0_arena_alloc(div0_stc_arena, (size_t)(sz))
+#define c_calloc(n, sz) div0_arena_calloc(div0_stc_arena, (size_t)(n), (size_t)(sz))
+#define c_realloc(ptr, old_sz, new_sz) \
+  div0_arena_realloc(div0_stc_arena, (ptr), (size_t)(old_sz), (size_t)(new_sz))
+#define c_free(ptr, sz) div0_arena_free(div0_stc_arena, (ptr), (size_t)(sz))
 // NOLINTEND(readability-identifier-naming)
 
 #endif // DIV0_MEM_STC_ALLOCATOR_H

@@ -2,6 +2,7 @@
 
 #include "div0/mem/stc_allocator.h"
 
-/// Global arena pointer for STC containers.
+/// Thread-local arena pointer for STC containers.
 /// Must be initialized before using STC containers.
-div0_arena_t *div0_stc_arena = nullptr;
+/// Defined here as the canonical definition; world_state.c also initializes it.
+_Thread_local div0_arena_t *div0_stc_arena = nullptr;

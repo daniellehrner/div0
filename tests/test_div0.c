@@ -168,6 +168,12 @@ int main(void) {
   RUN_TEST(test_evm_add_multiple);
   RUN_TEST(test_evm_invalid_opcode);
   RUN_TEST(test_evm_stack_underflow);
+  RUN_TEST(test_evm_mstore);
+  RUN_TEST(test_evm_return_empty);
+  RUN_TEST(test_evm_return_with_data);
+  RUN_TEST(test_evm_revert_empty);
+  RUN_TEST(test_evm_revert_with_data);
+  RUN_TEST(test_evm_call_without_state);
 
   // keccak256 tests
   RUN_TEST(test_keccak256_empty);

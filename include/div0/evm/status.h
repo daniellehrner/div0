@@ -8,6 +8,9 @@ typedef enum {
   EVM_STACK_UNDERFLOW,
   EVM_INVALID_OPCODE,
   EVM_OUT_OF_GAS,
+  EVM_WRITE_PROTECTION,     // State modification in static context
+  EVM_CALL_DEPTH_EXCEEDED,  // Call depth limit reached (not fatal)
+  EVM_INSUFFICIENT_BALANCE, // Not enough balance for value transfer
 } evm_status_t;
 
 /// EVM execution result.

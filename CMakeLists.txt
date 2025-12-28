@@ -203,9 +203,21 @@ target_include_directories(div0_state PUBLIC
 target_link_libraries(div0_state PUBLIC div0_types div0_crypto div0_rlp div0_trie stc_headers)
 div0_target_options(div0_state)
 
+# Ethereum library (transactions) - depends on types, crypto, rlp
+add_library(div0_ethereum STATIC
+  src/ethereum/transaction/rlp.c
+  src/ethereum/transaction/signer.c
+)
+target_include_directories(div0_ethereum PUBLIC
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+  $<INSTALL_INTERFACE:include>
+)
+target_link_libraries(div0_ethereum PUBLIC div0_types div0_crypto div0_rlp)
+div0_target_options(div0_ethereum)
+
 # Convenience interface library linking all components
 add_library(div0 INTERFACE)
-target_link_libraries(div0 INTERFACE div0_types div0_mem div0_evm div0_crypto div0_rlp div0_trie div0_state)
+target_link_libraries(div0 INTERFACE div0_types div0_mem div0_evm div0_crypto div0_rlp div0_trie div0_state div0_ethereum)
 
 # ============================================================================
 # Tests
@@ -244,6 +256,8 @@ if(DIV0_BUILD_TESTS)
     # state tests
     tests/state/test_account.c
     tests/state/test_world_state.c
+    # ethereum tests
+    tests/ethereum/transaction/test_transaction.c
   )
 
   if(DIV0_FREESTANDING)

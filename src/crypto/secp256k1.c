@@ -89,7 +89,10 @@ ecrecover_result_t secp256k1_ecrecover(const secp256k1_ctx_t *ctx, const uint256
 
   // Decode recovery ID from v
   int recovery_id = 0;
-  if (v == 27 || v == 28) {
+  if (v == 0 || v == 1) {
+    // Typed transactions (EIP-2930, EIP-1559, etc.) use y_parity directly
+    recovery_id = (int)v;
+  } else if (v == 27 || v == 28) {
     // Pre-EIP-155
     recovery_id = (int)(v - 27);
   } else if (chain_id > 0) {

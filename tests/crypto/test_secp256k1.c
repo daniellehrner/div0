@@ -160,8 +160,8 @@ void test_secp256k1_ecrecover_invalid_v(void) {
   uint256_t r = uint256_from_u64(1);
   uint256_t s = uint256_from_u64(1);
 
-  // Invalid v values
-  TEST_ASSERT_FALSE(secp256k1_ecrecover(ctx, &hash, 0, &r, &s, 0).success);
+  // Invalid v values (note: v=0,1 are now valid for typed transactions)
+  TEST_ASSERT_FALSE(secp256k1_ecrecover(ctx, &hash, 2, &r, &s, 0).success);
   TEST_ASSERT_FALSE(secp256k1_ecrecover(ctx, &hash, 26, &r, &s, 0).success);
   TEST_ASSERT_FALSE(secp256k1_ecrecover(ctx, &hash, 29, &r, &s, 0).success);
   TEST_ASSERT_FALSE(secp256k1_ecrecover(ctx, &hash, 34, &r, &s, 0).success);

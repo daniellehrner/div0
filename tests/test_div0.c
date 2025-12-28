@@ -37,6 +37,9 @@
 #include "state/test_account.h"
 #include "state/test_world_state.h"
 
+// Test headers - ethereum
+#include "ethereum/transaction/test_transaction.h"
+
 // Global arena for tests (shared across test files)
 div0_arena_t test_arena;
 static bool arena_initialized = false;
@@ -390,6 +393,40 @@ int main(void) {
   RUN_TEST(test_world_state_add_balance_overflow);
   RUN_TEST(test_world_state_clear);
   RUN_TEST(test_world_state_account_is_empty_interface);
+
+  // Transaction tests
+  RUN_TEST(test_transaction_type_enum);
+  RUN_TEST(test_transaction_init_default);
+  RUN_TEST(test_legacy_tx_decode_basic);
+  RUN_TEST(test_legacy_tx_decode_contract_creation);
+  RUN_TEST(test_legacy_tx_chain_id_eip155);
+  RUN_TEST(test_legacy_tx_chain_id_pre_eip155);
+  RUN_TEST(test_eip1559_tx_decode_basic);
+  RUN_TEST(test_eip1559_tx_effective_gas_price);
+  RUN_TEST(test_transaction_accessors);
+  RUN_TEST(test_legacy_tx_signing_hash);
+  RUN_TEST(test_eip1559_tx_signing_hash);
+  RUN_TEST(test_transaction_recover_sender_legacy);
+
+  // Real test vectors from Ethereum tests
+  RUN_TEST(test_real_vector_legacy_pre_eip155);
+  RUN_TEST(test_real_vector_legacy_eip155);
+  RUN_TEST(test_real_vector_legacy_vitalik_2);
+  RUN_TEST(test_real_vector_eip2930);
+
+  // Negative tests (malformed input)
+  RUN_TEST(test_decode_empty_input);
+  RUN_TEST(test_decode_invalid_type_byte);
+  RUN_TEST(test_decode_truncated_legacy);
+  RUN_TEST(test_decode_truncated_typed);
+  RUN_TEST(test_decode_not_a_list);
+  RUN_TEST(test_decode_missing_fields);
+
+  // Encode/decode roundtrip tests
+  RUN_TEST(test_roundtrip_legacy_tx);
+  RUN_TEST(test_roundtrip_eip2930_tx);
+  RUN_TEST(test_roundtrip_constructed_legacy);
+  RUN_TEST(test_roundtrip_constructed_eip1559);
 
   // Cleanup
   div0_arena_destroy(&test_arena);

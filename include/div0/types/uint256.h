@@ -38,6 +38,18 @@ static inline bool uint256_is_zero(uint256_t a) {
   return (a.limbs[0] | a.limbs[1] | a.limbs[2] | a.limbs[3]) == 0;
 }
 
+/// Checks if a uint256 fits in a 64-bit value.
+/// Returns true iff the upper 192 bits are zero, meaning the value can be
+/// losslessly represented as a uint64_t using uint256_to_u64_unsafe().
+static inline bool uint256_fits_u64(uint256_t a) {
+  return (a.limbs[1] | a.limbs[2] | a.limbs[3]) == 0;
+}
+
+/// Returns the low 64 bits. Caller must ensure uint256_fits_u64() is true.
+static inline uint64_t uint256_to_u64_unsafe(uint256_t a) {
+  return a.limbs[0];
+}
+
 /// Checks equality of two uint256 values.
 static inline bool uint256_eq(uint256_t a, uint256_t b) {
   // Use XOR: if all limbs are equal, XOR produces 0

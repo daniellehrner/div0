@@ -453,3 +453,302 @@ void test_world_state_access_interface(void) {
 
   world_state_destroy(ws);
 }
+
+// ===========================================================================
+// Transaction boundary tests
+// ===========================================================================
+
+void test_world_state_begin_transaction(void) {
+  world_state_t *ws = world_state_create(&test_arena);
+  state_access_t *access = world_state_access(ws);
+  address_t addr = make_test_address(0x80);
+  uint256_t slot = uint256_from_u64(42);
+
+  // Warm up an address and slot
+  access->vtable->warm_address(access, &addr);
+  access->vtable->warm_slot(access, &addr, slot);
+
+  // Set some storage (to populate original_storage tracking)
+  access->vtable->set_storage(access, &addr, slot, uint256_from_u64(100));
+
+  // Verify they're warm
+  TEST_ASSERT_TRUE(access->vtable->is_address_warm(access, &addr));
+  TEST_ASSERT_TRUE(access->vtable->is_slot_warm(access, &addr, slot));
+
+  // Begin new transaction - should clear warm sets
+  access->vtable->begin_transaction(access);
+
+  // Address and slot should be cold again
+  TEST_ASSERT_FALSE(access->vtable->is_address_warm(access, &addr));
+  TEST_ASSERT_FALSE(access->vtable->is_slot_warm(access, &addr, slot));
+
+  world_state_destroy(ws);
+}
+
+// ===========================================================================
+// Original storage tests (EIP-2200)
+// ===========================================================================
+
+void test_world_state_get_original_storage(void) {
+  world_state_t *ws = world_state_create(&test_arena);
+  state_access_t *access = world_state_access(ws);
+  address_t addr = make_test_address(0x81);
+  uint256_t slot = uint256_from_u64(1);
+
+  // Set initial storage value
+  access->vtable->set_storage(access, &addr, slot, uint256_from_u64(100));
+
+  // Begin a new transaction to establish "original" values
+  access->vtable->begin_transaction(access);
+
+  // Original storage should be 100 (value at start of tx)
+  uint256_t original = access->vtable->get_original_storage(access, &addr, slot);
+  TEST_ASSERT_TRUE(uint256_eq(original, uint256_from_u64(100)));
+
+  // Modify storage during transaction
+  access->vtable->set_storage(access, &addr, slot, uint256_from_u64(200));
+
+  // Current value should be 200
+  uint256_t current = access->vtable->get_storage(access, &addr, slot);
+  TEST_ASSERT_TRUE(uint256_eq(current, uint256_from_u64(200)));
+
+  // But original storage should still be 100
+  original = access->vtable->get_original_storage(access, &addr, slot);
+  TEST_ASSERT_TRUE(uint256_eq(original, uint256_from_u64(100)));
+
+  // Modify again
+  access->vtable->set_storage(access, &addr, slot, uint256_from_u64(300));
+
+  // Original should still be 100 (first value at tx start)
+  original = access->vtable->get_original_storage(access, &addr, slot);
+  TEST_ASSERT_TRUE(uint256_eq(original, uint256_from_u64(100)));
+
+  world_state_destroy(ws);
+}
+
+void test_world_state_original_storage_unset_slot(void) {
+  world_state_t *ws = world_state_create(&test_arena);
+  state_access_t *access = world_state_access(ws);
+  address_t addr = make_test_address(0x82);
+  uint256_t slot = uint256_from_u64(99);
+
+  // Slot has never been set, original should be zero
+  uint256_t original = access->vtable->get_original_storage(access, &addr, slot);
+  TEST_ASSERT_TRUE(uint256_is_zero(original));
+
+  // Set it for the first time
+  access->vtable->set_storage(access, &addr, slot, uint256_from_u64(50));
+
+  // Original should still be zero (value before first write this tx)
+  original = access->vtable->get_original_storage(access, &addr, slot);
+  TEST_ASSERT_TRUE(uint256_is_zero(original));
+
+  world_state_destroy(ws);
+}
+
+// ===========================================================================
+// Multi-account isolation tests
+// ===========================================================================
+
+void test_world_state_multi_account_storage_isolation(void) {
+  world_state_t *ws = world_state_create(&test_arena);
+  state_access_t *access = world_state_access(ws);
+
+  address_t addr1 = make_test_address(0x90);
+  address_t addr2 = make_test_address(0x91);
+  uint256_t slot = uint256_from_u64(1); // Same slot number
+
+  // Set different values for same slot in different accounts
+  access->vtable->set_storage(access, &addr1, slot, uint256_from_u64(111));
+  access->vtable->set_storage(access, &addr2, slot, uint256_from_u64(222));
+
+  // Verify isolation
+  uint256_t val1 = access->vtable->get_storage(access, &addr1, slot);
+  uint256_t val2 = access->vtable->get_storage(access, &addr2, slot);
+
+  TEST_ASSERT_TRUE(uint256_eq(val1, uint256_from_u64(111)));
+  TEST_ASSERT_TRUE(uint256_eq(val2, uint256_from_u64(222)));
+
+  // Modify one, verify other unchanged
+  access->vtable->set_storage(access, &addr1, slot, uint256_from_u64(999));
+
+  val1 = access->vtable->get_storage(access, &addr1, slot);
+  val2 = access->vtable->get_storage(access, &addr2, slot);
+
+  TEST_ASSERT_TRUE(uint256_eq(val1, uint256_from_u64(999)));
+  TEST_ASSERT_TRUE(uint256_eq(val2, uint256_from_u64(222))); // Unchanged
+
+  world_state_destroy(ws);
+}
+
+void test_world_state_multi_account_balance_isolation(void) {
+  world_state_t *ws = world_state_create(&test_arena);
+  state_access_t *access = world_state_access(ws);
+
+  address_t addr1 = make_test_address(0x92);
+  address_t addr2 = make_test_address(0x93);
+
+  // Set different balances
+  access->vtable->set_balance(access, &addr1, uint256_from_u64(1000));
+  access->vtable->set_balance(access, &addr2, uint256_from_u64(2000));
+
+  // Verify isolation
+  uint256_t bal1 = access->vtable->get_balance(access, &addr1);
+  uint256_t bal2 = access->vtable->get_balance(access, &addr2);
+
+  TEST_ASSERT_TRUE(uint256_eq(bal1, uint256_from_u64(1000)));
+  TEST_ASSERT_TRUE(uint256_eq(bal2, uint256_from_u64(2000)));
+
+  // Transfer between accounts
+  access->vtable->sub_balance(access, &addr1, uint256_from_u64(500));
+  access->vtable->add_balance(access, &addr2, uint256_from_u64(500));
+
+  bal1 = access->vtable->get_balance(access, &addr1);
+  bal2 = access->vtable->get_balance(access, &addr2);
+
+  TEST_ASSERT_TRUE(uint256_eq(bal1, uint256_from_u64(500)));
+  TEST_ASSERT_TRUE(uint256_eq(bal2, uint256_from_u64(2500)));
+
+  world_state_destroy(ws);
+}
+
+// ===========================================================================
+// Large value tests
+// ===========================================================================
+
+void test_world_state_large_balance(void) {
+  world_state_t *ws = world_state_create(&test_arena);
+  state_access_t *access = world_state_access(ws);
+  address_t addr = make_test_address(0xA0);
+
+  // Create a large balance (all limbs set)
+  uint256_t large_balance = uint256_from_limbs(0xFFFFFFFFFFFFFFFFULL, 0xFFFFFFFFFFFFFFFFULL,
+                                               0xFFFFFFFFFFFFFFFFULL, 0x0FFFFFFFFFFFFFFFULL);
+
+  access->vtable->set_balance(access, &addr, large_balance);
+
+  uint256_t retrieved = access->vtable->get_balance(access, &addr);
+  TEST_ASSERT_TRUE(uint256_eq(retrieved, large_balance));
+
+  world_state_destroy(ws);
+}
+
+void test_world_state_large_storage_key(void) {
+  world_state_t *ws = world_state_create(&test_arena);
+  state_access_t *access = world_state_access(ws);
+  address_t addr = make_test_address(0xA1);
+
+  // Use a large 256-bit slot key
+  uint256_t large_slot = uint256_from_limbs(0xDEADBEEFCAFEBABEULL, 0x1234567890ABCDEFULL,
+                                            0xFEDCBA0987654321ULL, 0x0ULL);
+
+  uint256_t value = uint256_from_u64(42);
+
+  access->vtable->set_storage(access, &addr, large_slot, value);
+
+  uint256_t retrieved = access->vtable->get_storage(access, &addr, large_slot);
+  TEST_ASSERT_TRUE(uint256_eq(retrieved, value));
+
+  // Different large slot should be zero
+  uint256_t other_slot = uint256_from_limbs(0xDEADBEEFCAFEBABEULL, 0x1234567890ABCDEFULL,
+                                            0xFEDCBA0987654321ULL, 0x1ULL);
+  uint256_t other_val = access->vtable->get_storage(access, &addr, other_slot);
+  TEST_ASSERT_TRUE(uint256_is_zero(other_val));
+
+  world_state_destroy(ws);
+}
+
+void test_world_state_large_storage_value(void) {
+  world_state_t *ws = world_state_create(&test_arena);
+  state_access_t *access = world_state_access(ws);
+  address_t addr = make_test_address(0xA2);
+  uint256_t slot = uint256_from_u64(1);
+
+  // Store a large 256-bit value
+  uint256_t large_value = uint256_from_limbs(0xAAAAAAAAAAAAAAAAULL, 0xBBBBBBBBBBBBBBBBULL,
+                                             0xCCCCCCCCCCCCCCCCULL, 0xDDDDDDDDDDDDDDDDULL);
+
+  access->vtable->set_storage(access, &addr, slot, large_value);
+
+  uint256_t retrieved = access->vtable->get_storage(access, &addr, slot);
+  TEST_ASSERT_TRUE(uint256_eq(retrieved, large_value));
+
+  world_state_destroy(ws);
+}
+
+// ===========================================================================
+// Edge case tests
+// ===========================================================================
+
+void test_world_state_add_balance_overflow(void) {
+  world_state_t *ws = world_state_create(&test_arena);
+  state_access_t *access = world_state_access(ws);
+  address_t addr = make_test_address(0xB0);
+
+  // Set balance to max value
+  uint256_t max_balance = uint256_from_limbs(0xFFFFFFFFFFFFFFFFULL, 0xFFFFFFFFFFFFFFFFULL,
+                                             0xFFFFFFFFFFFFFFFFULL, 0xFFFFFFFFFFFFFFFFULL);
+  access->vtable->set_balance(access, &addr, max_balance);
+
+  // Try to add 1 - should fail (overflow)
+  bool result = access->vtable->add_balance(access, &addr, uint256_from_u64(1));
+  TEST_ASSERT_FALSE(result);
+
+  // Balance should be unchanged
+  uint256_t bal = access->vtable->get_balance(access, &addr);
+  TEST_ASSERT_TRUE(uint256_eq(bal, max_balance));
+
+  world_state_destroy(ws);
+}
+
+void test_world_state_clear(void) {
+  world_state_t *ws = world_state_create(&test_arena);
+  state_access_t *access = world_state_access(ws);
+  address_t addr = make_test_address(0xB1);
+
+  // Set up some state
+  access->vtable->set_balance(access, &addr, uint256_from_u64(1000));
+  access->vtable->set_storage(access, &addr, uint256_from_u64(1), uint256_from_u64(42));
+  access->vtable->warm_address(access, &addr);
+
+  // Verify state exists
+  TEST_ASSERT_TRUE(access->vtable->account_exists(access, &addr));
+
+  // Clear all state
+  world_state_clear(ws);
+
+  // Account should no longer exist
+  TEST_ASSERT_FALSE(access->vtable->account_exists(access, &addr));
+
+  // State root should be empty again
+  hash_t root = world_state_root(ws);
+  TEST_ASSERT_TRUE(hash_equal(&root, &MPT_EMPTY_ROOT));
+
+  // Address should be cold
+  TEST_ASSERT_FALSE(access->vtable->is_address_warm(access, &addr));
+
+  world_state_destroy(ws);
+}
+
+void test_world_state_account_is_empty_interface(void) {
+  world_state_t *ws = world_state_create(&test_arena);
+  state_access_t *access = world_state_access(ws);
+  address_t addr = make_test_address(0xB2);
+
+  // Non-existent account is empty
+  TEST_ASSERT_TRUE(access->vtable->account_is_empty(access, &addr));
+
+  // Account with only balance is not empty
+  access->vtable->set_balance(access, &addr, uint256_from_u64(1));
+  TEST_ASSERT_FALSE(access->vtable->account_is_empty(access, &addr));
+
+  // Set balance to zero - account becomes empty (and deleted per EIP-161)
+  access->vtable->set_balance(access, &addr, uint256_zero());
+  TEST_ASSERT_TRUE(access->vtable->account_is_empty(access, &addr));
+
+  // Contract account (nonce=1) is not empty
+  access->vtable->create_contract(access, &addr);
+  TEST_ASSERT_FALSE(access->vtable->account_is_empty(access, &addr));
+
+  world_state_destroy(ws);
+}

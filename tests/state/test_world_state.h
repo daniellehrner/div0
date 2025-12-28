@@ -37,4 +37,25 @@ void test_world_state_root_changes(void);
 // State access interface tests
 void test_world_state_access_interface(void);
 
+// Transaction boundary tests
+void test_world_state_begin_transaction(void);
+
+// Original storage tests (EIP-2200)
+void test_world_state_get_original_storage(void);
+void test_world_state_original_storage_unset_slot(void);
+
+// Multi-account isolation tests
+void test_world_state_multi_account_storage_isolation(void);
+void test_world_state_multi_account_balance_isolation(void);
+
+// Large value tests
+void test_world_state_large_balance(void);
+void test_world_state_large_storage_key(void);
+void test_world_state_large_storage_value(void);
+
+// Edge case tests
+void test_world_state_add_balance_overflow(void);
+void test_world_state_clear(void);
+void test_world_state_account_is_empty_interface(void);
+
 #endif // TEST_WORLD_STATE_H

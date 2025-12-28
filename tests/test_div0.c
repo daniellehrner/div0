@@ -379,6 +379,17 @@ int main(void) {
   RUN_TEST(test_world_state_warm_slot);
   RUN_TEST(test_world_state_root_changes);
   RUN_TEST(test_world_state_access_interface);
+  RUN_TEST(test_world_state_begin_transaction);
+  RUN_TEST(test_world_state_get_original_storage);
+  RUN_TEST(test_world_state_original_storage_unset_slot);
+  RUN_TEST(test_world_state_multi_account_storage_isolation);
+  RUN_TEST(test_world_state_multi_account_balance_isolation);
+  RUN_TEST(test_world_state_large_balance);
+  RUN_TEST(test_world_state_large_storage_key);
+  RUN_TEST(test_world_state_large_storage_value);
+  RUN_TEST(test_world_state_add_balance_overflow);
+  RUN_TEST(test_world_state_clear);
+  RUN_TEST(test_world_state_account_is_empty_interface);
 
   // Cleanup
   div0_arena_destroy(&test_arena);

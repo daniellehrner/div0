@@ -95,9 +95,9 @@ const char *tx_decode_error_string(tx_decode_error_t error);
 // RLP Encoding Helpers
 // ============================================================================
 
-/// Encodes an optional address (NULL encodes as empty bytes).
+/// Encodes an optional address (nullptr encodes as empty bytes).
 /// @param arena Arena for allocations
-/// @param addr Address to encode (may be NULL)
+/// @param addr Address to encode (may be nullptr)
 /// @return RLP-encoded bytes
 bytes_t tx_encode_optional_address(div0_arena_t *arena, const address_t *addr);
 
@@ -112,7 +112,7 @@ void tx_encode_access_list(bytes_t *output, const access_list_t *list, div0_aren
 /// @param list Authorization list to encode
 /// @param arena Arena for allocations
 void tx_encode_authorization_list(bytes_t *output, const authorization_list_t *list,
-                                   div0_arena_t *arena);
+                                  div0_arena_t *arena);
 
 // ============================================================================
 // RLP Encoding

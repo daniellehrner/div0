@@ -244,8 +244,9 @@ hash_t transaction_signing_hash(const transaction_t *tx, div0_arena_t *arena) {
     return eip4844_tx_signing_hash(&tx->eip4844, arena);
   case TX_TYPE_EIP7702:
     return eip7702_tx_signing_hash(&tx->eip7702, arena);
+  default:
+    return hash_zero();
   }
-  return hash_zero();
 }
 
 hash_t authorization_signing_hash(const authorization_t *auth, div0_arena_t *arena) {
@@ -316,6 +317,10 @@ ecrecover_result_t transaction_recover_sender(const secp256k1_ctx_t *ctx, const 
     s = tx->eip7702.s;
     chain_id = tx->eip7702.chain_id;
     break;
+  default: {
+    ecrecover_result_t failed = {.success = false};
+    return failed;
+  }
   }
 
   return secp256k1_ecrecover(ctx, &msg_hash, v, &r, &s, chain_id);

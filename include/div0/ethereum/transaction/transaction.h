@@ -119,7 +119,6 @@ static inline bool transaction_is_create(const transaction_t *tx) {
   case TX_TYPE_EIP1559:
     return eip1559_tx_is_create(&tx->eip1559);
   case TX_TYPE_EIP4844:
-    return false; // Cannot create contracts
   case TX_TYPE_EIP7702:
     return false; // Cannot create contracts
   }

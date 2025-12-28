@@ -11,7 +11,7 @@
 #include <stdint.h>
 
 /// Gas per blob (EIP-4844).
-static constexpr uint64_t GAS_PER_BLOB = 131072;
+static const uint64_t GAS_PER_BLOB = 131072;
 
 /// EIP-4844 transaction (Type 3).
 /// Blob-carrying transaction for data availability.

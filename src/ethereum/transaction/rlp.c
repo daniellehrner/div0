@@ -83,7 +83,7 @@ const char *tx_decode_error_string(tx_decode_error_t error) {
 
 #define DECODE_LIST_HEADER(dec, var)                   \
   rlp_list_result_t var = rlp_decode_list_header(dec); \
-  if (var.error != RLP_SUCCESS)                        \
+  if ((var).error != RLP_SUCCESS)                      \
   return (tx_decode_result_t){.error = TX_DECODE_INVALID_RLP, .bytes_consumed = 0}
 
 #define RETURN_SUCCESS(list_header)                                               \
@@ -113,6 +113,7 @@ static tx_decode_error_t decode_optional_address(rlp_decoder_t *dec, address_t *
   if (!*out) {
     return TX_DECODE_ALLOC_FAILED;
   }
+  // NOLINTNEXTLINE(clang-analyzer-security.insecureAPI.DeprecatedOrUnsafeBufferHandling)
   memcpy((*out)->bytes, result.data, ADDRESS_SIZE);
   return TX_DECODE_OK;
 }
@@ -136,6 +137,7 @@ static tx_decode_error_t decode_tx_data(rlp_decoder_t *dec, bytes_t *out, div0_a
     if (!bytes_reserve(out, result.len)) {
       return TX_DECODE_ALLOC_FAILED;
     }
+    // NOLINTNEXTLINE(clang-analyzer-security.insecureAPI.DeprecatedOrUnsafeBufferHandling)
     memcpy(out->data, result.data, result.len);
     out->size = result.len;
   }
@@ -236,33 +238,39 @@ static tx_decode_error_t decode_authorization_list(rlp_decoder_t *dec, authoriza
     authorization_t auth;
 
     rlp_u64_result_t chain_id = rlp_decode_u64(dec);
-    if (chain_id.error != RLP_SUCCESS)
+    if (chain_id.error != RLP_SUCCESS) {
       return TX_DECODE_INVALID_RLP;
+    }
     auth.chain_id = chain_id.value;
 
     rlp_address_result_t addr = rlp_decode_address(dec);
-    if (addr.error != RLP_SUCCESS)
+    if (addr.error != RLP_SUCCESS) {
       return TX_DECODE_INVALID_RLP;
+    }
     auth.address = addr.value;
 
     rlp_u64_result_t nonce = rlp_decode_u64(dec);
-    if (nonce.error != RLP_SUCCESS)
+    if (nonce.error != RLP_SUCCESS) {
       return TX_DECODE_INVALID_RLP;
+    }
     auth.nonce = nonce.value;
 
     rlp_u64_result_t y_parity = rlp_decode_u64(dec);
-    if (y_parity.error != RLP_SUCCESS)
+    if (y_parity.error != RLP_SUCCESS) {
       return TX_DECODE_INVALID_RLP;
+    }
     auth.y_parity = (uint8_t)y_parity.value;
 
     rlp_uint256_result_t r = rlp_decode_uint256(dec);
-    if (r.error != RLP_SUCCESS)
+    if (r.error != RLP_SUCCESS) {
       return TX_DECODE_INVALID_RLP;
+    }
     auth.r = r.value;
 
     rlp_uint256_result_t s = rlp_decode_uint256(dec);
-    if (s.error != RLP_SUCCESS)
+    if (s.error != RLP_SUCCESS) {
       return TX_DECODE_INVALID_RLP;
+    }
     auth.s = s.value;
 
     vec_auth_push(&auths, auth);
@@ -469,6 +477,9 @@ tx_decode_result_t transaction_decode(const uint8_t *data, size_t len, transacti
     return legacy_tx_decode(data, len, &tx->legacy, arena);
   }
 
+  // Per EIP-2718, type byte 0x00 is reserved for distinguishing legacy RLP
+  // transactions and is not a valid typed transaction prefix; valid typed
+  // transaction type bytes are currently in the range 0x01-0x04.
   if (first_byte == 0x00 || first_byte > 0x04) {
     return (tx_decode_result_t){.error = TX_DECODE_INVALID_TYPE, .bytes_consumed = 0};
   }
@@ -831,10 +842,12 @@ bytes_t transaction_encode(const transaction_t *tx, div0_arena_t *arena) {
     return eip4844_tx_encode(&tx->eip4844, arena);
   case TX_TYPE_EIP7702:
     return eip7702_tx_encode(&tx->eip7702, arena);
+  default: {
+    bytes_t empty;
+    bytes_init(&empty);
+    return empty;
   }
-  bytes_t empty;
-  bytes_init(&empty);
-  return empty;
+  }
 }
 
 // ============================================================================

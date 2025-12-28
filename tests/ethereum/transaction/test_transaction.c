@@ -202,7 +202,8 @@ void test_eip1559_tx_effective_gas_price(void) {
   TEST_ASSERT_TRUE(uint256_eq(effective, uint256_from_u64(2000000000)));
 
   // max_priority_fee = 2 gwei, max_fee = 2 gwei, base_fee = 1 gwei
-  // effective = min(2, 1 + 2) = 2 gwei
+  // effective = min(max_fee, base_fee + priority) = min(2, 1 + 2) = 2 gwei
+  // (capped by max_fee since base + priority = 3 > max_fee = 2)
   tx.max_priority_fee_per_gas = uint256_from_u64(2000000000);
   tx.max_fee_per_gas = uint256_from_u64(2000000000);
 
@@ -307,7 +308,6 @@ void test_transaction_recover_sender_legacy(void) {
 // ============================================================================
 // Real Test Vectors from Ethereum Tests
 // ============================================================================
-
 
 void test_real_vector_legacy_pre_eip155(void) {
   // From ethereum/tests SenderTest.json
@@ -647,6 +647,7 @@ void test_roundtrip_constructed_eip1559(void) {
   TEST_ASSERT_EQUAL_UINT8(1, decoded.eip1559.y_parity);
   TEST_ASSERT_NOT_NULL(decoded.eip1559.to);
   TEST_ASSERT_EQUAL_MEMORY(tx.eip1559.to->bytes, decoded.eip1559.to->bytes, 20);
-  TEST_ASSERT_TRUE(uint256_eq(tx.eip1559.max_priority_fee_per_gas, decoded.eip1559.max_priority_fee_per_gas));
+  TEST_ASSERT_TRUE(
+      uint256_eq(tx.eip1559.max_priority_fee_per_gas, decoded.eip1559.max_priority_fee_per_gas));
   TEST_ASSERT_TRUE(uint256_eq(tx.eip1559.max_fee_per_gas, decoded.eip1559.max_fee_per_gas));
 }

@@ -72,8 +72,8 @@ static void memory_rollback_batch(mpt_backend_t *backend) {
 
 static void memory_clear(mpt_backend_t *backend) {
   mpt_memory_backend_t *mem = (mpt_memory_backend_t *)backend;
-  // Reset arena and clear root
-  div0_arena_reset(mem->arena);
+  // Clear root only - don't reset arena since it may be shared.
+  // Orphaned nodes will be reclaimed when arena is reset/destroyed.
   mem->root = nullptr;
 }
 

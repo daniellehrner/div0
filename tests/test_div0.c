@@ -33,6 +33,10 @@
 #include "trie/test_nibbles.h"
 #include "trie/test_node.h"
 
+// Test headers - state
+#include "state/test_account.h"
+#include "state/test_world_state.h"
+
 // Global arena for tests (shared across test files)
 div0_arena_t test_arena;
 static bool arena_initialized = false;
@@ -341,6 +345,51 @@ int main(void) {
   RUN_TEST(test_mpt_delete_from_branch);
   RUN_TEST(test_mpt_delete_collapses_branch);
   RUN_TEST(test_mpt_delete_and_reinsert);
+
+  // Account tests
+  RUN_TEST(test_account_empty_creation);
+  RUN_TEST(test_account_empty_has_correct_defaults);
+  RUN_TEST(test_account_is_empty_checks_correctly);
+  RUN_TEST(test_account_rlp_encode_empty);
+  RUN_TEST(test_account_rlp_encode_with_balance);
+  RUN_TEST(test_account_rlp_encode_with_nonce);
+  RUN_TEST(test_account_rlp_encode_full_account);
+  RUN_TEST(test_account_rlp_decode_empty);
+  RUN_TEST(test_account_rlp_decode_with_balance);
+  RUN_TEST(test_account_rlp_roundtrip);
+  RUN_TEST(test_account_rlp_decode_invalid_returns_false);
+  RUN_TEST(test_empty_code_hash_constant);
+
+  // World state tests
+  RUN_TEST(test_world_state_create);
+  RUN_TEST(test_world_state_empty_root);
+  RUN_TEST(test_world_state_get_nonexistent_account);
+  RUN_TEST(test_world_state_set_and_get_account);
+  RUN_TEST(test_world_state_delete_empty_account);
+  RUN_TEST(test_world_state_balance_operations);
+  RUN_TEST(test_world_state_add_balance);
+  RUN_TEST(test_world_state_sub_balance);
+  RUN_TEST(test_world_state_nonce_operations);
+  RUN_TEST(test_world_state_increment_nonce);
+  RUN_TEST(test_world_state_code_operations);
+  RUN_TEST(test_world_state_code_hash);
+  RUN_TEST(test_world_state_storage_operations);
+  RUN_TEST(test_world_state_storage_multiple_slots);
+  RUN_TEST(test_world_state_warm_address);
+  RUN_TEST(test_world_state_warm_slot);
+  RUN_TEST(test_world_state_root_changes);
+  RUN_TEST(test_world_state_access_interface);
+  RUN_TEST(test_world_state_begin_transaction);
+  RUN_TEST(test_world_state_get_original_storage);
+  RUN_TEST(test_world_state_original_storage_unset_slot);
+  RUN_TEST(test_world_state_multi_account_storage_isolation);
+  RUN_TEST(test_world_state_multi_account_balance_isolation);
+  RUN_TEST(test_world_state_large_balance);
+  RUN_TEST(test_world_state_large_storage_key);
+  RUN_TEST(test_world_state_large_storage_value);
+  RUN_TEST(test_world_state_add_balance_overflow);
+  RUN_TEST(test_world_state_clear);
+  RUN_TEST(test_world_state_account_is_empty_interface);
 
   // Cleanup
   div0_arena_destroy(&test_arena);

@@ -481,7 +481,7 @@ void test_decode_empty_input(void) {
 }
 
 void test_decode_invalid_type_byte(void) {
-  // Type byte 0x05 is not valid (only 0x01-0x04 are typed transactions)
+  // Type byte 0x05 is not currently defined (valid types are 0x01-0x04)
   uint8_t invalid_type[] = {0x05, 0xc0};
   transaction_t tx;
   tx_decode_result_t result =

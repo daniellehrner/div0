@@ -144,6 +144,9 @@ static tx_decode_error_t decode_tx_data(rlp_decoder_t *dec, bytes_t *out, div0_a
   return TX_DECODE_OK;
 }
 
+// Decode access list from RLP.
+// Note: On decode failure, partial allocations remain in the arena. This is by design -
+// arenas provide bulk deallocation, so the caller should reset the arena on failure.
 static tx_decode_error_t decode_access_list(rlp_decoder_t *dec, access_list_t *list,
                                             div0_arena_t *arena) {
   rlp_list_result_t list_header = rlp_decode_list_header(dec);
@@ -211,6 +214,8 @@ static tx_decode_error_t decode_access_list(rlp_decoder_t *dec, access_list_t *l
   return TX_DECODE_OK;
 }
 
+// Decode authorization list from RLP.
+// Note: On decode failure, partial allocations remain in the arena (see decode_access_list).
 static tx_decode_error_t decode_authorization_list(rlp_decoder_t *dec, authorization_list_t *list,
                                                    div0_arena_t *arena) {
   rlp_list_result_t list_header = rlp_decode_list_header(dec);

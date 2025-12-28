@@ -169,6 +169,7 @@ int main(void) {
   RUN_TEST(test_evm_invalid_opcode);
   RUN_TEST(test_evm_stack_underflow);
   RUN_TEST(test_evm_mstore);
+  RUN_TEST(test_evm_mstore8);
   RUN_TEST(test_evm_return_empty);
   RUN_TEST(test_evm_return_with_data);
   RUN_TEST(test_evm_revert_empty);

@@ -135,7 +135,8 @@ void test_evm_add_multiple(void) {
 }
 
 void test_evm_invalid_opcode(void) {
-  // Use an unimplemented opcode (e.g., MUL = 0x02)
+  // Use an opcode that is not implemented in the interpreter.
+  // 0x02 (MUL) is a valid EVM opcode but not yet implemented.
   uint8_t code[] = {OP_MUL};
 
   evm_t evm;
@@ -186,9 +187,36 @@ void test_evm_mstore(void) {
   TEST_ASSERT_EQUAL_UINT8(0x00, mem[0]); // Leading zeros
 }
 
+void test_evm_mstore8(void) {
+  // PUSH1 0xAB, PUSH1 5, MSTORE8, STOP
+  // Store single byte 0xAB at memory offset 5
+  uint8_t code[] = {OP_PUSH1, 0xAB, OP_PUSH1, 5, OP_MSTORE8, OP_STOP};
+
+  evm_t evm;
+  evm_init(&evm, &test_arena);
+
+  execution_env_t env = make_test_env(code, sizeof(code), 100000);
+  evm_execution_result_t result = evm_execute_env(&evm, &env);
+
+  TEST_ASSERT_EQUAL(EVM_RESULT_STOP, result.result);
+  TEST_ASSERT_EQUAL(EVM_OK, result.error);
+
+  // Verify memory was expanded (to 32 bytes, next word boundary)
+  TEST_ASSERT_NOT_NULL(evm.current_frame);
+  TEST_ASSERT_EQUAL(32, evm_memory_size(evm.current_frame->memory));
+
+  // MSTORE8 stores the low byte at the exact offset
+  const uint8_t *mem = evm_memory_ptr_unsafe(evm.current_frame->memory, 0);
+  TEST_ASSERT_EQUAL_UINT8(0xAB, mem[5]);
+  TEST_ASSERT_EQUAL_UINT8(0x00, mem[0]); // Other bytes are zero
+  TEST_ASSERT_EQUAL_UINT8(0x00, mem[4]);
+  TEST_ASSERT_EQUAL_UINT8(0x00, mem[6]);
+}
+
 void test_evm_return_empty(void) {
-  // PUSH1 0, PUSH1 0, RETURN
-  // Return with offset=0, size=0 (empty return data)
+  // PUSH1 0 (size), PUSH1 0 (offset), RETURN
+  // RETURN pops offset first, then size from the stack.
+  // Here both are 0, resulting in empty return data.
   uint8_t code[] = {OP_PUSH1, 0, OP_PUSH1, 0, OP_RETURN};
 
   evm_t evm;

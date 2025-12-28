@@ -21,12 +21,19 @@ void evm_init(evm_t *evm, div0_arena_t *arena) {
 }
 
 void evm_reset(evm_t *evm) {
-  // Reset pools to initial state
+  // Reset pools that support depth tracking to their initial logical state.
+  // This function only resets per-execution state; it does NOT reclaim memory
+  // from evm->arena. The arena is expected to have a lifetime that encompasses
+  // all uses of this evm_t instance (or be reset/destroyed by the caller when
+  // the EVM is no longer needed).
   evm->frame_pool.depth = 0;
   evm->memory_pool.depth = 0;
-  // stack_pool doesn't have depth tracking - stacks allocated on-demand from arena
+  // stack_pool doesn't have depth tracking: individual stacks are allocated
+  // on-demand from evm->arena and are not reclaimed by evm_reset. Reusing an
+  // evm_t across multiple transactions with the same arena is only safe if the
+  // arena itself is periodically reset or discarded to avoid unbounded growth.
 
-  // Clear return data
+  // Clear return data size (buffer storage is kept and reused via evm->arena)
   evm->return_data_size = 0;
 
   // Clear current execution state
@@ -70,6 +77,11 @@ static void copy_return_data(evm_t *evm, const evm_memory_t *mem, uint64_t offse
     // Allocate from arena (round up to power of 2 for efficiency)
     size_t new_capacity = 256;
     while (new_capacity < size) {
+      // Prevent overflow when doubling
+      if (new_capacity > SIZE_MAX / 2) {
+        new_capacity = size;
+        break;
+      }
       new_capacity *= 2;
     }
     evm->return_data = div0_arena_alloc(evm->arena, new_capacity);
@@ -91,7 +103,7 @@ evm_execution_result_t evm_execute_env(evm_t *evm, const execution_env_t *env) {
   if (frame == nullptr) {
     return (evm_execution_result_t){
         .result = EVM_RESULT_ERROR,
-        .error = EVM_STACK_OVERFLOW, // Max call depth exceeded
+        .error = EVM_CALL_DEPTH_EXCEEDED,
         .gas_used = 0,
         .gas_refund = 0,
         .output = nullptr,
@@ -212,6 +224,17 @@ evm_execution_result_t evm_execute_env(evm_t *evm, const execution_env_t *env) {
 
     case FRAME_CALL:
     case FRAME_CREATE:
+      // Bounds check before pushing to frame stack
+      if (stack_depth >= EVM_MAX_CALL_DEPTH) {
+        return (evm_execution_result_t){
+            .result = EVM_RESULT_ERROR,
+            .error = EVM_CALL_DEPTH_EXCEEDED,
+            .gas_used = initial_gas,
+            .gas_refund = 0,
+            .output = nullptr,
+            .output_size = 0,
+        };
+      }
       // Push current frame onto stack, switch to child
       frame_stack[stack_depth++] = frame;
       frame = evm->pending_frame;
@@ -398,6 +421,9 @@ op_mstore: {
   }
 
   // Charge base gas (GAS_VERY_LOW) + memory expansion
+  if (mem_cost > UINT64_MAX - GAS_VERY_LOW) {
+    return frame_result_error(EVM_OUT_OF_GAS);
+  }
   uint64_t total_cost = GAS_VERY_LOW + mem_cost;
   if (frame->gas < total_cost) {
     return frame_result_error(EVM_OUT_OF_GAS);
@@ -428,6 +454,9 @@ op_mstore8: {
   }
 
   // Charge base gas (GAS_VERY_LOW) + memory expansion
+  if (mem_cost > UINT64_MAX - GAS_VERY_LOW) {
+    return frame_result_error(EVM_OUT_OF_GAS);
+  }
   uint64_t total_cost = GAS_VERY_LOW + mem_cost;
   if (frame->gas < total_cost) {
     return frame_result_error(EVM_OUT_OF_GAS);

@@ -242,6 +242,12 @@ static uint64_t ws_increment_nonce(state_access_t *state, const address_t *addr)
     acc = account_empty();
   }
   uint64_t old_nonce = acc.nonce;
+
+  // Check for nonce overflow (EIP-2681 limits nonce to 2^64-2)
+  if (acc.nonce >= UINT64_MAX - 1) {
+    return old_nonce; // Saturate at max, don't increment
+  }
+
   acc.nonce++;
   world_state_set_account(ws, addr, &acc);
   return old_nonce;
@@ -428,24 +434,27 @@ static void ws_begin_transaction(state_access_t *state) {
   original_storage_map_clear(orig_map);
 }
 
+// FIXME: Snapshot/revert is not yet implemented. These are stubs that return
+// valid IDs but do NOT actually track or revert state changes. Full journaling
+// support is required for proper CALL/CREATE revert semantics.
+// See: https://github.com/daniellehrner/div0/issues/XX
+
 static uint64_t ws_snapshot(state_access_t *state) {
   world_state_t *ws = (world_state_t *)state;
-  // TODO: Implement proper journaling for snapshot/revert
-  // For now, just return an incrementing ID per world_state instance
+  // Returns incrementing ID for API compatibility, but no journaling occurs
   return ++ws->snapshot_counter;
 }
 
 static void ws_revert_to_snapshot(state_access_t *state, uint64_t snapshot_id) {
   (void)state;
   (void)snapshot_id;
-  // TODO: Implement proper state revert
-  // This requires journaling all state changes since the snapshot
+  // FIXME: No-op - requires journaling all state changes since snapshot
 }
 
 static void ws_commit_snapshot(state_access_t *state, uint64_t snapshot_id) {
   (void)state;
   (void)snapshot_id;
-  // TODO: Implement proper snapshot commit (discard journal entries)
+  // FIXME: No-op - would discard journal entries for the snapshot
 }
 
 static hash_t ws_state_root(state_access_t *state) {

@@ -492,7 +492,7 @@ json_result_t t8n_parse_txs(const char *json, size_t len, div0_arena_t *arena, t
 }
 
 json_result_t t8n_parse_txs_file(const char *path, div0_arena_t *arena, t8n_txs_t *out) {
-  json_doc_t doc = {nullptr};
+  json_doc_t doc = {.doc = nullptr};
   json_result_t result = json_parse_file(path, &doc);
   if (json_is_err(result)) {
     return result;

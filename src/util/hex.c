@@ -11,7 +11,7 @@ static const char HEX_CHARS[16] = {'0', '1', '2', '3', '4', '5', '6', '7',
 // ============================================================================
 
 static const char *skip_0x_prefix(const char *hex) {
-  if (hex[0] == '0' && (hex[1] == 'x' || hex[1] == 'X')) {
+  if (hex[0] == '0' && hex[1] != '\0' && (hex[1] == 'x' || hex[1] == 'X')) {
     return hex + 2;
   }
   return hex;

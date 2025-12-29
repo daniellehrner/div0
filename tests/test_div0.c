@@ -40,6 +40,12 @@
 // Test headers - ethereum
 #include "ethereum/transaction/test_transaction.h"
 
+// Test headers - JSON and t8n (hosted only)
+#ifndef DIV0_FREESTANDING
+#include "json/test_json.h"
+#include "t8n/test_t8n.h"
+#endif
+
 // Global arena for tests (shared across test files)
 div0_arena_t test_arena;
 static bool arena_initialized = false;
@@ -434,6 +440,48 @@ int main(void) {
   RUN_TEST(test_roundtrip_eip2930_tx);
   RUN_TEST(test_roundtrip_constructed_legacy);
   RUN_TEST(test_roundtrip_constructed_eip1559);
+
+#ifndef DIV0_FREESTANDING
+  // JSON core tests
+  RUN_TEST(test_json_parse_empty_object);
+  RUN_TEST(test_json_parse_nested_object);
+  RUN_TEST(test_json_parse_array);
+  RUN_TEST(test_json_get_hex_u64);
+  RUN_TEST(test_json_get_hex_uint256);
+  RUN_TEST(test_json_get_hex_address);
+  RUN_TEST(test_json_get_hex_hash);
+  RUN_TEST(test_json_get_hex_bytes);
+  RUN_TEST(test_json_obj_iteration);
+  RUN_TEST(test_json_arr_iteration);
+  RUN_TEST(test_json_write_object);
+  RUN_TEST(test_json_write_array);
+  RUN_TEST(test_json_write_hex_values);
+
+  // Hex encoding tests
+  RUN_TEST(test_hex_encode_u64);
+  RUN_TEST(test_hex_encode_uint256);
+  RUN_TEST(test_hex_encode_uint256_padded);
+  RUN_TEST(test_hex_decode_u64);
+  RUN_TEST(test_hex_decode_uint256);
+
+  // Alloc parsing tests
+  RUN_TEST(test_alloc_parse_empty);
+  RUN_TEST(test_alloc_parse_single_account);
+  RUN_TEST(test_alloc_parse_with_storage);
+  RUN_TEST(test_alloc_parse_with_code);
+  RUN_TEST(test_alloc_roundtrip);
+
+  // Env parsing tests
+  RUN_TEST(test_env_parse_required_fields);
+  RUN_TEST(test_env_parse_optional_fields);
+  RUN_TEST(test_env_parse_block_hashes);
+  RUN_TEST(test_env_parse_withdrawals);
+
+  // Txs parsing tests
+  RUN_TEST(test_txs_parse_legacy);
+  RUN_TEST(test_txs_parse_eip1559);
+  RUN_TEST(test_txs_parse_empty_array);
+#endif
 
   // Cleanup
   div0_arena_destroy(&test_arena);

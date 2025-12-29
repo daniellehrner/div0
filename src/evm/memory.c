@@ -88,8 +88,8 @@ bool evm_memory_expand(evm_memory_t *mem, size_t offset, size_t size, uint64_t *
   }
 
   // Zero-fill new memory
-  // NOLINTNEXTLINE(clang-analyzer-security.insecureAPI.DeprecatedOrUnsafeBufferHandling)
-  memset(mem->data + mem->size, 0, new_size - mem->size);
+  __builtin___memset_chk(mem->data + mem->size, 0, new_size - mem->size,
+                         __builtin_object_size(mem->data + mem->size, 0));
   mem->size = new_size;
 
   return true;

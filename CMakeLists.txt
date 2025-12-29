@@ -218,6 +218,30 @@ target_include_directories(div0_ethereum PUBLIC
 target_link_libraries(div0_ethereum PUBLIC div0_types div0_crypto div0_rlp)
 div0_target_options(div0_ethereum)
 
+# ============================================================================
+# JSON Library (hosted only - not for bare-metal/zk builds)
+# ============================================================================
+
+if(NOT DIV0_FREESTANDING)
+  add_library(div0_json STATIC
+    src/json/parse.c
+    src/json/write.c
+    src/t8n/alloc.c
+    src/t8n/env.c
+    src/t8n/txs.c
+    src/t8n/result.c
+  )
+  target_include_directories(div0_json PUBLIC
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+    $<INSTALL_INTERFACE:include>
+  )
+  target_link_libraries(div0_json
+    PUBLIC div0_types div0_mem div0_ethereum div0_state
+    PRIVATE yyjson
+  )
+  div0_target_options(div0_json)
+endif()
+
 # Convenience interface library linking all components
 add_library(div0 INTERFACE)
 target_link_libraries(div0 INTERFACE div0_types div0_mem div0_evm div0_crypto div0_rlp div0_trie div0_state div0_ethereum)
@@ -229,7 +253,7 @@ target_link_libraries(div0 INTERFACE div0_types div0_mem div0_evm div0_crypto di
 if(DIV0_BUILD_TESTS)
   enable_testing()
 
-  # Common test sources - single list for both hosted and freestanding builds
+  # Core test sources - work on both hosted and freestanding builds
   set(DIV0_TEST_SOURCES
     tests/test_div0.c
     # types tests
@@ -261,6 +285,13 @@ if(DIV0_BUILD_TESTS)
     tests/state/test_world_state.c
     # ethereum tests
     tests/ethereum/transaction/test_transaction.c
+  )
+
+  # Hosted-only test sources (require file I/O, JSON, etc.)
+  # These tests are excluded from freestanding/RISC-V builds
+  set(DIV0_HOSTED_TEST_SOURCES
+    tests/json/test_json.c
+    tests/t8n/test_t8n.c
   )
 
   if(DIV0_FREESTANDING)
@@ -312,9 +343,10 @@ if(DIV0_BUILD_TESTS)
       )
     endif()
   else()
-    # Hosted tests - normal build
+    # Hosted tests - normal build with JSON tests
     add_executable(div0_tests
       ${DIV0_TEST_SOURCES}
+      ${DIV0_HOSTED_TEST_SOURCES}
       ${unity_SOURCE_DIR}/src/unity.c
     )
 
@@ -323,7 +355,7 @@ if(DIV0_BUILD_TESTS)
       ${CMAKE_CURRENT_SOURCE_DIR}/tests
     )
 
-    target_link_libraries(div0_tests PRIVATE div0)
+    target_link_libraries(div0_tests PRIVATE div0 div0_json)
     div0_target_options(div0_tests)
 
     add_test(NAME div0_tests COMMAND div0_tests)

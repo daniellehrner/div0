@@ -529,8 +529,7 @@ world_state_t *world_state_create(div0_arena_t *arena) {
   }
 
   // Zero-initialize for safety (all pointers start as nullptr)
-  // NOLINTNEXTLINE(clang-analyzer-security.insecureAPI.DeprecatedOrUnsafeBufferHandling)
-  memset(ws, 0, sizeof(*ws));
+  __builtin___memset_chk(ws, 0, sizeof(*ws), __builtin_object_size(ws, 0));
 
   ws->base.vtable = &WORLD_STATE_VTABLE;
   ws->arena = arena;

@@ -1,9 +1,17 @@
 #ifndef DIV0_UTIL_HEX_H
 #define DIV0_UTIL_HEX_H
 
+#include "div0/types/address.h"
+#include "div0/types/hash.h"
+#include "div0/types/uint256.h"
+
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
+
+// ============================================================================
+// Hex Decoding
+// ============================================================================
 
 /// Parse a hex string into a byte buffer.
 ///
@@ -42,5 +50,81 @@ static inline bool hex_char_to_nibble(char c, uint8_t *out) {
   }
   return false;
 }
+
+/// Parse a hex string to uint64 with variable length.
+///
+/// Accepts optional "0x" prefix. Parses up to 16 hex digits.
+/// Returns false on overflow or invalid characters.
+///
+/// @param hex Input hex string
+/// @param out Output value
+/// @return true on success, false on error
+bool hex_decode_u64(const char *hex, uint64_t *out);
+
+/// Parse a hex string to uint256 with variable length.
+///
+/// Accepts optional "0x" prefix. Parses up to 64 hex digits.
+///
+/// @param hex Input hex string
+/// @param out Output value
+/// @return true on success, false on error
+bool hex_decode_uint256(const char *hex, uint256_t *out);
+
+/// Get the length of a hex string after stripping optional 0x prefix.
+///
+/// @param hex Input hex string
+/// @return Length of hex digits (excluding prefix)
+size_t hex_strlen(const char *hex);
+
+// ============================================================================
+// Hex Encoding
+// ============================================================================
+
+/// Encode a byte buffer to hex string with "0x" prefix.
+///
+/// @param data Input bytes
+/// @param len Number of bytes
+/// @param out Output buffer (must be at least 2 + len*2 + 1 bytes)
+void hex_encode(const uint8_t *data, size_t len, char *out);
+
+/// Encode uint64 to minimal hex string with "0x" prefix.
+///
+/// Leading zeros are stripped (e.g., 255 -> "0xff", 0 -> "0x0").
+///
+/// @param value Value to encode
+/// @param out Output buffer (must be at least 19 bytes: "0x" + 16 digits + null)
+void hex_encode_u64(uint64_t value, char *out);
+
+/// Encode uint256 to minimal hex string with "0x" prefix.
+///
+/// Leading zeros are stripped.
+///
+/// @param value Value to encode
+/// @param out Output buffer (must be at least 67 bytes: "0x" + 64 digits + null)
+void hex_encode_uint256(const uint256_t *value, char *out);
+
+/// Encode uint256 to zero-padded 64-char hex string with "0x" prefix.
+///
+/// Always produces exactly 64 hex digits (32 bytes).
+///
+/// @param value Value to encode
+/// @param out Output buffer (must be at least 67 bytes)
+void hex_encode_uint256_padded(const uint256_t *value, char *out);
+
+/// Encode address to hex string with "0x" prefix.
+///
+/// Always produces exactly 40 hex digits (20 bytes).
+///
+/// @param addr Address to encode
+/// @param out Output buffer (must be at least 43 bytes: "0x" + 40 digits + null)
+void hex_encode_address(const address_t *addr, char *out);
+
+/// Encode hash to hex string with "0x" prefix.
+///
+/// Always produces exactly 64 hex digits (32 bytes).
+///
+/// @param hash Hash to encode
+/// @param out Output buffer (must be at least 67 bytes: "0x" + 64 digits + null)
+void hex_encode_hash(const hash_t *hash, char *out);
 
 #endif // DIV0_UTIL_HEX_H

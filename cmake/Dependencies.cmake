@@ -37,6 +37,14 @@ include(dependencies/XKCP)
 include(dependencies/secp256k1)
 
 # ============================================================================
+# JSON Library (hosted builds only)
+# ============================================================================
+
+if(NOT DIV0_FREESTANDING)
+  include(dependencies/yyjson)
+endif()
+
+# ============================================================================
 # Summary
 # ============================================================================
 
@@ -51,4 +59,7 @@ endif()
 if(DIV0_FREESTANDING AND DIV0_BUILD_PICOLIBC)
   message(STATUS "  - picolibc     : Embedded C library")
   message(STATUS "  - compiler-rt  : LLVM runtime builtins")
+endif()
+if(NOT DIV0_FREESTANDING)
+  message(STATUS "  - yyjson       : JSON parsing/serialization")
 endif()

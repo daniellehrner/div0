@@ -12,8 +12,7 @@
 #include <string.h>
 
 void evm_init(evm_t *evm, div0_arena_t *arena) {
-  // NOLINTNEXTLINE(clang-analyzer-security.insecureAPI.DeprecatedOrUnsafeBufferHandling)
-  memset(evm, 0, sizeof(evm_t));
+  __builtin___memset_chk(evm, 0, sizeof(evm_t), __builtin_object_size(evm, 0));
   evm->arena = arena;
   call_frame_pool_init(&evm->frame_pool);
   evm_stack_pool_init(&evm->stack_pool, arena);

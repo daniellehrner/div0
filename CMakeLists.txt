@@ -218,6 +218,20 @@ target_include_directories(div0_ethereum PUBLIC
 target_link_libraries(div0_ethereum PUBLIC div0_types div0_crypto div0_rlp)
 div0_target_options(div0_ethereum)
 
+# Block Executor library - depends on types, evm, state, ethereum, crypto, rlp
+add_library(div0_executor STATIC
+  src/executor/address.c
+  src/executor/block_executor.c
+  src/executor/intrinsic_gas.c
+  src/executor/validation.c
+)
+target_include_directories(div0_executor PUBLIC
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+  $<INSTALL_INTERFACE:include>
+)
+target_link_libraries(div0_executor PUBLIC div0_types div0_evm div0_state div0_ethereum div0_crypto div0_rlp)
+div0_target_options(div0_executor)
+
 # ============================================================================
 # JSON Library (hosted only - not for bare-metal/zk builds)
 # ============================================================================
@@ -244,7 +258,7 @@ endif()
 
 # Convenience interface library linking all components
 add_library(div0 INTERFACE)
-target_link_libraries(div0 INTERFACE div0_types div0_mem div0_evm div0_crypto div0_rlp div0_trie div0_state div0_ethereum)
+target_link_libraries(div0 INTERFACE div0_types div0_mem div0_evm div0_crypto div0_rlp div0_trie div0_state div0_ethereum div0_executor)
 
 # ============================================================================
 # Tests
@@ -285,6 +299,8 @@ if(DIV0_BUILD_TESTS)
     tests/state/test_world_state.c
     # ethereum tests
     tests/ethereum/transaction/test_transaction.c
+    # executor tests
+    tests/executor/test_block_executor.c
   )
 
   # Hosted-only test sources (require file I/O, JSON, etc.)
@@ -329,6 +345,7 @@ if(DIV0_BUILD_TESTS)
         div0_trie
         div0_state
         div0_ethereum
+        div0_executor
         "${DIV0_PICOLIBC_LIB}"
         "${DIV0_COMPILER_RT_LIB}"
       )

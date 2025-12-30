@@ -261,6 +261,48 @@ add_library(div0 INTERFACE)
 target_link_libraries(div0 INTERFACE div0_types div0_mem div0_evm div0_crypto div0_rlp div0_trie div0_state div0_ethereum div0_executor)
 
 # ============================================================================
+# CLI Executable (hosted only)
+# ============================================================================
+
+if(NOT DIV0_FREESTANDING)
+  # Generate version header
+  configure_file(
+    src/cli/version.h.in
+    ${CMAKE_CURRENT_BINARY_DIR}/include/cli/version.h
+  )
+
+  # CLI library
+  add_library(div0_cli STATIC
+    src/cli/crash_handler.c
+    src/cli/t8n/t8n_command.c
+  )
+  target_include_directories(div0_cli
+    PUBLIC
+      $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src>
+      $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/include>
+    PRIVATE
+      ${CMAKE_CURRENT_SOURCE_DIR}/src/cli
+  )
+  target_link_libraries(div0_cli
+    PUBLIC div0 div0_json
+    PRIVATE argparse libbacktrace
+  )
+  div0_target_options(div0_cli)
+
+  # CLI executable
+  add_executable(div0_exe src/cli/main.c)
+  set_target_properties(div0_exe PROPERTIES OUTPUT_NAME div0)
+  target_include_directories(div0_exe PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/cli
+    ${CMAKE_CURRENT_BINARY_DIR}/include
+  )
+  target_link_libraries(div0_exe PRIVATE div0_cli argparse)
+  # Export symbols for readable crash traces
+  target_link_options(div0_exe PRIVATE -rdynamic)
+  div0_target_options(div0_exe)
+endif()
+
+# ============================================================================
 # Tests
 # ============================================================================
 

@@ -40,6 +40,9 @@
 // Test headers - ethereum
 #include "ethereum/transaction/test_transaction.h"
 
+// Test headers - executor
+#include "executor/test_block_executor.h"
+
 // Test headers - JSON and t8n (hosted only)
 #ifndef DIV0_FREESTANDING
 #include "json/test_json.h"
@@ -440,6 +443,28 @@ int main(void) {
   RUN_TEST(test_roundtrip_eip2930_tx);
   RUN_TEST(test_roundtrip_constructed_legacy);
   RUN_TEST(test_roundtrip_constructed_eip1559);
+
+  // Block executor - intrinsic gas tests
+  RUN_TEST(test_intrinsic_gas_simple_transfer);
+  RUN_TEST(test_intrinsic_gas_with_calldata);
+  RUN_TEST(test_intrinsic_gas_contract_creation);
+  RUN_TEST(test_intrinsic_gas_with_access_list);
+
+  // Block executor - validation tests
+  RUN_TEST(test_validation_valid_tx);
+  RUN_TEST(test_validation_nonce_too_low);
+  RUN_TEST(test_validation_nonce_too_high);
+  RUN_TEST(test_validation_insufficient_balance);
+  RUN_TEST(test_validation_intrinsic_gas_too_low);
+  RUN_TEST(test_validation_gas_limit_exceeded);
+
+  // Block executor - execution tests
+  RUN_TEST(test_block_executor_empty_block);
+  RUN_TEST(test_block_executor_single_tx);
+  RUN_TEST(test_block_executor_recipient_balance);
+  RUN_TEST(test_block_executor_coinbase_fee);
+  RUN_TEST(test_block_executor_multiple_txs);
+  RUN_TEST(test_block_executor_mixed_valid_rejected);
 
 #ifndef DIV0_FREESTANDING
   // JSON core tests

@@ -5,6 +5,8 @@
 #include "div0/evm/execution_env.h"
 #include "div0/types/address.h"
 
+#include <stdint.h>
+
 void block_executor_init(block_executor_t *exec, state_access_t *state,
                          const block_context_t *block, evm_t *evm, div0_arena_t *arena,
                          uint64_t chain_id) {
@@ -229,6 +231,11 @@ bool block_executor_run(block_executor_t *exec, const block_tx_t *txs, size_t tx
   }
 
   // Allocate arrays (worst case: all receipts or all rejected)
+  // Check for overflow before multiplication
+  if (tx_count > SIZE_MAX / sizeof(exec_receipt_t) ||
+      tx_count > SIZE_MAX / sizeof(exec_rejected_t)) {
+    return false;
+  }
   result->receipts = div0_arena_alloc(exec->arena, tx_count * sizeof(exec_receipt_t));
   result->rejected = div0_arena_alloc(exec->arena, tx_count * sizeof(exec_rejected_t));
   if (!result->receipts || !result->rejected) {
@@ -270,8 +277,13 @@ bool block_executor_run(block_executor_t *exec, const block_tx_t *txs, size_t tx
 
     result->receipt_count++;
 
-    // Track blob gas
-    blob_gas_used += get_blob_gas(btx->tx);
+    // Track blob gas (saturating add to prevent overflow)
+    uint64_t tx_blob_gas = get_blob_gas(btx->tx);
+    if (blob_gas_used <= UINT64_MAX - tx_blob_gas) {
+      blob_gas_used += tx_blob_gas;
+    } else {
+      blob_gas_used = UINT64_MAX; // Saturate on overflow
+    }
   }
 
   // Compute final state root

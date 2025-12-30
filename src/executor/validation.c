@@ -72,8 +72,9 @@ tx_validation_error_t block_executor_validate_tx(const block_executor_t *exec, c
     return TX_ERR_INTRINSIC_GAS;
   }
 
-  // 4. Block gas limit check
-  if (cumulative_gas + gas_limit > exec->block->gas_limit) {
+  // 4. Block gas limit check (overflow-safe)
+  uint64_t block_gas_limit = exec->block->gas_limit;
+  if (gas_limit > block_gas_limit || cumulative_gas > block_gas_limit - gas_limit) {
     return TX_ERR_GAS_LIMIT_EXCEEDED;
   }
 

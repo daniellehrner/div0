@@ -22,5 +22,6 @@ void test_block_executor_recipient_balance(void);
 void test_block_executor_coinbase_fee(void);
 void test_block_executor_multiple_txs(void);
 void test_block_executor_mixed_valid_rejected(void);
+void test_block_executor_nonce_increment_on_failed_execution(void);
 
 #endif // TEST_BLOCK_EXECUTOR_H

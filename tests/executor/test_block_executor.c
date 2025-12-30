@@ -564,3 +564,54 @@ void test_block_executor_mixed_valid_rejected(void) {
 
   world_state_destroy(ws);
 }
+
+void test_block_executor_nonce_increment_on_failed_execution(void) {
+  // This test verifies that the sender's nonce is incremented even when
+  // EVM execution fails. This is an important Ethereum invariant.
+  world_state_t *ws = world_state_create(&test_arena);
+  state_access_t *state = world_state_access(ws);
+
+  address_t sender = make_test_address(0xC0);
+  state_set_balance(state, &sender, uint256_from_u64(100000000000000)); // 100e12
+
+  // Create a contract with REVERT opcode (0xFD) as code
+  // When called, this will cause EVM execution to fail
+  address_t contract = make_test_address(0xC1);
+  uint8_t revert_code[] = {0xFD}; // REVERT opcode
+  state_set_code(state, &contract, revert_code, sizeof(revert_code));
+
+  block_context_t block = {0};
+  block.gas_limit = 30000000;
+  block.base_fee = uint256_from_u64(1000000000); // 1 gwei
+  block.coinbase = make_test_address(0xC2);
+
+  // Call the contract - execution will fail due to REVERT
+  transaction_t tx;
+  make_legacy_tx(&tx, 0, 100000, uint256_zero(), &contract);
+
+  block_tx_t btx = {.tx = &tx, .sender = sender, .sender_recovered = true, .original_index = 0};
+
+  evm_t evm;
+  evm_init(&evm, &test_arena);
+  block_executor_t exec;
+  block_executor_init(&exec, state, &block, &evm, &test_arena, 1);
+
+  // Initial nonce should be 0
+  uint64_t initial_nonce = state_get_nonce(state, &sender);
+  TEST_ASSERT_EQUAL_UINT64(0, initial_nonce);
+
+  block_exec_result_t result;
+  bool success = block_executor_run(&exec, &btx, 1, &result);
+
+  TEST_ASSERT_TRUE(success);
+  TEST_ASSERT_EQUAL_size_t(1, result.receipt_count);
+  // Execution may succeed or fail depending on EVM implementation
+  // But nonce MUST be incremented regardless
+
+  // Nonce MUST be incremented even if execution failed
+  // This is a critical Ethereum invariant
+  uint64_t final_nonce = state_get_nonce(state, &sender);
+  TEST_ASSERT_EQUAL_UINT64(1, final_nonce);
+
+  world_state_destroy(ws);
+}

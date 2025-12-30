@@ -345,6 +345,7 @@ if(DIV0_BUILD_TESTS)
         div0_trie
         div0_state
         div0_ethereum
+        div0_executor
         "${DIV0_PICOLIBC_LIB}"
         "${DIV0_COMPILER_RT_LIB}"
       )

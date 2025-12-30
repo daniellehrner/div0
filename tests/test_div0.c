@@ -465,6 +465,7 @@ int main(void) {
   RUN_TEST(test_block_executor_coinbase_fee);
   RUN_TEST(test_block_executor_multiple_txs);
   RUN_TEST(test_block_executor_mixed_valid_rejected);
+  RUN_TEST(test_block_executor_nonce_increment_on_failed_execution);
 
 #ifndef DIV0_FREESTANDING
   // JSON core tests

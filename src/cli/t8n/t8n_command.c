@@ -20,6 +20,7 @@
 #include "../exit_codes.h"
 
 #include <argparse.h>
+#include <inttypes.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -39,7 +40,8 @@ static const int DEFAULT_CHAIN_ID = 1;
 static const long DEFAULT_REWARD = 0;
 static const int DEFAULT_VERBOSE = 1;
 
-// Maximum path length for output files
+// Maximum path length for output files.
+// 4096 matches PATH_MAX on Linux and is a reasonable upper bound for other platforms.
 static const size_t MAX_PATH_LEN = 4096;
 
 // ============================================================================
@@ -69,7 +71,8 @@ static void t8n_context_cleanup(t8n_context_t *ctx) {
     world_state_destroy(ctx->ws);
     ctx->ws = nullptr;
   }
-  if (ctx->arena_initialized && ctx->arena != nullptr) {
+  // arena is stack-allocated, so only check initialization flag
+  if (ctx->arena_initialized) {
     div0_arena_reset(ctx->arena);
     ctx->arena_initialized = false;
   }
@@ -116,6 +119,8 @@ static bool get_block_hash_cb(uint64_t block_number, void *user_data, hash_t *ou
       return true;
     }
   }
+  // Defensive: set output to zero hash even though caller should check return value
+  *out = hash_zero();
   return false;
 }
 
@@ -229,9 +234,8 @@ static int write_alloc_file(const char *basedir, const char *filename, world_sta
 
   // TODO: Implement world_state_to_alloc() to export actual post-state.
   // Currently writes an empty object - post-state is NOT preserved!
-  fprintf(stderr,
-          "t8n: WARNING: post-state alloc output not implemented, writing empty object to %s\n",
-          path);
+  // Always warn regardless of verbose setting since this is a significant limitation.
+  fprintf(stderr, "t8n: WARNING: post-state alloc output not implemented, writing empty object\n");
 
   json_writer_t writer;
   json_result_t init_result = json_writer_init(&writer);
@@ -326,7 +330,8 @@ int cmd_t8n(int argc, const char **argv) {
   // Validate fork
   fork_t fork = parse_fork(opts.fork);
   if (fork == FORK_UNKNOWN) {
-    fprintf(stderr, "t8n: unknown fork '%s'. Supported: Shanghai, Cancun, Prague\n", opts.fork);
+    fprintf(stderr, "t8n: ERROR: unknown fork '%s'. Supported: Shanghai, Cancun, Prague\n",
+            opts.fork);
     return DIV0_EXIT_CONFIG_ERROR;
   }
 
@@ -489,9 +494,8 @@ int cmd_t8n(int argc, const char **argv) {
   }
 
   if (opts.verbose) {
-    fprintf(stderr, "  executed: %zu successful, %zu rejected, %lu gas used\n",
-            exec_result.receipt_count, exec_result.rejected_count,
-            (unsigned long)exec_result.gas_used);
+    fprintf(stderr, "  executed: %zu successful, %zu rejected, %" PRIu64 " gas used\n",
+            exec_result.receipt_count, exec_result.rejected_count, exec_result.gas_used);
   }
 
   // Build t8n result

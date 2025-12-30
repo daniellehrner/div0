@@ -3,7 +3,7 @@
 // NOTE: Signal handlers have strict constraints - they must only use
 // async-signal-safe functions. This means:
 // - No memory allocation (malloc, calloc, etc.)
-// - Only specific POSIX functions (write, _exit, signal, etc.)
+// - Only specific POSIX functions (write, _exit, signal, raise, etc.)
 // Therefore, this file uses hand-rolled integer-to-string conversion
 // instead of snprintf (which is NOT async-signal-safe).
 
@@ -137,9 +137,19 @@ void install_crash_handler(void) {
   sigemptyset(&sa.sa_mask);
   sa.sa_flags = (int)SA_RESETHAND; // Reset to default after first signal
 
-  sigaction(SIGSEGV, &sa, nullptr);
-  sigaction(SIGABRT, &sa, nullptr);
-  sigaction(SIGFPE, &sa, nullptr);
-  sigaction(SIGBUS, &sa, nullptr);
-  sigaction(SIGILL, &sa, nullptr);
+  if (sigaction(SIGSEGV, &sa, nullptr) != 0) {
+    write_stderr("warning: failed to install crash handler for SIGSEGV\n");
+  }
+  if (sigaction(SIGABRT, &sa, nullptr) != 0) {
+    write_stderr("warning: failed to install crash handler for SIGABRT\n");
+  }
+  if (sigaction(SIGFPE, &sa, nullptr) != 0) {
+    write_stderr("warning: failed to install crash handler for SIGFPE\n");
+  }
+  if (sigaction(SIGBUS, &sa, nullptr) != 0) {
+    write_stderr("warning: failed to install crash handler for SIGBUS\n");
+  }
+  if (sigaction(SIGILL, &sa, nullptr) != 0) {
+    write_stderr("warning: failed to install crash handler for SIGILL\n");
+  }
 }

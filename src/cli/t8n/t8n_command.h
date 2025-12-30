@@ -14,7 +14,7 @@ typedef struct {
   const char *output_basedir; // Output directory (default: ".")
   const char *output_result;  // Result file (default: "result.json")
   const char *output_alloc;   // Post-state file (default: "alloc.json")
-  const char *output_body;    // RLP transactions (optional, TODO: not implemented)
+  const char *output_body;    // RLP transactions output (NOT IMPLEMENTED)
 
   // State configuration
   const char *fork; // Fork name (default: "Shanghai")

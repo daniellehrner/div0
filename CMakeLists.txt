@@ -298,7 +298,7 @@ if(NOT DIV0_FREESTANDING)
   )
   target_link_libraries(div0_exe PRIVATE div0_cli argparse)
   # Export symbols for readable crash traces
-  target_link_options(div0_exe PRIVATE -rdynamic)
+  set_target_properties(div0_exe PROPERTIES ENABLE_EXPORTS ON)
   div0_target_options(div0_exe)
 endif()
 

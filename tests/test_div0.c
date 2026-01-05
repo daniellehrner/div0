@@ -136,6 +136,10 @@ int main(void) {
   RUN_TEST(test_arena_alloc_aligned);
   RUN_TEST(test_arena_realloc);
   RUN_TEST(test_arena_reset);
+  RUN_TEST(test_arena_alloc_large);
+  RUN_TEST(test_arena_alloc_large_alignment);
+  RUN_TEST(test_arena_alloc_large_freed_on_reset);
+  RUN_TEST(test_arena_alloc_large_multiple);
 
   // hex utility tests
   RUN_TEST(test_hex_char_to_nibble_digits);
@@ -184,6 +188,17 @@ int main(void) {
   RUN_TEST(test_evm_revert_empty);
   RUN_TEST(test_evm_revert_with_data);
   RUN_TEST(test_evm_call_without_state);
+  RUN_TEST(test_evm_sload_empty_slot);
+  RUN_TEST(test_evm_sstore_and_sload);
+  RUN_TEST(test_evm_sstore_multiple_slots);
+  RUN_TEST(test_evm_sload_gas_cold);
+  RUN_TEST(test_evm_sload_gas_warm);
+  RUN_TEST(test_evm_sstore_without_state);
+  RUN_TEST(test_evm_init_shanghai);
+  RUN_TEST(test_evm_init_cancun);
+  RUN_TEST(test_evm_init_prague);
+  RUN_TEST(test_evm_gas_refund_initialized);
+  RUN_TEST(test_evm_gas_refund_reset);
 
   // keccak256 tests
   RUN_TEST(test_keccak256_empty);
@@ -409,6 +424,11 @@ int main(void) {
   RUN_TEST(test_world_state_add_balance_overflow);
   RUN_TEST(test_world_state_clear);
   RUN_TEST(test_world_state_account_is_empty_interface);
+  RUN_TEST(test_world_state_snapshot_empty);
+  RUN_TEST(test_world_state_snapshot_single_account);
+  RUN_TEST(test_world_state_snapshot_with_storage);
+  RUN_TEST(test_world_state_snapshot_multiple_accounts);
+  RUN_TEST(test_world_state_snapshot_with_code);
 
   // Transaction tests
   RUN_TEST(test_transaction_type_enum);

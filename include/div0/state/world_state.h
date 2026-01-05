@@ -35,6 +35,12 @@ typedef struct {
   // Dirty tracking for efficient state root computation
   void *dirty_storage; // Set of addresses with modified storage
 
+  // All accounts tracking for post-state export
+  void *all_accounts; // Set of all addresses in state
+
+  // All storage slots tracking for post-state export
+  void *all_storage_slots; // Map of (address, slot) -> slot for all written slots
+
   // Snapshot support
   uint64_t snapshot_counter; // Per-instance snapshot ID counter
 
@@ -90,5 +96,16 @@ void world_state_clear(world_state_t *ws);
 /// Note: The arena is NOT destroyed (owned by caller).
 /// @param ws World state
 void world_state_destroy(world_state_t *ws);
+
+// State snapshot types for post-state export
+#include "div0/state/snapshot.h"
+
+/// Export world state to a snapshot.
+/// Iterates over all accounts in the state and builds the snapshot structure.
+/// @param ws World state
+/// @param arena Arena for allocations
+/// @param out Output snapshot structure
+/// @return true on success
+bool world_state_snapshot(world_state_t *ws, div0_arena_t *arena, state_snapshot_t *out);
 
 #endif // DIV0_STATE_WORLD_STATE_H

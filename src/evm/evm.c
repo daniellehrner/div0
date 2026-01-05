@@ -1,19 +1,44 @@
 #include "div0/evm/evm.h"
 
 #include "div0/evm/gas.h"
+#include "div0/evm/gas/static_costs.h"
 #include "div0/evm/opcodes.h"
 #include "div0/evm/opcodes/call.h"
 #include "div0/evm/stack.h"
 #include "div0/evm/status.h"
+#include "div0/state/state_access.h"
 #include "div0/types/uint256.h"
+
+#include "opcodes/push.h"
+#include "opcodes/storage.h"
 
 #include <stddef.h>
 #include <stdint.h>
 #include <string.h>
 
-void evm_init(evm_t *evm, div0_arena_t *arena) {
+void evm_init(evm_t *evm, div0_arena_t *arena, fork_t fork) {
   __builtin___memset_chk(evm, 0, sizeof(evm_t), __builtin_object_size(evm, 0));
   evm->arena = arena;
+  evm->fork = fork;
+
+  // Initialize gas table and schedule based on fork
+  switch (fork) {
+  case FORK_SHANGHAI:
+    gas_table_init_shanghai(evm->gas_table);
+    evm->gas_schedule = gas_schedule_shanghai();
+    break;
+  case FORK_CANCUN:
+    gas_table_init_cancun(evm->gas_table);
+    evm->gas_schedule = gas_schedule_cancun();
+    break;
+  case FORK_PRAGUE:
+  case FORK_UNKNOWN:
+    // FORK_UNKNOWN defaults to latest known fork (Prague)
+    gas_table_init_prague(evm->gas_table);
+    evm->gas_schedule = gas_schedule_prague();
+    break;
+  }
+
   call_frame_pool_init(&evm->frame_pool);
   evm_stack_pool_init(&evm->stack_pool, arena);
   evm_memory_pool_init(&evm->memory_pool, arena);
@@ -38,6 +63,9 @@ void evm_reset(evm_t *evm) {
   // Clear current execution state
   evm->current_frame = nullptr;
   evm->pending_frame = nullptr;
+
+  // Reset gas refund accumulator
+  evm->gas_refund = 0;
 }
 
 /// Initializes the root frame from execution environment.
@@ -289,6 +317,7 @@ static frame_result_t execute_frame(evm_t *evm, call_frame_t *frame) {
       [0x00 ... OPCODE_MAX] = &&op_invalid,
       [OP_STOP] = &&op_stop,
       [OP_ADD] = &&op_add,
+      [OP_PUSH0] = &&op_push0,
       [OP_PUSH1] = &&op_push1,
       [OP_PUSH2] = &&op_push2,
       [OP_PUSH3] = &&op_push3,
@@ -323,6 +352,8 @@ static frame_result_t execute_frame(evm_t *evm, call_frame_t *frame) {
       [OP_PUSH32] = &&op_push32,
       [OP_MSTORE] = &&op_mstore,
       [OP_MSTORE8] = &&op_mstore8,
+      [OP_SLOAD] = &&op_sload,
+      [OP_SSTORE] = &&op_sstore,
       [OP_CALL] = &&op_call,
       [OP_STATICCALL] = &&op_staticcall,
       [OP_DELEGATECALL] = &&op_delegatecall,
@@ -353,52 +384,57 @@ op_add:
   }
   DISPATCH();
 
-op_push1:
-op_push2:
-op_push3:
-op_push4:
-op_push5:
-op_push6:
-op_push7:
-op_push8:
-op_push9:
-op_push10:
-op_push11:
-op_push12:
-op_push13:
-op_push14:
-op_push15:
-op_push16:
-op_push17:
-op_push18:
-op_push19:
-op_push20:
-op_push21:
-op_push22:
-op_push23:
-op_push24:
-op_push25:
-op_push26:
-op_push27:
-op_push28:
-op_push29:
-op_push30:
-op_push31:
-op_push32: {
-  if (!evm_stack_ensure_space(frame->stack, 1)) {
-    return frame_result_error(EVM_STACK_OVERFLOW);
+op_push0: {
+  evm_status_t status = op_push0(frame, evm->gas_table[OP_PUSH0]);
+  if (status != EVM_OK) {
+    return frame_result_error(status);
   }
-  // Calculate n from opcode (we went back 1 in pc after dispatch)
-  uint8_t prev_opcode = frame->code[frame->pc - 1];
-  size_t n = (size_t)prev_opcode - (size_t)OP_PUSH1 + 1U;
-
-  size_t available = frame->code_size - frame->pc;
-  size_t to_read = (n < available) ? n : available;
-  uint256_t value = uint256_from_bytes_be(frame->code + frame->pc, to_read);
-  frame->pc += n;
-  evm_stack_push_unsafe(frame->stack, value);
   DISPATCH();
 }
+
+#define PUSH_N_HANDLER(n)                                                  \
+  op_push##n : {                                                           \
+    evm_status_t status = op_push_n(frame, n, evm->gas_table[OP_PUSH##n]); \
+    if (status != EVM_OK) {                                                \
+      return frame_result_error(status);                                   \
+    }                                                                      \
+    DISPATCH();                                                            \
+  }
+
+  PUSH_N_HANDLER(1)
+  PUSH_N_HANDLER(2)
+  PUSH_N_HANDLER(3)
+  PUSH_N_HANDLER(4)
+  PUSH_N_HANDLER(5)
+  PUSH_N_HANDLER(6)
+  PUSH_N_HANDLER(7)
+  PUSH_N_HANDLER(8)
+  PUSH_N_HANDLER(9)
+  PUSH_N_HANDLER(10)
+  PUSH_N_HANDLER(11)
+  PUSH_N_HANDLER(12)
+  PUSH_N_HANDLER(13)
+  PUSH_N_HANDLER(14)
+  PUSH_N_HANDLER(15)
+  PUSH_N_HANDLER(16)
+  PUSH_N_HANDLER(17)
+  PUSH_N_HANDLER(18)
+  PUSH_N_HANDLER(19)
+  PUSH_N_HANDLER(20)
+  PUSH_N_HANDLER(21)
+  PUSH_N_HANDLER(22)
+  PUSH_N_HANDLER(23)
+  PUSH_N_HANDLER(24)
+  PUSH_N_HANDLER(25)
+  PUSH_N_HANDLER(26)
+  PUSH_N_HANDLER(27)
+  PUSH_N_HANDLER(28)
+  PUSH_N_HANDLER(29)
+  PUSH_N_HANDLER(30)
+  PUSH_N_HANDLER(31)
+  PUSH_N_HANDLER(32)
+
+#undef PUSH_N_HANDLER
 
 op_mstore: {
   // Stack: [offset, value] => []
@@ -464,6 +500,28 @@ op_mstore8: {
 
   // Store low byte of value
   evm_memory_store8_unsafe(frame->memory, offset, (uint8_t)(value.limbs[0] & 0xFF));
+  DISPATCH();
+}
+
+op_sload: {
+  if (evm->state == nullptr) {
+    return frame_result_error(EVM_INVALID_OPCODE);
+  }
+  evm_status_t status = op_sload(frame, evm->state, &evm->gas_schedule);
+  if (status != EVM_OK) {
+    return frame_result_error(status);
+  }
+  DISPATCH();
+}
+
+op_sstore: {
+  if (evm->state == nullptr) {
+    return frame_result_error(EVM_INVALID_OPCODE);
+  }
+  evm_status_t status = op_sstore(frame, evm->state, &evm->gas_schedule, &evm->gas_refund);
+  if (status != EVM_OK) {
+    return frame_result_error(status);
+  }
   DISPATCH();
 }
 

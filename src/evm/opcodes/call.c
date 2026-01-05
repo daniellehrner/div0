@@ -71,7 +71,7 @@ static call_frame_t *init_child_frame(evm_t *evm, call_frame_t *parent, const ca
 // =============================================================================
 
 call_op_result_t op_call(evm_t *evm, call_frame_t *frame) {
-  state_access_t *state = (state_access_t *)evm->state;
+  state_access_t *state = evm->state;
   if (state == nullptr) {
     return call_op_error(EVM_INVALID_OPCODE);
   }
@@ -119,7 +119,7 @@ call_op_result_t op_call(evm_t *evm, call_frame_t *frame) {
 }
 
 call_op_result_t op_staticcall(evm_t *evm, call_frame_t *frame) {
-  state_access_t *state = (state_access_t *)evm->state;
+  state_access_t *state = evm->state;
   if (state == nullptr) {
     return call_op_error(EVM_INVALID_OPCODE);
   }
@@ -155,7 +155,7 @@ call_op_result_t op_staticcall(evm_t *evm, call_frame_t *frame) {
 }
 
 call_op_result_t op_delegatecall(evm_t *evm, call_frame_t *frame) {
-  state_access_t *state = (state_access_t *)evm->state;
+  state_access_t *state = evm->state;
   if (state == nullptr) {
     return call_op_error(EVM_INVALID_OPCODE);
   }
@@ -192,7 +192,7 @@ call_op_result_t op_delegatecall(evm_t *evm, call_frame_t *frame) {
 }
 
 call_op_result_t op_callcode(evm_t *evm, call_frame_t *frame) {
-  state_access_t *state = (state_access_t *)evm->state;
+  state_access_t *state = evm->state;
   if (state == nullptr) {
     return call_op_error(EVM_INVALID_OPCODE);
   }

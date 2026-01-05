@@ -64,6 +64,12 @@ static inline uint64_t address_hash(const address_t *addr) {
 #define i_eq(a, b) address_equal(a, b)
 #include "stc/hset.h"
 
+// All accounts set (for post-state export)
+#define i_TYPE all_accounts_set, address_t
+#define i_hash(p) address_hash(p)
+#define i_eq(a, b) address_equal(a, b)
+#include "stc/hset.h"
+
 // Warm slot key (address + slot)
 typedef struct {
   address_t addr;
@@ -99,6 +105,12 @@ static inline bool warm_slot_key_eq(const warm_slot_key_t *a, const warm_slot_ke
 #define i_hash(p) warm_slot_key_hash(p)
 #define i_eq(a, b) warm_slot_key_eq(a, b)
 #include "stc/hmap.h"
+
+// All storage slots set (for post-state export)
+#define i_TYPE all_slots_set, warm_slot_key_t
+#define i_hash(p) warm_slot_key_hash(p)
+#define i_eq(a, b) warm_slot_key_eq(a, b)
+#include "stc/hset.h"
 
 // NOLINTEND(readability-identifier-naming)
 
@@ -351,15 +363,25 @@ static void ws_set_storage(state_access_t *state, const address_t *addr, uint256
 
   // Record original value on first write (for EIP-2200 gas calculation)
   original_storage_map *orig_map = (original_storage_map *)ws->original_storage;
-  warm_slot_key_t orig_key = {.addr = *addr, .slot = slot};
-  if (!original_storage_map_contains(orig_map, orig_key)) {
+  warm_slot_key_t slot_key = {.addr = *addr, .slot = slot};
+  if (!original_storage_map_contains(orig_map, slot_key)) {
     uint256_t original = ws_get_storage(state, addr, slot);
-    original_storage_map_insert(orig_map, orig_key, original);
+    original_storage_map_insert(orig_map, slot_key, original);
   }
 
   // Mark address as having dirty storage for efficient state root computation
   dirty_addr_set *dirty = (dirty_addr_set *)ws->dirty_storage;
   dirty_addr_set_insert(dirty, *addr);
+
+  // Track slot for post-state export
+  all_slots_set *all_slots = (all_slots_set *)ws->all_storage_slots;
+  if (uint256_is_zero(value)) {
+    // Remove slot from tracking on deletion
+    all_slots_set_erase(all_slots, slot_key);
+  } else {
+    // Track non-zero slots
+    all_slots_set_insert(all_slots, slot_key);
+  }
 
   mpt_t *storage = world_state_get_storage_trie(ws, addr);
   hash_t key = slot_to_key(slot);
@@ -587,6 +609,20 @@ world_state_t *world_state_create(div0_arena_t *arena) {
   *dirty = dirty_addr_set_init();
   ws->dirty_storage = dirty;
 
+  all_accounts_set *all_accts = div0_arena_alloc(arena, sizeof(all_accounts_set));
+  if (all_accts == nullptr) {
+    goto fail;
+  }
+  *all_accts = all_accounts_set_init();
+  ws->all_accounts = all_accts;
+
+  all_slots_set *all_slots = div0_arena_alloc(arena, sizeof(all_slots_set));
+  if (all_slots == nullptr) {
+    goto fail;
+  }
+  *all_slots = all_slots_set_init();
+  ws->all_storage_slots = all_slots;
+
   // Initialize snapshot counter
   ws->snapshot_counter = 0;
 
@@ -612,6 +648,12 @@ fail:
   }
   if (ws->dirty_storage != nullptr) {
     dirty_addr_set_drop((dirty_addr_set *)ws->dirty_storage);
+  }
+  if (ws->all_accounts != nullptr) {
+    all_accounts_set_drop((all_accounts_set *)ws->all_accounts);
+  }
+  if (ws->all_storage_slots != nullptr) {
+    all_slots_set_drop((all_slots_set *)ws->all_storage_slots);
   }
   // Arena memory is not freed (owned by caller)
   return nullptr;
@@ -640,8 +682,15 @@ bool world_state_set_account(world_state_t *ws, const address_t *addr, const acc
   // EIP-161: Don't store empty accounts
   if (account_is_empty(acc)) {
     mpt_delete(&ws->state_trie, key.bytes, HASH_SIZE);
+    // Remove from all_accounts set when account becomes empty
+    all_accounts_set *all_accts = (all_accounts_set *)ws->all_accounts;
+    all_accounts_set_erase(all_accts, *addr);
     return true;
   }
+
+  // Track this address in all_accounts set for post-state export
+  all_accounts_set *all_accts = (all_accounts_set *)ws->all_accounts;
+  all_accounts_set_insert(all_accts, *addr);
 
   // RLP-encode account
   bytes_t encoded = account_rlp_encode(acc, ws->arena);
@@ -736,6 +785,12 @@ void world_state_clear(world_state_t *ws) {
 
   dirty_addr_set *dirty = (dirty_addr_set *)ws->dirty_storage;
   dirty_addr_set_clear(dirty);
+
+  all_accounts_set *all_accts = (all_accounts_set *)ws->all_accounts;
+  all_accounts_set_clear(all_accts);
+
+  all_slots_set *all_slots = (all_slots_set *)ws->all_storage_slots;
+  all_slots_set_clear(all_slots);
 }
 
 void world_state_destroy(world_state_t *ws) {
@@ -758,5 +813,118 @@ void world_state_destroy(world_state_t *ws) {
   dirty_addr_set *dirty = (dirty_addr_set *)ws->dirty_storage;
   dirty_addr_set_drop(dirty);
 
+  all_accounts_set *all_accts = (all_accounts_set *)ws->all_accounts;
+  all_accounts_set_drop(all_accts);
+
+  all_slots_set *all_slots = (all_slots_set *)ws->all_storage_slots;
+  all_slots_set_drop(all_slots);
+
   // Note: Arena memory is not freed here (owned by caller)
+}
+
+// =============================================================================
+// Post-State Export
+// =============================================================================
+
+/// Count storage slots for a specific address.
+static size_t count_slots_for_address(all_slots_set *all_slots, const address_t *addr) {
+  size_t count = 0;
+  for (all_slots_set_iter it = all_slots_set_begin(all_slots);
+       it.ref != all_slots_set_end(all_slots).ref; all_slots_set_next(&it)) {
+    if (address_equal(&it.ref->addr, addr)) {
+      count++;
+    }
+  }
+  return count;
+}
+
+bool world_state_snapshot(world_state_t *ws, div0_arena_t *arena, state_snapshot_t *out) {
+  all_accounts_set *all_accts = (all_accounts_set *)ws->all_accounts;
+  all_slots_set *all_slots = (all_slots_set *)ws->all_storage_slots;
+  code_map *c_map = (code_map *)ws->code_store;
+
+  // Count accounts
+  size_t count = (size_t)all_accounts_set_size(all_accts);
+  if (count == 0) {
+    out->accounts = nullptr;
+    out->account_count = 0;
+    return true;
+  }
+
+  // Allocate accounts array
+  out->accounts = div0_arena_alloc(arena, count * sizeof(account_snapshot_t));
+  if (out->accounts == nullptr) {
+    return false;
+  }
+  out->account_count = count;
+
+  // Iterate over all accounts
+  size_t idx = 0;
+  for (all_accounts_set_iter it = all_accounts_set_begin(all_accts);
+       it.ref != all_accounts_set_end(all_accts).ref; all_accounts_set_next(&it)) {
+
+    address_t addr = *it.ref;
+    account_snapshot_t *snap_acc = &out->accounts[idx];
+
+    // Initialize
+    __builtin___memset_chk(snap_acc, 0, sizeof(*snap_acc), __builtin_object_size(snap_acc, 0));
+    snap_acc->address = addr;
+
+    // Get account data
+    account_t acc;
+    if (!world_state_get_account(ws, &addr, &acc)) {
+      // Account was deleted (empty) - skip it
+      continue;
+    }
+
+    snap_acc->balance = acc.balance;
+    snap_acc->nonce = acc.nonce;
+
+    // Get code
+    const code_map_value *code_entry = code_map_get(c_map, addr);
+    if (code_entry != nullptr && code_entry->second.size > 0) {
+      // Copy code to arena
+      snap_acc->code.size = code_entry->second.size;
+      snap_acc->code.data = div0_arena_alloc(arena, code_entry->second.size);
+      if (snap_acc->code.data == nullptr) {
+        return false;
+      }
+      __builtin___memcpy_chk(snap_acc->code.data, code_entry->second.data, code_entry->second.size,
+                             code_entry->second.size);
+    }
+
+    // Get storage slots for this account
+    size_t slot_count = count_slots_for_address(all_slots, &addr);
+    if (slot_count > 0) {
+      snap_acc->storage = div0_arena_alloc(arena, slot_count * sizeof(storage_entry_t));
+      if (snap_acc->storage == nullptr) {
+        return false;
+      }
+
+      // Populate storage entries
+      size_t slot_idx = 0;
+      for (all_slots_set_iter slot_it = all_slots_set_begin(all_slots);
+           slot_it.ref != all_slots_set_end(all_slots).ref; all_slots_set_next(&slot_it)) {
+        if (address_equal(&slot_it.ref->addr, &addr)) {
+          uint256_t slot = slot_it.ref->slot;
+          uint256_t value = ws_get_storage(&ws->base, &addr, slot);
+
+          // Only include non-zero values
+          if (!uint256_is_zero(value)) {
+            snap_acc->storage[slot_idx].slot = slot;
+            snap_acc->storage[slot_idx].value = value;
+            slot_idx++;
+          }
+        }
+      }
+      snap_acc->storage_count = slot_idx;
+    }
+
+    idx++;
+  }
+
+  // Adjust count if any accounts were skipped
+  out->account_count = idx;
+
+  return true;
 }

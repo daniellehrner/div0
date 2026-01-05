@@ -7,6 +7,7 @@
 #include "div0/evm/block_context.h"
 #include "div0/evm/evm.h"
 #include "div0/executor/block_executor.h"
+#include "div0/json/parse.h"
 #include "div0/json/write.h"
 #include "div0/mem/arena.h"
 #include "div0/state/state_access.h"
@@ -44,6 +45,57 @@ static const int DEFAULT_VERBOSE = 1;
 // 4096 matches PATH_MAX on Linux and is a reasonable upper bound for other platforms.
 static const size_t MAX_PATH_LEN = 4096;
 
+// Initial buffer size for reading stdin
+static const size_t STDIN_INITIAL_BUFFER_SIZE = 65536;
+
+// ============================================================================
+// Stdin/Stdout Helpers
+// ============================================================================
+
+/// Check if path refers to stdin
+static bool is_stdin(const char *path) {
+  return strcmp(path, "stdin") == 0;
+}
+
+/// Check if path refers to stdout
+static bool is_stdout(const char *path) {
+  return strcmp(path, "stdout") == 0;
+}
+
+/// Read all of stdin into a malloc'd buffer.
+/// Returns nullptr on error. Caller must free the returned buffer.
+static char *read_stdin(size_t *out_len) {
+  size_t capacity = STDIN_INITIAL_BUFFER_SIZE;
+  size_t len = 0;
+  char *buffer = malloc(capacity);
+  if (buffer == nullptr) {
+    return nullptr;
+  }
+
+  while (!feof(stdin)) {
+    size_t space = capacity - len;
+    if (space < 1024) {
+      capacity *= 2;
+      char *new_buffer = realloc(buffer, capacity);
+      if (new_buffer == nullptr) {
+        free(buffer);
+        return nullptr;
+      }
+      buffer = new_buffer;
+      space = capacity - len;
+    }
+    size_t bytes_read = fread(buffer + len, 1, space, stdin);
+    len += bytes_read;
+    if (ferror(stdin)) {
+      free(buffer);
+      return nullptr;
+    }
+  }
+
+  *out_len = len;
+  return buffer;
+}
+
 // ============================================================================
 // Execution Context (for cleanup)
 // ============================================================================
@@ -52,14 +104,20 @@ typedef struct {
   div0_arena_t *arena;
   world_state_t *ws;
   secp256k1_ctx_t *secp_ctx;
+  char *stdin_buffer;   // malloc'd stdin buffer (needs free)
+  json_doc_t stdin_doc; // parsed stdin document
   bool arena_initialized;
+  bool stdin_doc_valid;
 } t8n_context_t;
 
 static void t8n_context_init(t8n_context_t *ctx) {
   ctx->arena = nullptr;
   ctx->ws = nullptr;
   ctx->secp_ctx = nullptr;
+  ctx->stdin_buffer = nullptr;
+  ctx->stdin_doc.doc = nullptr;
   ctx->arena_initialized = false;
+  ctx->stdin_doc_valid = false;
 }
 
 static void t8n_context_cleanup(t8n_context_t *ctx) {
@@ -71,9 +129,17 @@ static void t8n_context_cleanup(t8n_context_t *ctx) {
     world_state_destroy(ctx->ws);
     ctx->ws = nullptr;
   }
-  // arena is stack-allocated, so only check initialization flag
+  if (ctx->stdin_doc_valid) {
+    json_doc_free(&ctx->stdin_doc);
+    ctx->stdin_doc_valid = false;
+  }
+  if (ctx->stdin_buffer != nullptr) {
+    free(ctx->stdin_buffer);
+    ctx->stdin_buffer = nullptr;
+  }
+  // arena is stack-allocated, destroy frees all malloc'd blocks
   if (ctx->arena_initialized) {
-    div0_arena_reset(ctx->arena);
+    div0_arena_destroy(ctx->arena);
     ctx->arena_initialized = false;
   }
 }
@@ -81,13 +147,6 @@ static void t8n_context_cleanup(t8n_context_t *ctx) {
 // ============================================================================
 // Fork Parsing
 // ============================================================================
-
-typedef enum {
-  FORK_SHANGHAI,
-  FORK_CANCUN,
-  FORK_PRAGUE,
-  FORK_UNKNOWN,
-} fork_t;
 
 static fork_t parse_fork(const char *name) {
   if (strcmp(name, "Shanghai") == 0) {
@@ -128,11 +187,11 @@ static bool get_block_hash_cb(uint64_t block_number, void *user_data, hash_t *ou
 // State Building
 // ============================================================================
 
-static bool build_state_from_alloc(world_state_t *ws, const t8n_alloc_t *alloc) {
+static bool build_state_from_snapshot(world_state_t *ws, const state_snapshot_t *snapshot) {
   state_access_t *state = world_state_access(ws);
 
-  for (size_t i = 0; i < alloc->account_count; i++) {
-    const t8n_alloc_account_t *acc = &alloc->accounts[i];
+  for (size_t i = 0; i < snapshot->account_count; i++) {
+    const account_snapshot_t *acc = &snapshot->accounts[i];
 
     // Set balance
     state_set_balance(state, &acc->address, acc->balance);
@@ -185,18 +244,43 @@ static bool build_path(char *out, size_t max_len, const char *basedir, const cha
 // ignored as there's no meaningful recovery for stderr write failures.
 // NOLINTBEGIN(cert-err33-c,clang-analyzer-security.insecureAPI.DeprecatedOrUnsafeBufferHandling)
 
-static int write_result_file(const char *basedir, const char *filename,
-                             const t8n_result_t *result) {
-  // Build full path with overflow check
-  char path[MAX_PATH_LEN];
-  if (!build_path(path, sizeof(path), basedir, filename)) {
-    fprintf(stderr, "t8n: output path too long: %s/%s\n", basedir, filename);
-    return DIV0_EXIT_CONFIG_ERROR;
+/// Write JSON to stdout or file. Caller retains ownership of writer.
+/// @param basedir Base directory for file output
+/// @param filename Output filename or "stdout"
+/// @param root JSON value to write
+/// @param writer JSON writer (caller must free)
+/// @param what Description for error messages (e.g., "result", "alloc")
+/// @return Exit code
+static int write_json_to_output(const char *basedir, const char *filename, yyjson_mut_val_t *root,
+                                json_writer_t *writer, const char *what) {
+  json_result_t write_result;
+  if (is_stdout(filename)) {
+    write_result = json_write_fp(writer, root, stdout, JSON_WRITE_PRETTY);
+    if (write_result.error != JSON_OK) {
+      fprintf(stderr, "t8n: failed to write %s to stdout: %s\n", what,
+              write_result.detail ? write_result.detail : json_error_name(write_result.error));
+      return DIV0_EXIT_IO_ERROR;
+    }
+  } else {
+    char path[MAX_PATH_LEN];
+    if (!build_path(path, sizeof(path), basedir, filename)) {
+      fprintf(stderr, "t8n: output path too long: %s/%s\n", basedir, filename);
+      return DIV0_EXIT_CONFIG_ERROR;
+    }
+    write_result = json_write_file(writer, root, path, JSON_WRITE_PRETTY);
+    if (write_result.error != JSON_OK) {
+      fprintf(stderr, "t8n: failed to write %s: %s\n", path,
+              write_result.detail ? write_result.detail : json_error_name(write_result.error));
+      return DIV0_EXIT_IO_ERROR;
+    }
   }
+  return DIV0_EXIT_SUCCESS;
+}
 
+static int write_result_output(const char *basedir, const char *filename,
+                               const t8n_result_t *result) {
   json_writer_t writer;
-  json_result_t init_result = json_writer_init(&writer);
-  if (init_result.error != JSON_OK) {
+  if (json_writer_init(&writer).error != JSON_OK) {
     fprintf(stderr, "t8n: failed to init JSON writer\n");
     return DIV0_EXIT_JSON_ERROR;
   }
@@ -208,34 +292,48 @@ static int write_result_file(const char *basedir, const char *filename,
     return DIV0_EXIT_JSON_ERROR;
   }
 
-  json_result_t write_result = json_write_file(&writer, root, path, JSON_WRITE_PRETTY);
-  if (write_result.error != JSON_OK) {
-    fprintf(stderr, "t8n: failed to write %s: %s\n", path,
-            write_result.detail ? write_result.detail : json_error_name(write_result.error));
-    json_writer_free(&writer);
-    return DIV0_EXIT_IO_ERROR;
-  }
-
+  int exit_code = write_json_to_output(basedir, filename, root, &writer, "result");
   json_writer_free(&writer);
-  return DIV0_EXIT_SUCCESS;
+  return exit_code;
 }
 
-static int write_alloc_file(const char *basedir, const char *filename, world_state_t *ws,
-                            div0_arena_t *arena) {
-  // Build full path with overflow check
-  char path[MAX_PATH_LEN];
-  if (!build_path(path, sizeof(path), basedir, filename)) {
-    fprintf(stderr, "t8n: output path too long: %s/%s\n", basedir, filename);
-    return DIV0_EXIT_CONFIG_ERROR;
+static int write_alloc_output(const char *basedir, const char *filename, world_state_t *ws,
+                              div0_arena_t *arena) {
+  state_snapshot_t snapshot = {};
+  if (!world_state_snapshot(ws, arena, &snapshot)) {
+    fprintf(stderr, "t8n: failed to export post-state\n");
+    return DIV0_EXIT_GENERAL_ERROR;
   }
 
-  (void)ws;
-  (void)arena;
+  json_writer_t writer;
+  if (json_writer_init(&writer).error != JSON_OK) {
+    fprintf(stderr, "t8n: failed to init JSON writer\n");
+    return DIV0_EXIT_JSON_ERROR;
+  }
 
-  // TODO: Implement world_state_to_alloc() to export actual post-state.
-  // Currently writes an empty object - post-state is NOT preserved!
-  // Always warn regardless of verbose setting since this is a significant limitation.
-  fprintf(stderr, "t8n: WARNING: post-state alloc output not implemented, writing empty object\n");
+  yyjson_mut_val_t *root = t8n_write_alloc(&snapshot, &writer);
+  if (root == nullptr) {
+    fprintf(stderr, "t8n: failed to serialize post-state\n");
+    json_writer_free(&writer);
+    return DIV0_EXIT_JSON_ERROR;
+  }
+
+  int exit_code = write_json_to_output(basedir, filename, root, &writer, "alloc");
+  json_writer_free(&writer);
+  return exit_code;
+}
+
+/// Write combined result+alloc to stdout in geth stream format.
+///
+/// Format: {"result": {...}, "alloc": {...}, "body": "0x"}
+static int write_combined_stdout(const t8n_result_t *result, world_state_t *ws,
+                                 div0_arena_t *arena) {
+  // Export post-state
+  state_snapshot_t snapshot = {};
+  if (!world_state_snapshot(ws, arena, &snapshot)) {
+    fprintf(stderr, "t8n: failed to export post-state\n");
+    return DIV0_EXIT_GENERAL_ERROR;
+  }
 
   json_writer_t writer;
   json_result_t init_result = json_writer_init(&writer);
@@ -244,11 +342,40 @@ static int write_alloc_file(const char *basedir, const char *filename, world_sta
     return DIV0_EXIT_JSON_ERROR;
   }
 
+  // Create combined object
   yyjson_mut_val_t *root = json_write_obj(&writer);
+  if (root == nullptr) {
+    fprintf(stderr, "t8n: failed to create combined output\n");
+    json_writer_free(&writer);
+    return DIV0_EXIT_JSON_ERROR;
+  }
 
-  json_result_t write_result = json_write_file(&writer, root, path, JSON_WRITE_PRETTY);
+  // Add result sub-object
+  yyjson_mut_val_t *result_obj = t8n_write_result(result, &writer);
+  if (result_obj == nullptr) {
+    fprintf(stderr, "t8n: failed to serialize result\n");
+    json_writer_free(&writer);
+    return DIV0_EXIT_JSON_ERROR;
+  }
+  json_obj_add(&writer, root, "result", result_obj);
+
+  // Add alloc sub-object
+  yyjson_mut_val_t *alloc_obj = t8n_write_alloc(&snapshot, &writer);
+  if (alloc_obj == nullptr) {
+    fprintf(stderr, "t8n: failed to serialize alloc\n");
+    json_writer_free(&writer);
+    return DIV0_EXIT_JSON_ERROR;
+  }
+  // NOLINTNEXTLINE(readability-suspicious-call-argument) - false positive
+  json_obj_add(&writer, root, "alloc", alloc_obj);
+
+  // Add empty body (RLP encoding not implemented)
+  json_obj_add_str(&writer, root, "body", "0x");
+
+  // Write to stdout
+  json_result_t write_result = json_write_fp(&writer, root, stdout, JSON_WRITE_PRETTY);
   if (write_result.error != JSON_OK) {
-    fprintf(stderr, "t8n: failed to write %s: %s\n", path,
+    fprintf(stderr, "t8n: failed to write combined output to stdout: %s\n",
             write_result.detail ? write_result.detail : json_error_name(write_result.error));
     json_writer_free(&writer);
     return DIV0_EXIT_IO_ERROR;
@@ -363,36 +490,116 @@ int cmd_t8n(int argc, const char **argv) {
             opts.output_result, opts.output_alloc);
   }
 
-  t8n_alloc_t alloc = {};
-  json_result_t result = t8n_parse_alloc_file(opts.input_alloc, &arena, &alloc);
-  if (result.error != JSON_OK) {
-    fprintf(stderr, "t8n: failed to parse %s: %s\n", opts.input_alloc,
-            result.detail ? result.detail : json_error_name(result.error));
-    t8n_context_cleanup(&ctx);
-    return DIV0_EXIT_JSON_ERROR;
-  }
-
+  state_snapshot_t pre_state = {};
   t8n_env_t env;
   t8n_env_init(&env);
-  result = t8n_parse_env_file(opts.input_env, &arena, &env);
-  if (result.error != JSON_OK) {
-    fprintf(stderr, "t8n: failed to parse %s: %s\n", opts.input_env,
-            result.detail ? result.detail : json_error_name(result.error));
-    t8n_context_cleanup(&ctx);
-    return DIV0_EXIT_JSON_ERROR;
-  }
-
   t8n_txs_t txs = {};
-  result = t8n_parse_txs_file(opts.input_txs, &arena, &txs);
-  if (result.error != JSON_OK) {
-    fprintf(stderr, "t8n: failed to parse %s: %s\n", opts.input_txs,
-            result.detail ? result.detail : json_error_name(result.error));
-    t8n_context_cleanup(&ctx);
-    return DIV0_EXIT_JSON_ERROR;
+  json_result_t result;
+
+  // Check if all inputs are from stdin (combined JSON mode)
+  bool all_stdin =
+      is_stdin(opts.input_alloc) && is_stdin(opts.input_env) && is_stdin(opts.input_txs);
+
+  if (all_stdin) {
+    // Read combined JSON from stdin: {"alloc": {...}, "env": {...}, "txs": [...]}
+    size_t stdin_len = 0;
+    ctx.stdin_buffer = read_stdin(&stdin_len);
+    if (ctx.stdin_buffer == nullptr) {
+      fprintf(stderr, "t8n: failed to read stdin\n");
+      t8n_context_cleanup(&ctx);
+      return DIV0_EXIT_IO_ERROR;
+    }
+
+    // NOLINTNEXTLINE(clang-analyzer-unix.Malloc) - cleanup frees stdin_buffer
+    result = json_parse(ctx.stdin_buffer, stdin_len, &ctx.stdin_doc);
+    if (result.error != JSON_OK) {
+      fprintf(stderr, "t8n: failed to parse stdin: %s\n",
+              result.detail ? result.detail : json_error_name(result.error));
+      t8n_context_cleanup(&ctx);
+      return DIV0_EXIT_JSON_ERROR;
+    }
+    ctx.stdin_doc_valid = true;
+
+    yyjson_val_t *root = json_doc_root(&ctx.stdin_doc);
+    if (!json_is_obj(root)) {
+      fprintf(stderr, "t8n: stdin must be a JSON object with alloc, env, txs keys\n");
+      t8n_context_cleanup(&ctx);
+      return DIV0_EXIT_JSON_ERROR;
+    }
+
+    // Parse alloc from stdin
+    yyjson_val_t *alloc_val = json_obj_get(root, "alloc");
+    if (alloc_val == nullptr) {
+      fprintf(stderr, "t8n: missing 'alloc' key in stdin JSON\n");
+      t8n_context_cleanup(&ctx);
+      return DIV0_EXIT_JSON_ERROR;
+    }
+    result = t8n_parse_alloc_value(alloc_val, &arena, &pre_state);
+    if (result.error != JSON_OK) {
+      fprintf(stderr, "t8n: failed to parse alloc from stdin: %s\n",
+              result.detail ? result.detail : json_error_name(result.error));
+      t8n_context_cleanup(&ctx);
+      return DIV0_EXIT_JSON_ERROR;
+    }
+
+    // Parse env from stdin
+    yyjson_val_t *env_val = json_obj_get(root, "env");
+    if (env_val == nullptr) {
+      fprintf(stderr, "t8n: missing 'env' key in stdin JSON\n");
+      t8n_context_cleanup(&ctx);
+      return DIV0_EXIT_JSON_ERROR;
+    }
+    result = t8n_parse_env_value(env_val, &arena, &env);
+    if (result.error != JSON_OK) {
+      fprintf(stderr, "t8n: failed to parse env from stdin: %s\n",
+              result.detail ? result.detail : json_error_name(result.error));
+      t8n_context_cleanup(&ctx);
+      return DIV0_EXIT_JSON_ERROR;
+    }
+
+    // Parse txs from stdin
+    yyjson_val_t *txs_val = json_obj_get(root, "txs");
+    if (txs_val == nullptr) {
+      fprintf(stderr, "t8n: missing 'txs' key in stdin JSON\n");
+      t8n_context_cleanup(&ctx);
+      return DIV0_EXIT_JSON_ERROR;
+    }
+    result = t8n_parse_txs_value(txs_val, &arena, &txs);
+    if (result.error != JSON_OK) {
+      fprintf(stderr, "t8n: failed to parse txs from stdin: %s\n",
+              result.detail ? result.detail : json_error_name(result.error));
+      t8n_context_cleanup(&ctx);
+      return DIV0_EXIT_JSON_ERROR;
+    }
+  } else {
+    // Parse from individual files
+    result = t8n_parse_alloc_file(opts.input_alloc, &arena, &pre_state);
+    if (result.error != JSON_OK) {
+      fprintf(stderr, "t8n: failed to parse %s: %s\n", opts.input_alloc,
+              result.detail ? result.detail : json_error_name(result.error));
+      t8n_context_cleanup(&ctx);
+      return DIV0_EXIT_JSON_ERROR;
+    }
+
+    result = t8n_parse_env_file(opts.input_env, &arena, &env);
+    if (result.error != JSON_OK) {
+      fprintf(stderr, "t8n: failed to parse %s: %s\n", opts.input_env,
+              result.detail ? result.detail : json_error_name(result.error));
+      t8n_context_cleanup(&ctx);
+      return DIV0_EXIT_JSON_ERROR;
+    }
+
+    result = t8n_parse_txs_file(opts.input_txs, &arena, &txs);
+    if (result.error != JSON_OK) {
+      fprintf(stderr, "t8n: failed to parse %s: %s\n", opts.input_txs,
+              result.detail ? result.detail : json_error_name(result.error));
+      t8n_context_cleanup(&ctx);
+      return DIV0_EXIT_JSON_ERROR;
+    }
   }
 
   if (opts.verbose) {
-    fprintf(stderr, "  loaded: %zu accounts, %zu transactions\n", alloc.account_count,
+    fprintf(stderr, "  loaded: %zu accounts, %zu transactions\n", pre_state.account_count,
             txs.tx_count);
   }
 
@@ -408,8 +615,8 @@ int cmd_t8n(int argc, const char **argv) {
   }
   ctx.ws = ws;
 
-  if (!build_state_from_alloc(ws, &alloc)) {
-    fprintf(stderr, "t8n: failed to build state from alloc\n");
+  if (!build_state_from_snapshot(ws, &pre_state)) {
+    fprintf(stderr, "t8n: failed to build state from pre-state\n");
     t8n_context_cleanup(&ctx);
     return DIV0_EXIT_GENERAL_ERROR;
   }
@@ -435,9 +642,14 @@ int cmd_t8n(int argc, const char **argv) {
   block_ctx.get_block_hash = get_block_hash_cb;
   block_ctx.block_hash_user_data = &hash_ctx;
 
-  // Create EVM
-  evm_t *evm = div0_arena_alloc(&arena, sizeof(evm_t));
-  evm_init(evm, &arena);
+  // Create EVM (large struct, requires 64-byte alignment for cache-line aligned fields)
+  evm_t *evm = div0_arena_alloc_large(&arena, sizeof(evm_t), 64);
+  if (evm == nullptr) {
+    fprintf(stderr, "t8n: failed to allocate EVM\n");
+    t8n_context_cleanup(&ctx);
+    return DIV0_EXIT_GENERAL_ERROR;
+  }
+  evm_init(evm, &arena, fork);
 
   // Initialize secp256k1 context for signature recovery
   secp256k1_ctx_t *secp_ctx = secp256k1_ctx_create();
@@ -565,16 +777,28 @@ int cmd_t8n(int argc, const char **argv) {
   if (opts.verbose) {
     fprintf(stderr, "t8n: writing outputs...\n");
   }
-  int exit_code = write_result_file(opts.output_basedir, opts.output_result, &t8n_result);
-  if (exit_code != DIV0_EXIT_SUCCESS) {
-    t8n_context_cleanup(&ctx);
-    return exit_code;
-  }
 
-  exit_code = write_alloc_file(opts.output_basedir, opts.output_alloc, ws, &arena);
-  if (exit_code != DIV0_EXIT_SUCCESS) {
-    t8n_context_cleanup(&ctx);
-    return exit_code;
+  int exit_code;
+  // When both result and alloc go to stdout, write combined JSON
+  bool both_stdout = is_stdout(opts.output_result) && is_stdout(opts.output_alloc);
+  if (both_stdout) {
+    exit_code = write_combined_stdout(&t8n_result, ws, &arena);
+    if (exit_code != DIV0_EXIT_SUCCESS) {
+      t8n_context_cleanup(&ctx);
+      return exit_code;
+    }
+  } else {
+    exit_code = write_result_output(opts.output_basedir, opts.output_result, &t8n_result);
+    if (exit_code != DIV0_EXIT_SUCCESS) {
+      t8n_context_cleanup(&ctx);
+      return exit_code;
+    }
+
+    exit_code = write_alloc_output(opts.output_basedir, opts.output_alloc, ws, &arena);
+    if (exit_code != DIV0_EXIT_SUCCESS) {
+      t8n_context_cleanup(&ctx);
+      return exit_code;
+    }
   }
 
   if (opts.verbose) {

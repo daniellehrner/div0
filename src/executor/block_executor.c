@@ -151,6 +151,7 @@ static bool execute_transaction(block_executor_t *exec, const block_tx_t *btx,
 
   // 9. Execute EVM
   evm_reset(exec->evm);
+  evm_set_state(exec->evm, exec->state);
   evm_set_block_context(exec->evm, exec->block);
   evm_set_tx_context(exec->evm, &env.tx);
 

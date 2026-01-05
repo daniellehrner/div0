@@ -6,15 +6,33 @@
 #include "div0/evm/call_frame_pool.h"
 #include "div0/evm/execution_env.h"
 #include "div0/evm/frame_result.h"
+#include "div0/evm/gas/dynamic_costs.h"
 #include "div0/evm/memory_pool.h"
 #include "div0/evm/stack.h"
 #include "div0/evm/stack_pool.h"
 #include "div0/evm/status.h"
 #include "div0/evm/tx_context.h"
 #include "div0/mem/arena.h"
+#include "div0/state/state_access.h"
 
+#include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
+
+// ============================================================================
+// Fork Configuration
+// ============================================================================
+
+typedef enum {
+  FORK_SHANGHAI = 0,
+  FORK_CANCUN = 1,
+  FORK_PRAGUE = 2,
+  FORK_UNKNOWN = -1,
+} fork_t;
+
+enum { GAS_TABLE_SIZE = 256 };
+
+typedef uint64_t gas_table_t[GAS_TABLE_SIZE];
 
 // ============================================================================
 // EVM Execution API
@@ -33,6 +51,15 @@ typedef struct {
 /// EVM instance with full call frame support.
 /// This is a large structure - allocate on heap, not stack.
 typedef struct evm {
+  // Fork configuration
+  fork_t fork;
+
+  // Gas cost table (indexed by opcode)
+  gas_table_t gas_table;
+
+  // Dynamic gas cost functions (per fork)
+  gas_schedule_t gas_schedule;
+
   // Resource pools (pre-allocated for zero-allocation execution)
   call_frame_pool_t frame_pool;
   evm_stack_pool_t stack_pool;
@@ -55,13 +82,17 @@ typedef struct evm {
   size_t return_data_capacity;
 
   // State access (optional, for SLOAD/SSTORE)
-  void *state; // state_access_t* when state library is linked
+  state_access_t *state;
+
+  // Gas refund accumulator (reset per transaction)
+  uint64_t gas_refund;
 } evm_t;
 
 /// Initializes an EVM instance with an arena allocator.
 /// @param evm EVM instance to initialize
 /// @param arena Arena allocator for all allocations
-void evm_init(evm_t *evm, div0_arena_t *arena);
+/// @param fork Target hard fork (determines gas costs)
+void evm_init(evm_t *evm, div0_arena_t *arena, fork_t fork);
 
 /// Resets an EVM instance for reuse.
 /// Clears return data and resets pools, but keeps arena.
@@ -77,6 +108,13 @@ static inline void evm_set_block_context(evm_t *evm, const block_context_t *bloc
 /// Call once per transaction before executing.
 static inline void evm_set_tx_context(evm_t *evm, const tx_context_t *tx) {
   evm->tx = tx;
+}
+
+/// Sets the state access for SLOAD/SSTORE operations.
+/// @param evm EVM instance
+/// @param state State access instance
+static inline void evm_set_state(evm_t *evm, state_access_t *state) {
+  evm->state = state;
 }
 
 /// Executes bytecode with the new call frame architecture.

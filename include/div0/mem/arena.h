@@ -29,8 +29,9 @@ typedef struct div0_arena_block {
 /// Arena allocator using chained 64KB blocks.
 /// Fast bump-pointer allocation, bulk reset, reusable between executions.
 typedef struct {
-  div0_arena_block_t *head;    // First block in chain
-  div0_arena_block_t *current; // Block currently allocating from
+  div0_arena_block_t *head;         // First block in chain
+  div0_arena_block_t *current;      // Block currently allocating from
+  div0_arena_block_t *large_blocks; // Separate chain for large allocations
 } div0_arena_t;
 
 /// Initialize arena with first block.
@@ -45,12 +46,14 @@ typedef struct {
   block->offset = 0;
   arena->head = block;
   arena->current = block;
+  arena->large_blocks = nullptr;
   return true;
 }
 
 /// Allocate memory from arena with specific alignment.
+/// For allocations larger than DIV0_ARENA_BLOCK_SIZE, use div0_arena_alloc_large.
 /// @param arena Arena to allocate from
-/// @param size Number of bytes to allocate
+/// @param size Number of bytes to allocate (must be <= DIV0_ARENA_BLOCK_SIZE)
 /// @param alignment Required alignment (must be power of 2)
 /// @return Pointer to allocated memory, or nullptr if allocation fails
 [[nodiscard]] static inline void *div0_arena_alloc_aligned(div0_arena_t *arena, size_t size,
@@ -67,7 +70,7 @@ typedef struct {
   // Align size to requested alignment
   size_t aligned_size = (size + align_mask) & ~align_mask;
 
-  // Allocation larger than block size not supported
+  // Reject allocations larger than block size
   if (aligned_size > DIV0_ARENA_BLOCK_SIZE) {
     return nullptr;
   }
@@ -116,6 +119,59 @@ typedef struct {
   return new_block->data + new_aligned_offset;
 }
 
+/// Allocate a large block of memory from arena.
+/// Use this for allocations larger than DIV0_ARENA_BLOCK_SIZE (64KB).
+/// The block is inserted into the arena chain and freed on arena destruction.
+/// @param arena Arena to allocate from
+/// @param size Number of bytes to allocate
+/// @param alignment Required alignment (must be power of 2)
+/// @return Pointer to allocated memory, or nullptr if allocation fails
+[[nodiscard]] static inline void *div0_arena_alloc_large(div0_arena_t *arena, size_t size,
+                                                         size_t alignment) {
+  if (size == 0 || alignment == 0 || (alignment & (alignment - 1)) != 0) {
+    return nullptr;
+  }
+
+  size_t align_mask = alignment - 1;
+  if (size > SIZE_MAX - align_mask) {
+    return nullptr;
+  }
+
+  size_t aligned_size = (size + align_mask) & ~align_mask;
+
+  // Calculate total block size needed (header + data + alignment padding)
+  // Check for overflow in aligned_size + alignment
+  if (aligned_size > SIZE_MAX - alignment) {
+    return nullptr;
+  }
+  size_t block_data_size = aligned_size + alignment;
+
+  // Check for overflow in header + block_data_size
+  size_t header_size = sizeof(div0_arena_block_t) - DIV0_ARENA_BLOCK_SIZE;
+  if (block_data_size > SIZE_MAX - header_size) {
+    return nullptr;
+  }
+  size_t total_size = header_size + block_data_size;
+
+  div0_arena_block_t *large_block = (div0_arena_block_t *)malloc(total_size);
+  if (!large_block) {
+    return nullptr;
+  }
+
+  // Calculate aligned offset from start of data
+  uintptr_t data_start = (uintptr_t)large_block->data;
+  uintptr_t aligned_addr = (data_start + align_mask) & ~align_mask;
+  size_t aligned_offset = aligned_addr - data_start;
+
+  large_block->offset = block_data_size; // Store block size (not used for allocation)
+
+  // Prepend to separate large blocks chain (keeps them out of regular block iteration)
+  large_block->next = arena->large_blocks;
+  arena->large_blocks = large_block;
+
+  return large_block->data + aligned_offset;
+}
+
 /// Allocate memory from arena (8-byte aligned).
 /// @param arena Arena to allocate from
 /// @param size Number of bytes to allocate
@@ -148,25 +204,36 @@ typedef struct {
 static inline void div0_arena_free([[maybe_unused]] div0_arena_t *arena, [[maybe_unused]] void *ptr,
                                    [[maybe_unused]] size_t size) {}
 
-/// Reset arena for reuse (keeps blocks allocated).
+/// Free a chain of arena blocks.
+static inline void free_block_chain(div0_arena_block_t *head) {
+  while (head) {
+    div0_arena_block_t *next = head->next;
+    free(head);
+    head = next;
+  }
+}
+
+/// Reset arena for reuse (keeps regular blocks allocated, frees large blocks).
 /// All previous allocations become invalid.
 static inline void div0_arena_reset(div0_arena_t *arena) {
+  // Reset regular blocks (keep allocated for reuse)
   for (div0_arena_block_t *block = arena->head; block != nullptr; block = block->next) {
     block->offset = 0;
   }
   arena->current = arena->head;
+
+  // Free large blocks (can't reuse effectively due to variable sizes)
+  free_block_chain(arena->large_blocks);
+  arena->large_blocks = nullptr;
 }
 
 /// Destroy arena and free all blocks.
 static inline void div0_arena_destroy(div0_arena_t *arena) {
-  div0_arena_block_t *block = arena->head;
-  while (block) {
-    div0_arena_block_t *next = block->next;
-    free(block);
-    block = next;
-  }
+  free_block_chain(arena->head);
+  free_block_chain(arena->large_blocks);
   arena->head = nullptr;
   arena->current = nullptr;
+  arena->large_blocks = nullptr;
 }
 
 #endif // DIV0_MEM_ARENA_H

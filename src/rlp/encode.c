@@ -7,7 +7,7 @@ static constexpr size_t RLP_MAX_HEADER_SIZE = 9;
 
 /// Write length as big-endian bytes into buffer.
 /// Returns number of bytes written.
-static inline size_t write_length_bytes(uint8_t *buf, size_t len) {
+static size_t write_length_bytes(uint8_t *buf, size_t len) {
   int num_bytes = rlp_length_of_length(len);
   switch (num_bytes) {
   case 1:

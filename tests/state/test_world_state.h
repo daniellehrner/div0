@@ -58,4 +58,11 @@ void test_world_state_add_balance_overflow(void);
 void test_world_state_clear(void);
 void test_world_state_account_is_empty_interface(void);
 
+// Post-state export tests
+void test_world_state_snapshot_empty(void);
+void test_world_state_snapshot_single_account(void);
+void test_world_state_snapshot_with_storage(void);
+void test_world_state_snapshot_multiple_accounts(void);
+void test_world_state_snapshot_with_code(void);
+
 #endif // TEST_WORLD_STATE_H

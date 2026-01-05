@@ -4,8 +4,6 @@
 #include "div0/rlp/encode.h"
 #include "div0/trie/hex_prefix.h"
 
-#include <string.h>
-
 // Empty root hash: keccak256(0x80) where 0x80 is RLP of empty string
 // Pre-computed value
 const hash_t MPT_EMPTY_ROOT = {.bytes = {0x56, 0xe8, 0x1f, 0x17, 0x1b, 0xcc, 0x55, 0xa6,

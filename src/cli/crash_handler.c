@@ -79,7 +79,7 @@ static void crash_handler(int sig) {
   write_stderr("Signal: ");
 
   // Map signal to name
-  const char *sig_name = nullptr;
+  const char *sig_name;
   switch (sig) {
   case SIGSEGV:
     sig_name = "SIGSEGV (Segmentation fault)";

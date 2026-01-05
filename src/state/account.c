@@ -4,8 +4,6 @@
 #include "div0/rlp/encode.h"
 #include "div0/trie/node.h"
 
-#include <string.h>
-
 // Empty code hash: keccak256("") - pre-computed
 // = 0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470
 const hash_t EMPTY_CODE_HASH = {.bytes = {0xc5, 0xd2, 0x46, 0x01, 0x86, 0xf7, 0x23, 0x3c,

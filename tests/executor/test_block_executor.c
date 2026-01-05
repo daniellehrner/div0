@@ -127,7 +127,7 @@ void test_validation_valid_tx(void) {
 
   // Create executor
   evm_t evm;
-  evm_init(&evm, &test_arena);
+  evm_init(&evm, &test_arena, FORK_SHANGHAI);
   block_executor_t exec;
   block_executor_init(&exec, state, &block, &evm, &test_arena, 1);
 
@@ -156,7 +156,7 @@ void test_validation_nonce_too_low(void) {
   block_tx_t btx = {.tx = &tx, .sender = sender, .sender_recovered = true, .original_index = 0};
 
   evm_t evm;
-  evm_init(&evm, &test_arena);
+  evm_init(&evm, &test_arena, FORK_SHANGHAI);
   block_executor_t exec;
   block_executor_init(&exec, state, &block, &evm, &test_arena, 1);
 
@@ -185,7 +185,7 @@ void test_validation_nonce_too_high(void) {
   block_tx_t btx = {.tx = &tx, .sender = sender, .sender_recovered = true, .original_index = 0};
 
   evm_t evm;
-  evm_init(&evm, &test_arena);
+  evm_init(&evm, &test_arena, FORK_SHANGHAI);
   block_executor_t exec;
   block_executor_init(&exec, state, &block, &evm, &test_arena, 1);
 
@@ -213,7 +213,7 @@ void test_validation_insufficient_balance(void) {
   block_tx_t btx = {.tx = &tx, .sender = sender, .sender_recovered = true, .original_index = 0};
 
   evm_t evm;
-  evm_init(&evm, &test_arena);
+  evm_init(&evm, &test_arena, FORK_SHANGHAI);
   block_executor_t exec;
   block_executor_init(&exec, state, &block, &evm, &test_arena, 1);
 
@@ -241,7 +241,7 @@ void test_validation_intrinsic_gas_too_low(void) {
   block_tx_t btx = {.tx = &tx, .sender = sender, .sender_recovered = true, .original_index = 0};
 
   evm_t evm;
-  evm_init(&evm, &test_arena);
+  evm_init(&evm, &test_arena, FORK_SHANGHAI);
   block_executor_t exec;
   block_executor_init(&exec, state, &block, &evm, &test_arena, 1);
 
@@ -269,7 +269,7 @@ void test_validation_gas_limit_exceeded(void) {
   block_tx_t btx = {.tx = &tx, .sender = sender, .sender_recovered = true, .original_index = 0};
 
   evm_t evm;
-  evm_init(&evm, &test_arena);
+  evm_init(&evm, &test_arena, FORK_SHANGHAI);
   block_executor_t exec;
   block_executor_init(&exec, state, &block, &evm, &test_arena, 1);
 
@@ -292,7 +292,7 @@ void test_block_executor_empty_block(void) {
   block.base_fee = uint256_from_u64(100000000);
 
   evm_t evm;
-  evm_init(&evm, &test_arena);
+  evm_init(&evm, &test_arena, FORK_SHANGHAI);
   block_executor_t exec;
   block_executor_init(&exec, state, &block, &evm, &test_arena, 1);
 
@@ -330,7 +330,7 @@ void test_block_executor_single_tx(void) {
   block_tx_t btx = {.tx = &tx, .sender = sender, .sender_recovered = true, .original_index = 0};
 
   evm_t evm;
-  evm_init(&evm, &test_arena);
+  evm_init(&evm, &test_arena, FORK_SHANGHAI);
   block_executor_t exec;
   block_executor_init(&exec, state, &block, &evm, &test_arena, 1);
 
@@ -376,7 +376,7 @@ void test_block_executor_recipient_balance(void) {
   block_tx_t btx = {.tx = &tx, .sender = sender, .sender_recovered = true, .original_index = 0};
 
   evm_t evm;
-  evm_init(&evm, &test_arena);
+  evm_init(&evm, &test_arena, FORK_SHANGHAI);
   block_executor_t exec;
   block_executor_init(&exec, state, &block, &evm, &test_arena, 1);
 
@@ -419,7 +419,7 @@ void test_block_executor_coinbase_fee(void) {
   block_tx_t btx = {.tx = &tx, .sender = sender, .sender_recovered = true, .original_index = 0};
 
   evm_t evm;
-  evm_init(&evm, &test_arena);
+  evm_init(&evm, &test_arena, FORK_SHANGHAI);
   block_executor_t exec;
   block_executor_init(&exec, state, &block, &evm, &test_arena, 1);
 
@@ -465,7 +465,7 @@ void test_block_executor_multiple_txs(void) {
   };
 
   evm_t evm;
-  evm_init(&evm, &test_arena);
+  evm_init(&evm, &test_arena, FORK_SHANGHAI);
   block_executor_t exec;
   block_executor_init(&exec, state, &block, &evm, &test_arena, 1);
 
@@ -541,7 +541,7 @@ void test_block_executor_mixed_valid_rejected(void) {
   };
 
   evm_t evm;
-  evm_init(&evm, &test_arena);
+  evm_init(&evm, &test_arena, FORK_SHANGHAI);
   block_executor_t exec;
   block_executor_init(&exec, state, &block, &evm, &test_arena, 1);
 
@@ -592,7 +592,7 @@ void test_block_executor_nonce_increment_on_failed_execution(void) {
   block_tx_t btx = {.tx = &tx, .sender = sender, .sender_recovered = true, .original_index = 0};
 
   evm_t evm;
-  evm_init(&evm, &test_arena);
+  evm_init(&evm, &test_arena, FORK_SHANGHAI);
   block_executor_t exec;
   block_executor_init(&exec, state, &block, &evm, &test_arena, 1);
 

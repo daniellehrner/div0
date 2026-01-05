@@ -18,11 +18,11 @@ void test_alloc_parse_empty(void) {
   div0_arena_t arena;
   TEST_ASSERT_TRUE(div0_arena_init(&arena));
 
-  t8n_alloc_t alloc;
-  json_result_t result = t8n_parse_alloc(json, strlen(json), &arena, &alloc);
+  state_snapshot_t snapshot;
+  json_result_t result = t8n_parse_alloc(json, strlen(json), &arena, &snapshot);
 
   TEST_ASSERT_TRUE(json_is_ok(result));
-  TEST_ASSERT_EQUAL(0, alloc.account_count);
+  TEST_ASSERT_EQUAL(0, snapshot.account_count);
 
   div0_arena_destroy(&arena);
 }
@@ -36,13 +36,13 @@ void test_alloc_parse_single_account(void) {
   div0_arena_t arena;
   TEST_ASSERT_TRUE(div0_arena_init(&arena));
 
-  t8n_alloc_t alloc;
-  json_result_t result = t8n_parse_alloc(json, strlen(json), &arena, &alloc);
+  state_snapshot_t snapshot;
+  json_result_t result = t8n_parse_alloc(json, strlen(json), &arena, &snapshot);
 
   TEST_ASSERT_TRUE(json_is_ok(result));
-  TEST_ASSERT_EQUAL(1, alloc.account_count);
+  TEST_ASSERT_EQUAL(1, snapshot.account_count);
 
-  const t8n_alloc_account_t *account = &alloc.accounts[0];
+  const account_snapshot_t *account = &snapshot.accounts[0];
   TEST_ASSERT_EQUAL_UINT8(0x12, account->address.bytes[0]);
   TEST_ASSERT_EQUAL_UINT64(0x100, account->balance.limbs[0]);
   TEST_ASSERT_EQUAL_UINT64(0, account->nonce);
@@ -65,13 +65,13 @@ void test_alloc_parse_with_storage(void) {
   div0_arena_t arena;
   TEST_ASSERT_TRUE(div0_arena_init(&arena));
 
-  t8n_alloc_t alloc;
-  json_result_t result = t8n_parse_alloc(json, strlen(json), &arena, &alloc);
+  state_snapshot_t snapshot;
+  json_result_t result = t8n_parse_alloc(json, strlen(json), &arena, &snapshot);
 
   TEST_ASSERT_TRUE(json_is_ok(result));
-  TEST_ASSERT_EQUAL(1, alloc.account_count);
+  TEST_ASSERT_EQUAL(1, snapshot.account_count);
 
-  const t8n_alloc_account_t *account = &alloc.accounts[0];
+  const account_snapshot_t *account = &snapshot.accounts[0];
   TEST_ASSERT_EQUAL(2, account->storage_count);
 
   div0_arena_destroy(&arena);
@@ -88,13 +88,13 @@ void test_alloc_parse_with_code(void) {
   div0_arena_t arena;
   TEST_ASSERT_TRUE(div0_arena_init(&arena));
 
-  t8n_alloc_t alloc;
-  json_result_t result = t8n_parse_alloc(json, strlen(json), &arena, &alloc);
+  state_snapshot_t snapshot;
+  json_result_t result = t8n_parse_alloc(json, strlen(json), &arena, &snapshot);
 
   TEST_ASSERT_TRUE(json_is_ok(result));
-  TEST_ASSERT_EQUAL(1, alloc.account_count);
+  TEST_ASSERT_EQUAL(1, snapshot.account_count);
 
-  const t8n_alloc_account_t *account = &alloc.accounts[0];
+  const account_snapshot_t *account = &snapshot.accounts[0];
   TEST_ASSERT_EQUAL_UINT64(5, account->nonce);
   TEST_ASSERT_EQUAL(5, account->code.size);
   TEST_ASSERT_EQUAL_UINT8(0x60, account->code.data[0]);
@@ -113,8 +113,8 @@ void test_alloc_roundtrip(void) {
   div0_arena_t arena;
   TEST_ASSERT_TRUE(div0_arena_init(&arena));
 
-  t8n_alloc_t alloc;
-  json_result_t result = t8n_parse_alloc(json, strlen(json), &arena, &alloc);
+  state_snapshot_t snapshot;
+  json_result_t result = t8n_parse_alloc(json, strlen(json), &arena, &snapshot);
   TEST_ASSERT_TRUE(json_is_ok(result));
 
   // Write back to JSON
@@ -122,7 +122,7 @@ void test_alloc_roundtrip(void) {
   result = json_writer_init(&w);
   TEST_ASSERT_TRUE(json_is_ok(result));
 
-  yyjson_mut_val_t *obj = t8n_write_alloc(&alloc, &w);
+  yyjson_mut_val_t *obj = t8n_write_alloc(&snapshot, &w);
   TEST_ASSERT_NOT_NULL(obj);
 
   size_t len;

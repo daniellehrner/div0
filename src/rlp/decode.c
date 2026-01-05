@@ -4,12 +4,12 @@
 
 /// Helper: get remaining bytes in decoder.
 /// Returns 0 if pos >= size (defensive guard against underflow).
-static inline size_t remaining(const rlp_decoder_t *decoder) {
+static size_t remaining(const rlp_decoder_t *decoder) {
   return decoder->pos >= decoder->size ? 0 : decoder->size - decoder->pos;
 }
 
 /// Helper: read a single byte and advance position.
-static inline uint8_t read_byte(rlp_decoder_t *decoder) {
+static uint8_t read_byte(rlp_decoder_t *decoder) {
   return decoder->input[decoder->pos++];
 }
 

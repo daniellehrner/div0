@@ -1,3 +1,7 @@
 /.idea
 /build
 /cmake-build-debug
+
+/.qodana-cache
+/.qodana-results
+.qodana-build/

@@ -752,3 +752,119 @@ void test_world_state_account_is_empty_interface(void) {
 
   world_state_destroy(ws);
 }
+
+// ===========================================================================
+// Post-state export tests (world_state_snapshot)
+// ===========================================================================
+
+void test_world_state_snapshot_empty(void) {
+  world_state_t *ws = world_state_create(&test_arena);
+  TEST_ASSERT_NOT_NULL(ws);
+
+  state_snapshot_t snap = {};
+  bool result = world_state_snapshot(ws, &test_arena, &snap);
+
+  TEST_ASSERT_TRUE(result);
+  TEST_ASSERT_EQUAL(0, snap.account_count);
+  TEST_ASSERT_NULL(snap.accounts);
+
+  world_state_destroy(ws);
+}
+
+void test_world_state_snapshot_single_account(void) {
+  world_state_t *ws = world_state_create(&test_arena);
+  state_access_t *access = world_state_access(ws);
+  address_t addr = make_test_address(0xC0);
+
+  // Create account with balance and nonce
+  access->vtable->set_balance(access, &addr, uint256_from_u64(1000));
+  access->vtable->set_nonce(access, &addr, 5);
+
+  state_snapshot_t snap = {};
+  bool result = world_state_snapshot(ws, &test_arena, &snap);
+
+  TEST_ASSERT_TRUE(result);
+  TEST_ASSERT_EQUAL(1, snap.account_count);
+  TEST_ASSERT_NOT_NULL(snap.accounts);
+
+  // Verify account data
+  TEST_ASSERT_TRUE(address_equal(&snap.accounts[0].address, &addr));
+  TEST_ASSERT_TRUE(uint256_eq(snap.accounts[0].balance, uint256_from_u64(1000)));
+  TEST_ASSERT_EQUAL(5, snap.accounts[0].nonce);
+
+  world_state_destroy(ws);
+}
+
+void test_world_state_snapshot_with_storage(void) {
+  world_state_t *ws = world_state_create(&test_arena);
+  state_access_t *access = world_state_access(ws);
+  address_t addr = make_test_address(0xC1);
+
+  // Create account with balance
+  access->vtable->set_balance(access, &addr, uint256_from_u64(500));
+
+  // Add storage
+  access->vtable->set_storage(access, &addr, uint256_from_u64(0), uint256_from_u64(100));
+  access->vtable->set_storage(access, &addr, uint256_from_u64(1), uint256_from_u64(200));
+
+  state_snapshot_t snap = {};
+  bool result = world_state_snapshot(ws, &test_arena, &snap);
+
+  TEST_ASSERT_TRUE(result);
+  TEST_ASSERT_EQUAL(1, snap.account_count);
+  TEST_ASSERT_NOT_NULL(snap.accounts);
+
+  // Verify storage count
+  TEST_ASSERT_EQUAL(2, snap.accounts[0].storage_count);
+  TEST_ASSERT_NOT_NULL(snap.accounts[0].storage);
+
+  world_state_destroy(ws);
+}
+
+void test_world_state_snapshot_multiple_accounts(void) {
+  world_state_t *ws = world_state_create(&test_arena);
+  state_access_t *access = world_state_access(ws);
+
+  address_t addr1 = make_test_address(0xD0);
+  address_t addr2 = make_test_address(0xD1);
+  address_t addr3 = make_test_address(0xD2);
+
+  // Create multiple accounts
+  access->vtable->set_balance(access, &addr1, uint256_from_u64(100));
+  access->vtable->set_balance(access, &addr2, uint256_from_u64(200));
+  access->vtable->set_balance(access, &addr3, uint256_from_u64(300));
+
+  state_snapshot_t snap = {};
+  bool result = world_state_snapshot(ws, &test_arena, &snap);
+
+  TEST_ASSERT_TRUE(result);
+  TEST_ASSERT_EQUAL(3, snap.account_count);
+  TEST_ASSERT_NOT_NULL(snap.accounts);
+
+  world_state_destroy(ws);
+}
+
+void test_world_state_snapshot_with_code(void) {
+  world_state_t *ws = world_state_create(&test_arena);
+  state_access_t *access = world_state_access(ws);
+  address_t addr = make_test_address(0xC2);
+
+  // Create contract with code
+  access->vtable->create_contract(access, &addr);
+  uint8_t bytecode[] = {0x60, 0x00, 0x60, 0x00, 0xf3}; // PUSH1 0 PUSH1 0 RETURN
+  access->vtable->set_code(access, &addr, bytecode, sizeof(bytecode));
+
+  state_snapshot_t snap = {};
+  bool result = world_state_snapshot(ws, &test_arena, &snap);
+
+  TEST_ASSERT_TRUE(result);
+  TEST_ASSERT_EQUAL(1, snap.account_count);
+  TEST_ASSERT_NOT_NULL(snap.accounts);
+
+  // Verify code (bytes_t struct with data and size)
+  TEST_ASSERT_EQUAL(sizeof(bytecode), snap.accounts[0].code.size);
+  TEST_ASSERT_NOT_NULL(snap.accounts[0].code.data);
+  TEST_ASSERT_EQUAL_MEMORY(bytecode, snap.accounts[0].code.data, sizeof(bytecode));
+
+  world_state_destroy(ws);
+}

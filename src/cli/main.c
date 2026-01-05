@@ -6,7 +6,6 @@
 #include "t8n/t8n_command.h"
 
 #include <argparse.h>
-#include <stdbool.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -53,7 +52,8 @@ int main(int argc, const char **argv) {
   argc = argparse_parse(&argparse, argc, argv);
 
   if (show_version) {
-    printf("div0 version %s\n", DIV0_VERSION_STRING);
+    // Output matches geth's format for execution-spec-tests compatibility
+    printf("evm version %s\n", DIV0_VERSION_STRING);
     return DIV0_EXIT_SUCCESS;
   }
 

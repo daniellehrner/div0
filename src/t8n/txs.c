@@ -2,11 +2,6 @@
 
 #ifndef DIV0_FREESTANDING
 
-#include "div0/util/hex.h"
-
-#include <string.h>
-#include <yyjson.h>
-
 // ============================================================================
 // Access List Parsing
 // ============================================================================

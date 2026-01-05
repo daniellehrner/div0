@@ -133,6 +133,7 @@ static bool execute_transaction(block_executor_t *exec, const block_tx_t *btx,
     // Contract creation
     env.call.address = contract_address;
     env.call.code = data ? data->data : nullptr;
+    // NOLINTNEXTLINE(CppDFANullDereference) - ternary checks data != null
     env.call.code_size = data ? data->size : 0;
     env.call.input = nullptr;
     env.call.input_size = 0;
@@ -141,6 +142,7 @@ static bool execute_transaction(block_executor_t *exec, const block_tx_t *btx,
     state_create_contract(exec->state, &contract_address);
   } else if (to != nullptr) {
     // Message call
+    // NOLINTNEXTLINE(CppDFANullDereference) - guarded by if (to != nullptr)
     env.call.address = *to;
     bytes_t code = state_get_code(exec->state, to);
     env.call.code = code.data;

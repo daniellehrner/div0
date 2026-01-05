@@ -18,7 +18,8 @@ static inline evm_status_t op_sload(call_frame_t *frame, state_access_t *state,
 
   uint256_t slot = evm_stack_pop_unsafe(frame->stack);
 
-  // state_warm_slot returns true if this is the first access (was cold)
+  // Mark slot as warm and check if it was cold (first access).
+  // Returns true if slot was cold, false if already warm.
   bool is_cold = state_warm_slot(state, &frame->address, slot);
   uint64_t gas_cost = gas->sload(is_cold);
 
@@ -55,7 +56,8 @@ static inline evm_status_t op_sstore(call_frame_t *frame, state_access_t *state,
   uint256_t current_value = state_get_storage(state, &frame->address, slot);
   uint256_t original_value = state_get_original_storage(state, &frame->address, slot);
 
-  // state_warm_slot returns true if this is the first access (was cold)
+  // Mark slot as warm and check if it was cold (first access).
+  // Returns true if slot was cold, false if already warm.
   bool is_cold = state_warm_slot(state, &frame->address, slot);
 
   uint64_t gas_cost = gas->sstore(is_cold, current_value, original_value, new_value);

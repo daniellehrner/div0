@@ -2,9 +2,6 @@
 
 #include "div0/crypto/keccak256.h"
 #include "div0/mem/stc_allocator.h"
-#include "div0/rlp/encode.h"
-
-#include <string.h>
 
 // =============================================================================
 // STC Container Definitions
@@ -117,6 +114,9 @@ static bool warm_slot_key_eq(const warm_slot_key_t *a, const warm_slot_key_t *b)
 #include "stc/hset.h"
 
 // NOLINTEND(readability-identifier-naming)
+
+// Forward declarations
+static void erase_slots_for_address(all_slots_set *all_slots, const address_t *addr);
 
 // =============================================================================
 // Helper Functions
@@ -689,6 +689,9 @@ bool world_state_set_account(world_state_t *ws, const address_t *addr, const acc
     // Remove from all_accounts set when account becomes empty
     all_accounts_set *all_accts = (all_accounts_set *)ws->all_accounts;
     all_accounts_set_erase(all_accts, *addr);
+    // Also remove all storage slots for this account
+    all_slots_set *all_slots = (all_slots_set *)ws->all_storage_slots;
+    erase_slots_for_address(all_slots, addr);
     return true;
   }
 
@@ -830,16 +833,36 @@ void world_state_destroy(world_state_t *ws) {
 // Post-State Export
 // =============================================================================
 
-/// Count storage slots for a specific address.
-static size_t count_slots_for_address(all_slots_set *all_slots, const address_t *addr) {
-  size_t count = 0;
-  for (all_slots_set_iter it = all_slots_set_begin(all_slots);
-       it.ref != all_slots_set_end(all_slots).ref; all_slots_set_next(&it)) {
-    if (address_equal(&it.ref->addr, addr)) {
-      count++;
+/// Erase all storage slots for a specific address.
+/// This is used when an account is deleted (becomes empty).
+static void erase_slots_for_address(all_slots_set *all_slots, const address_t *addr) {
+  // We cannot erase during iteration, so collect keys first
+  // Use a fixed-size stack buffer for common cases, fall back to slower repeated iteration
+  warm_slot_key_t to_erase[64];
+  size_t erase_count = 0;
+  bool more_to_erase = true;
+
+  while (more_to_erase) {
+    erase_count = 0;
+    more_to_erase = false;
+
+    for (all_slots_set_iter it = all_slots_set_begin(all_slots);
+         it.ref != all_slots_set_end(all_slots).ref; all_slots_set_next(&it)) {
+      if (address_equal(&it.ref->addr, addr)) {
+        if (erase_count < 64) {
+          to_erase[erase_count++] = *it.ref;
+        } else {
+          more_to_erase = true;
+          break;
+        }
+      }
+    }
+
+    // Erase collected keys
+    for (size_t i = 0; i < erase_count; i++) {
+      all_slots_set_erase(all_slots, to_erase[i]);
     }
   }
-  return count;
 }
 
 bool world_state_snapshot(world_state_t *ws, div0_arena_t *arena, state_snapshot_t *out) {
@@ -848,27 +871,28 @@ bool world_state_snapshot(world_state_t *ws, div0_arena_t *arena, state_snapshot
   code_map *c_map = (code_map *)ws->code_store;
 
   // Count accounts
-  size_t count = (size_t)all_accounts_set_size(all_accts);
-  if (count == 0) {
+  size_t account_count = (size_t)all_accounts_set_size(all_accts);
+  if (account_count == 0) {
     out->accounts = nullptr;
     out->account_count = 0;
     return true;
   }
 
   // Allocate accounts array
-  out->accounts = div0_arena_alloc(arena, count * sizeof(account_snapshot_t));
+  out->accounts = div0_arena_alloc(arena, account_count * sizeof(account_snapshot_t));
   if (out->accounts == nullptr) {
     return false;
   }
-  out->account_count = count;
 
-  // Iterate over all accounts
-  size_t idx = 0;
+  // Phase 1: Build account snapshots (without storage) and create address->index map
+  // We use a simple linear search for the address->index lookup since account counts
+  // are typically small (< 100). For larger state, consider a hash map.
+  size_t valid_count = 0;
   for (all_accounts_set_iter it = all_accounts_set_begin(all_accts);
        it.ref != all_accounts_set_end(all_accts).ref; all_accounts_set_next(&it)) {
 
     address_t addr = *it.ref;
-    account_snapshot_t *snap_acc = &out->accounts[idx];
+    account_snapshot_t *snap_acc = &out->accounts[valid_count];
 
     // Initialize
     __builtin___memset_chk(snap_acc, 0, sizeof(*snap_acc), __builtin_object_size(snap_acc, 0));
@@ -887,7 +911,6 @@ bool world_state_snapshot(world_state_t *ws, div0_arena_t *arena, state_snapshot
     // Get code
     const code_map_value *code_entry = code_map_get(c_map, addr);
     if (code_entry != nullptr && code_entry->second.size > 0) {
-      // Copy code to arena
       snap_acc->code.size = code_entry->second.size;
       snap_acc->code.data = div0_arena_alloc(arena, code_entry->second.size);
       if (snap_acc->code.data == nullptr) {
@@ -897,38 +920,72 @@ bool world_state_snapshot(world_state_t *ws, div0_arena_t *arena, state_snapshot
                              code_entry->second.size);
     }
 
-    // Get storage slots for this account
-    size_t slot_count = count_slots_for_address(all_slots, &addr);
-    if (slot_count > 0) {
-      snap_acc->storage = div0_arena_alloc(arena, slot_count * sizeof(storage_entry_t));
-      if (snap_acc->storage == nullptr) {
-        return false;
-      }
+    valid_count++;
+  }
+  out->account_count = valid_count;
 
-      // Populate storage entries
-      size_t slot_idx = 0;
-      for (all_slots_set_iter slot_it = all_slots_set_begin(all_slots);
-           slot_it.ref != all_slots_set_end(all_slots).ref; all_slots_set_next(&slot_it)) {
-        if (address_equal(&slot_it.ref->addr, &addr)) {
-          uint256_t slot = slot_it.ref->slot;
-          uint256_t value = ws_get_storage(&ws->base, &addr, slot);
-
-          // Only include non-zero values
-          if (!uint256_is_zero(value)) {
-            snap_acc->storage[slot_idx].slot = slot;
-            snap_acc->storage[slot_idx].value = value;
-            slot_idx++;
-          }
-        }
-      }
-      snap_acc->storage_count = slot_idx;
-    }
-
-    idx++;
+  if (valid_count == 0) {
+    return true;
   }
 
-  // Adjust count if any accounts were skipped
-  out->account_count = idx;
+  // Phase 2: Count slots per account in a single pass through all_slots
+  // Allocate a temporary counter array
+  size_t *slot_counts = div0_arena_alloc(arena, valid_count * sizeof(size_t));
+  if (slot_counts == nullptr) {
+    return false;
+  }
+  __builtin___memset_chk(slot_counts, 0, valid_count * sizeof(size_t),
+                         valid_count * sizeof(size_t));
+
+  for (all_slots_set_iter slot_it = all_slots_set_begin(all_slots);
+       slot_it.ref != all_slots_set_end(all_slots).ref; all_slots_set_next(&slot_it)) {
+    // Find account index for this slot's address
+    for (size_t i = 0; i < valid_count; i++) {
+      if (address_equal(&slot_it.ref->addr, &out->accounts[i].address)) {
+        slot_counts[i]++;
+        break;
+      }
+    }
+  }
+
+  // Phase 3: Allocate storage arrays for each account
+  for (size_t i = 0; i < valid_count; i++) {
+    if (slot_counts[i] > 0) {
+      out->accounts[i].storage = div0_arena_alloc(arena, slot_counts[i] * sizeof(storage_entry_t));
+      if (out->accounts[i].storage == nullptr) {
+        return false;
+      }
+    }
+  }
+
+  // Reset slot_counts to use as insertion indices
+  __builtin___memset_chk(slot_counts, 0, valid_count * sizeof(size_t),
+                         valid_count * sizeof(size_t));
+
+  // Phase 4: Populate storage entries in a single pass
+  for (all_slots_set_iter slot_it = all_slots_set_begin(all_slots);
+       slot_it.ref != all_slots_set_end(all_slots).ref; all_slots_set_next(&slot_it)) {
+    // Find account index for this slot's address
+    for (size_t i = 0; i < valid_count; i++) {
+      if (address_equal(&slot_it.ref->addr, &out->accounts[i].address)) {
+        uint256_t slot = slot_it.ref->slot;
+        uint256_t value = ws_get_storage(&ws->base, &out->accounts[i].address, slot);
+
+        // Only include non-zero values
+        if (!uint256_is_zero(value)) {
+          size_t idx = slot_counts[i]++;
+          out->accounts[i].storage[idx].slot = slot;
+          out->accounts[i].storage[idx].value = value;
+        }
+        break;
+      }
+    }
+  }
+
+  // Set final storage counts
+  for (size_t i = 0; i < valid_count; i++) {
+    out->accounts[i].storage_count = slot_counts[i];
+  }
 
   return true;
 }

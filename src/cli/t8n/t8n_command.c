@@ -75,6 +75,11 @@ static char *read_stdin(size_t *out_len) {
   while (!feof(stdin)) {
     size_t space = capacity - len;
     if (space < 1024) {
+      // Check for overflow before doubling capacity
+      if (capacity > SIZE_MAX / 2) {
+        free(buffer);
+        return nullptr;
+      }
       capacity *= 2;
       char *new_buffer = realloc(buffer, capacity);
       if (new_buffer == nullptr) {

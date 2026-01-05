@@ -140,8 +140,18 @@ typedef struct {
   size_t aligned_size = (size + align_mask) & ~align_mask;
 
   // Calculate total block size needed (header + data + alignment padding)
+  // Check for overflow in aligned_size + alignment
+  if (aligned_size > SIZE_MAX - alignment) {
+    return nullptr;
+  }
   size_t block_data_size = aligned_size + alignment;
-  size_t total_size = sizeof(div0_arena_block_t) - DIV0_ARENA_BLOCK_SIZE + block_data_size;
+
+  // Check for overflow in header + block_data_size
+  size_t header_size = sizeof(div0_arena_block_t) - DIV0_ARENA_BLOCK_SIZE;
+  if (block_data_size > SIZE_MAX - header_size) {
+    return nullptr;
+  }
+  size_t total_size = header_size + block_data_size;
 
   div0_arena_block_t *large_block = (div0_arena_block_t *)malloc(total_size);
   if (!large_block) {

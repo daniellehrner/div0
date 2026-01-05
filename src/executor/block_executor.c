@@ -139,7 +139,7 @@ static bool execute_transaction(block_executor_t *exec, const block_tx_t *btx,
 
     // Create contract account with nonce=1 (EIP-161)
     state_create_contract(exec->state, &contract_address);
-  } else {
+  } else if (to != nullptr) {
     // Message call
     env.call.address = *to;
     bytes_t code = state_get_code(exec->state, to);
@@ -147,13 +147,16 @@ static bool execute_transaction(block_executor_t *exec, const block_tx_t *btx,
     env.call.code_size = code.size;
     env.call.input = data ? data->data : nullptr;
     env.call.input_size = data ? data->size : 0;
+  } else {
+    // Invalid: not a create and no recipient address
+    state_revert_to_snapshot(exec->state, snapshot);
+    return false;
   }
 
   // 9. Execute EVM
   evm_reset(exec->evm);
   evm_set_state(exec->evm, exec->state);
-  evm_set_block_context(exec->evm, exec->block);
-  evm_set_tx_context(exec->evm, &env.tx);
+  // Note: evm_execute_env sets block and tx context from env
 
   evm_execution_result_t result = evm_execute_env(exec->evm, &env);
 
@@ -232,11 +235,12 @@ bool block_executor_run(block_executor_t *exec, const block_tx_t *txs, size_t tx
   }
 
   // Allocate arrays (worst case: all receipts or all rejected)
-  // Check for overflow before multiplication
+  // NOLINTBEGIN(CppDFAConstantConditions) - Overflow check for defensive programming
   if (tx_count > SIZE_MAX / sizeof(exec_receipt_t) ||
       tx_count > SIZE_MAX / sizeof(exec_rejected_t)) {
     return false;
   }
+  // NOLINTEND(CppDFAConstantConditions)
   result->receipts = div0_arena_alloc(exec->arena, tx_count * sizeof(exec_receipt_t));
   result->rejected = div0_arena_alloc(exec->arena, tx_count * sizeof(exec_rejected_t));
   if (!result->receipts || !result->rejected) {

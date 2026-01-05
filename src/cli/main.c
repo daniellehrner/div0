@@ -6,7 +6,6 @@
 #include "t8n/t8n_command.h"
 
 #include <argparse.h>
-#include <stdbool.h>
 #include <stdio.h>
 #include <string.h>
 

@@ -1,7 +1,6 @@
 #include "div0/trie/mpt.h"
 
 #include <stdalign.h>
-#include <string.h>
 
 // =============================================================================
 // In-Memory Backend Implementation

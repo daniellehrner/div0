@@ -1,7 +1,5 @@
 #include "div0/trie/hex_prefix.h"
 
-#include <string.h>
-
 /// Hex-prefix flag bits in the first nibble.
 enum {
   HP_FLAG_ODD = 0x01,  // Bit 0: odd number of nibbles

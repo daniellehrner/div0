@@ -16,8 +16,10 @@
 #define FNV1A_OFFSET_BASIS 14695981039346656037ULL
 #define FNV1A_PRIME 1099511628211ULL
 
+// NOLINTBEGIN(CppDFAUnreachableFunctionCall) - Functions used via STC container macros
+
 /// FNV-1a hash over arbitrary bytes
-static inline uint64_t fnv1a_hash(const uint8_t *data, size_t len) {
+static uint64_t fnv1a_hash(const uint8_t *data, size_t len) {
   uint64_t hash = FNV1A_OFFSET_BASIS;
   for (size_t i = 0; i < len; i++) {
     hash ^= data[i];
@@ -27,7 +29,7 @@ static inline uint64_t fnv1a_hash(const uint8_t *data, size_t len) {
 }
 
 /// Continue FNV-1a hash with more data
-static inline uint64_t fnv1a_hash_append(uint64_t hash, const uint8_t *data, size_t len) {
+static uint64_t fnv1a_hash_append(uint64_t hash, const uint8_t *data, size_t len) {
   for (size_t i = 0; i < len; i++) {
     hash ^= data[i];
     hash *= FNV1A_PRIME;
@@ -35,8 +37,10 @@ static inline uint64_t fnv1a_hash_append(uint64_t hash, const uint8_t *data, siz
   return hash;
 }
 
+// NOLINTEND(CppDFAUnreachableFunctionCall)
+
 // Hash function for address_t
-static inline uint64_t address_hash(const address_t *addr) {
+static uint64_t address_hash(const address_t *addr) {
   return fnv1a_hash(addr->bytes, ADDRESS_SIZE);
 }
 
@@ -76,7 +80,7 @@ typedef struct {
   uint256_t slot;
 } warm_slot_key_t;
 
-static inline uint64_t warm_slot_key_hash(const warm_slot_key_t *key) {
+static uint64_t warm_slot_key_hash(const warm_slot_key_t *key) {
   // FNV-1a hash over address + slot bytes
   uint64_t hash = fnv1a_hash(key->addr.bytes, ADDRESS_SIZE);
 
@@ -86,7 +90,7 @@ static inline uint64_t warm_slot_key_hash(const warm_slot_key_t *key) {
   return fnv1a_hash_append(hash, slot_bytes, 32);
 }
 
-static inline bool warm_slot_key_eq(const warm_slot_key_t *a, const warm_slot_key_t *b) {
+static bool warm_slot_key_eq(const warm_slot_key_t *a, const warm_slot_key_t *b) {
   if (!address_equal(&a->addr, &b->addr)) {
     return false;
   }

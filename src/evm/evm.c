@@ -6,7 +6,6 @@
 #include "div0/evm/opcodes/call.h"
 #include "div0/evm/stack.h"
 #include "div0/evm/status.h"
-#include "div0/state/state_access.h"
 #include "div0/types/uint256.h"
 
 #include "opcodes/push.h"
@@ -14,7 +13,6 @@
 
 #include <stddef.h>
 #include <stdint.h>
-#include <string.h>
 
 void evm_init(evm_t *evm, div0_arena_t *arena, fork_t fork) {
   __builtin___memset_chk(evm, 0, sizeof(evm_t), __builtin_object_size(evm, 0));

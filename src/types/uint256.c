@@ -80,7 +80,7 @@ static const uint16_t RECIPROCAL_TABLE[256] = {
     1055, 1053, 1051, 1049, 1047, 1044, 1042, 1040, 1038, 1036, 1034, 1032, 1030, 1028, 1026, 1024};
 
 // 64x64 -> 128 multiplication, returning {lo, hi}
-static inline void umul128(uint64_t x, uint64_t y, uint64_t *lo, uint64_t *hi) {
+static void umul128(uint64_t x, uint64_t y, uint64_t *lo, uint64_t *hi) {
   uint128_t p = (uint128_t)x * y;
   *lo = (uint64_t)p;
   *hi = (uint64_t)(p >> 64);
@@ -118,8 +118,8 @@ static uint64_t reciprocal_2by1(uint64_t d) {
 
 // 2-word by 1-word division with precomputed reciprocal
 // Returns {quotient, remainder}
-static inline void udivrem_2by1(uint64_t u_lo, uint64_t u_hi, uint64_t d, uint64_t v,
-                                uint64_t *q_out, uint64_t *r_out) {
+static void udivrem_2by1(uint64_t u_lo, uint64_t u_hi, uint64_t d, uint64_t v, uint64_t *q_out,
+                         uint64_t *r_out) {
   uint64_t q_lo;
   uint64_t q_hi;
   umul128(v, u_hi, &q_lo, &q_hi);

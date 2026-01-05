@@ -3,7 +3,7 @@
 #include <string.h>
 
 /// Rounds up to the nearest multiple of 32.
-static inline size_t round_up_32(size_t n) {
+static size_t round_up_32(size_t n) {
   return (n + 31) & ~((size_t)31);
 }
 

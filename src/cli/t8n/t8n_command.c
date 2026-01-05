@@ -187,7 +187,7 @@ static bool get_block_hash_cb(uint64_t block_number, void *user_data, hash_t *ou
 // State Building
 // ============================================================================
 
-static bool build_state_from_snapshot(world_state_t *ws, const state_snapshot_t *snapshot) {
+static void build_state_from_snapshot(world_state_t *ws, const state_snapshot_t *snapshot) {
   state_access_t *state = world_state_access(ws);
 
   for (size_t i = 0; i < snapshot->account_count; i++) {
@@ -211,7 +211,6 @@ static bool build_state_from_snapshot(world_state_t *ws, const state_snapshot_t 
       state_set_storage(state, &acc->address, acc->storage[j].slot, acc->storage[j].value);
     }
   }
-  return true;
 }
 
 // ============================================================================
@@ -614,12 +613,7 @@ int cmd_t8n(int argc, const char **argv) {
     return DIV0_EXIT_GENERAL_ERROR;
   }
   ctx.ws = ws;
-
-  if (!build_state_from_snapshot(ws, &pre_state)) {
-    fprintf(stderr, "t8n: failed to build state from pre-state\n");
-    t8n_context_cleanup(&ctx);
-    return DIV0_EXIT_GENERAL_ERROR;
-  }
+  build_state_from_snapshot(ws, &pre_state);
 
   // Build block context from env
   block_context_t block_ctx;

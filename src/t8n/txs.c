@@ -4,7 +4,6 @@
 
 #include "div0/util/hex.h"
 
-#include <string.h>
 #include <yyjson.h>
 
 // ============================================================================

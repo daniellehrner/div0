@@ -3,7 +3,6 @@
 #include "KeccakSponge.h"
 
 #include <assert.h>
-#include <string.h>
 
 // Keccak-256 parameters (in bits)
 // rate + capacity = 1600 (the Keccak-f[1600] permutation width)
@@ -17,7 +16,7 @@ static_assert(sizeof(KeccakWidth1600_SpongeInstance) <= KECCAK256_STATE_SIZE,
 // Helper to access typed sponge state from raw storage.
 // Safety: hasher->state is aligned to 64 bytes (alignas(64) in header),
 // which exceeds any alignment requirement of KeccakWidth1600_SpongeInstance.
-static inline KeccakWidth1600_SpongeInstance *sponge(keccak256_hasher_t *hasher) {
+static KeccakWidth1600_SpongeInstance *sponge(keccak256_hasher_t *hasher) {
   // NOLINTNEXTLINE(bugprone-casting-through-void)
   return (KeccakWidth1600_SpongeInstance *)(void *)hasher->state;
 }

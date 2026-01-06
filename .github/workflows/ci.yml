@@ -16,7 +16,7 @@ env:
 jobs:
   check:
     name: Static Analysis
-    runs-on: buildjet-16vcpu-ubuntu-2204
+    runs-on: ubicloud-standard-8-ubuntu-2404
     steps:
       - uses: actions/checkout@v4
 
@@ -41,7 +41,7 @@ jobs:
 
   test:
     name: Test (${{ matrix.preset }})
-    runs-on: buildjet-16vcpu-ubuntu-2204
+    runs-on: ubicloud-standard-8-ubuntu-2404
     strategy:
       fail-fast: false
       matrix:
@@ -54,7 +54,7 @@ jobs:
           version: ${{ env.LLVM_VERSION }}
 
       - name: Cache FetchContent dependencies
-        uses: buildjet/cache@v4
+        uses: ubicloud/cache@v4
         with:
           path: build/${{ matrix.preset }}/_deps
           key: deps-${{ matrix.preset }}-${{ hashFiles('cmake/Dependencies.cmake') }}
@@ -67,7 +67,7 @@ jobs:
           ccache -z
 
       - name: Cache ccache
-        uses: buildjet/cache@v4
+        uses: ubicloud/cache@v4
         with:
           path: ~/.ccache
           key: ccache-${{ matrix.preset }}-${{ runner.os }}-llvm${{ env.LLVM_VERSION }}

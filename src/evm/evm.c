@@ -8,6 +8,7 @@
 #include "div0/evm/status.h"
 #include "div0/types/uint256.h"
 
+#include "opcodes/arithmetic.h"
 #include "opcodes/push.h"
 #include "opcodes/storage.h"
 
@@ -315,6 +316,16 @@ static frame_result_t execute_frame(evm_t *evm, call_frame_t *frame) {
       [0x00 ... OPCODE_MAX] = &&op_invalid,
       [OP_STOP] = &&op_stop,
       [OP_ADD] = &&op_add,
+      [OP_MUL] = &&op_mul,
+      [OP_SUB] = &&op_sub,
+      [OP_DIV] = &&op_div,
+      [OP_SDIV] = &&op_sdiv,
+      [OP_MOD] = &&op_mod,
+      [OP_SMOD] = &&op_smod,
+      [OP_ADDMOD] = &&op_addmod,
+      [OP_MULMOD] = &&op_mulmod,
+      [OP_EXP] = &&op_exp,
+      [OP_SIGNEXTEND] = &&op_signextend,
       [OP_PUSH0] = &&op_push0,
       [OP_PUSH1] = &&op_push1,
       [OP_PUSH2] = &&op_push2,
@@ -381,6 +392,86 @@ op_add:
     evm_stack_push_unsafe(frame->stack, uint256_add(a, b));
   }
   DISPATCH();
+
+op_mul: {
+  evm_status_t status = op_mul(frame, evm->gas_table[OP_MUL]);
+  if (status != EVM_OK) {
+    return frame_result_error(status);
+  }
+  DISPATCH();
+}
+
+op_sub: {
+  evm_status_t status = op_sub(frame, evm->gas_table[OP_SUB]);
+  if (status != EVM_OK) {
+    return frame_result_error(status);
+  }
+  DISPATCH();
+}
+
+op_div: {
+  evm_status_t status = op_div(frame, evm->gas_table[OP_DIV]);
+  if (status != EVM_OK) {
+    return frame_result_error(status);
+  }
+  DISPATCH();
+}
+
+op_sdiv: {
+  evm_status_t status = op_sdiv(frame, evm->gas_table[OP_SDIV]);
+  if (status != EVM_OK) {
+    return frame_result_error(status);
+  }
+  DISPATCH();
+}
+
+op_mod: {
+  evm_status_t status = op_mod(frame, evm->gas_table[OP_MOD]);
+  if (status != EVM_OK) {
+    return frame_result_error(status);
+  }
+  DISPATCH();
+}
+
+op_smod: {
+  evm_status_t status = op_smod(frame, evm->gas_table[OP_SMOD]);
+  if (status != EVM_OK) {
+    return frame_result_error(status);
+  }
+  DISPATCH();
+}
+
+op_addmod: {
+  evm_status_t status = op_addmod(frame, evm->gas_table[OP_ADDMOD]);
+  if (status != EVM_OK) {
+    return frame_result_error(status);
+  }
+  DISPATCH();
+}
+
+op_mulmod: {
+  evm_status_t status = op_mulmod(frame, evm->gas_table[OP_MULMOD]);
+  if (status != EVM_OK) {
+    return frame_result_error(status);
+  }
+  DISPATCH();
+}
+
+op_exp: {
+  evm_status_t status = op_exp(frame);
+  if (status != EVM_OK) {
+    return frame_result_error(status);
+  }
+  DISPATCH();
+}
+
+op_signextend: {
+  evm_status_t status = op_signextend(frame, evm->gas_table[OP_SIGNEXTEND]);
+  if (status != EVM_OK) {
+    return frame_result_error(status);
+  }
+  DISPATCH();
+}
 
 op_push0: {
   evm_status_t status = op_push0(frame, evm->gas_table[OP_PUSH0]);

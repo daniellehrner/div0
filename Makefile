@@ -1,7 +1,7 @@
 # div0 - High-performance EVM implementation
 # Makefile wrapper for CMake builds
 
-.PHONY: all check debug release threadsan bare-metal-riscv test clean distclean format clang-tidy semgrep help
+.PHONY: all check debug release threadsan bare-metal-riscv test test-threadsan bench clean distclean format clang-tidy semgrep help
 
 # Default compiler - must be Clang
 CC := clang
@@ -56,6 +56,10 @@ test: debug
 test-threadsan: threadsan
 	ctest --test-dir $(BUILD_THREADSAN) --output-on-failure
 
+# Run benchmarks (release build)
+bench: release
+	$(BUILD_RELEASE)/benchmarks/uint256_bench
+
 # Clean project build artifacts (preserves external dependencies like picolibc)
 clean:
 	@for dir in $(BUILD_DEBUG) $(BUILD_RELEASE) $(BUILD_THREADSAN) $(BUILD_RISCV); do \
@@ -100,6 +104,7 @@ help:
 	@echo "  bare-metal-riscv - RISC-V 64-bit bare-metal build (requires PICOLIBC_ROOT)"
 	@echo "  test             - Run tests (debug build)"
 	@echo "  test-threadsan   - Run tests with ThreadSanitizer"
+	@echo "  bench            - Run benchmarks (release build)"
 	@echo "  clean            - Clean project artifacts (preserves external deps)"
 	@echo "  distclean        - Remove everything including external dependencies"
 	@echo "  format           - Format source code with clang-format"

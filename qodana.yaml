@@ -1,0 +1,14 @@
+version: "1.0"
+
+# Use separate build directory to avoid conflicts with normal CMake builds
+ide:
+  cmake:
+    buildDirectory: .qodana-build
+
+exclude:
+  - name: Build artifacts
+    paths:
+      - build/
+      - .qodana-build/
+      - .qodana-cache/
+      - .qodana-results/

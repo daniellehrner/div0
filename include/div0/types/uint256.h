@@ -172,7 +172,7 @@ uint256_t uint256_mulmod(uint256_t a, uint256_t b, uint256_t n);
 /// Computes base^exponent mod 2^256 using binary exponentiation.
 uint256_t uint256_exp(uint256_t base, uint256_t exponent);
 
-/// Returns the number of bytes needed to represent the exponent.
+/// Returns the number of bytes needed to represent the value.
 /// Used for EXP gas calculation.
 size_t uint256_byte_length(uint256_t value);
 

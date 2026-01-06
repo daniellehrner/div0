@@ -168,8 +168,8 @@ static inline evm_status_t op_exp(call_frame_t *frame) {
     return EVM_STACK_UNDERFLOW;
   }
 
-  // Peek at exponent to calculate gas (second element from top, depth=0 is top which is base)
-  const uint256_t exponent_peek = evm_stack_peek_unsafe(frame->stack, 0);
+  // Peek at exponent to calculate gas (base is at top/depth 0, exponent is at depth 1)
+  const uint256_t exponent_peek = evm_stack_peek_unsafe(frame->stack, 1);
   const size_t exp_byte_len = uint256_byte_length(exponent_peek);
 
   // Calculate total gas cost

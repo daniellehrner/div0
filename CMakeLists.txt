@@ -326,6 +326,7 @@ if(DIV0_BUILD_TESTS)
     tests/evm/test_stack.c
     tests/evm/test_stack_pool.c
     tests/evm/test_evm.c
+    tests/evm/test_opcodes_arithmetic.c
     # crypto tests
     tests/crypto/test_keccak256.c
     tests/crypto/test_secp256k1.c
@@ -419,4 +420,14 @@ if(DIV0_BUILD_TESTS)
 
     add_test(NAME div0_tests COMMAND div0_tests)
   endif()
+endif()
+
+# =============================================================================
+# Benchmarks (optional, only for hosted builds)
+# =============================================================================
+
+option(DIV0_BUILD_BENCHMARKS "Build benchmark executables" ON)
+
+if(DIV0_BUILD_BENCHMARKS AND NOT DIV0_FREESTANDING)
+  add_subdirectory(benchmarks)
 endif()

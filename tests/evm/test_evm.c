@@ -137,8 +137,8 @@ void test_evm_add_multiple(void) {
 
 void test_evm_invalid_opcode(void) {
   // Use an opcode that is not implemented in the interpreter.
-  // 0x02 (MUL) is a valid EVM opcode but not yet implemented.
-  uint8_t code[] = {OP_MUL};
+  // 0x10 (LT) is a valid EVM opcode but not yet implemented.
+  uint8_t code[] = {OP_LT};
 
   evm_t evm;
   evm_init(&evm, &test_arena, FORK_SHANGHAI);

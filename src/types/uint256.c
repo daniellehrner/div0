@@ -432,3 +432,448 @@ bool uint256_from_hex(const char *hex, uint256_t *out) {
   *out = uint256_from_bytes_be(bytes, UINT256_BYTES);
   return true;
 }
+
+// =============================================================================
+// Helper: Two's complement negation
+// =============================================================================
+
+/// Negates a uint256 value (two's complement: -x = ~x + 1)
+static inline uint256_t uint256_negate(const uint256_t a) {
+  // ~a + 1
+  const uint256_t not_a = uint256_from_limbs(~a.limbs[0], ~a.limbs[1], ~a.limbs[2], ~a.limbs[3]);
+  return uint256_add(not_a, uint256_from_u64(1));
+}
+
+// =============================================================================
+// Signed Arithmetic Operations
+// =============================================================================
+
+// MIN_VALUE = -2^255 = 0x8000...0000 (only high bit set)
+static const uint256_t MIN_NEGATIVE_VALUE = {{0, 0, 0, 0x8000000000000000ULL}};
+
+// -1 in two's complement is all 1s
+static const uint256_t MINUS_ONE = {{~0ULL, ~0ULL, ~0ULL, ~0ULL}};
+
+uint256_t uint256_sdiv(const uint256_t a, const uint256_t b) {
+  // Division by zero returns 0 (EVM semantics)
+  if (uint256_is_zero(b)) {
+    return uint256_zero();
+  }
+
+  // Special case: MIN_VALUE / -1 would overflow (result > MAX_POSITIVE)
+  // EVM returns MIN_VALUE in this case
+  if (uint256_eq(a, MIN_NEGATIVE_VALUE) && uint256_eq(b, MINUS_ONE)) {
+    return MIN_NEGATIVE_VALUE;
+  }
+
+  // Get signs from MSB
+  const bool a_neg = uint256_is_negative(a);
+  const bool b_neg = uint256_is_negative(b);
+
+  // Convert to absolute values
+  const uint256_t abs_a = a_neg ? uint256_negate(a) : a;
+  const uint256_t abs_b = b_neg ? uint256_negate(b) : b;
+
+  // Fast path: both operands fit in 64 bits - use native hardware division
+  if ((abs_a.limbs[1] | abs_a.limbs[2] | abs_a.limbs[3]) == 0 &&
+      (abs_b.limbs[1] | abs_b.limbs[2] | abs_b.limbs[3]) == 0) {
+    const uint64_t q = abs_a.limbs[0] / abs_b.limbs[0];
+    // Apply sign: negative if exactly one operand was negative
+    if (a_neg != b_neg) {
+      return uint256_negate(uint256_from_u64(q));
+    }
+    return uint256_from_u64(q);
+  }
+
+  // Perform unsigned division for multi-limb case
+  const uint256_t quotient = uint256_div(abs_a, abs_b);
+
+  // Apply sign: negative if exactly one operand was negative
+  return (a_neg != b_neg) ? uint256_negate(quotient) : quotient;
+}
+
+uint256_t uint256_smod(const uint256_t a, const uint256_t b) {
+  // Modulo by zero returns 0 (EVM semantics)
+  if (uint256_is_zero(b)) {
+    return uint256_zero();
+  }
+
+  // Get signs
+  const bool a_neg = uint256_is_negative(a);
+  const bool b_neg = uint256_is_negative(b);
+
+  // Convert to absolute values
+  const uint256_t abs_a = a_neg ? uint256_negate(a) : a;
+  const uint256_t abs_b = b_neg ? uint256_negate(b) : b;
+
+  // Fast path: both operands fit in 64 bits - use native hardware modulo
+  if ((abs_a.limbs[1] | abs_a.limbs[2] | abs_a.limbs[3]) == 0 &&
+      (abs_b.limbs[1] | abs_b.limbs[2] | abs_b.limbs[3]) == 0) {
+    const uint64_t r = abs_a.limbs[0] % abs_b.limbs[0];
+    // Result sign follows dividend sign (EVM semantics)
+    if (a_neg) {
+      return uint256_negate(uint256_from_u64(r));
+    }
+    return uint256_from_u64(r);
+  }
+
+  // Perform unsigned modulo for multi-limb case
+  const uint256_t remainder = uint256_mod(abs_a, abs_b);
+
+  // Result sign follows dividend sign (EVM semantics)
+  return a_neg ? uint256_negate(remainder) : remainder;
+}
+
+uint256_t uint256_signextend(const uint256_t byte_pos, const uint256_t x) {
+  // If byte_pos >= 31 (or any upper limbs set), the value already uses all 256 bits
+  // No sign extension needed
+  if (byte_pos.limbs[1] != 0 || byte_pos.limbs[2] != 0 || byte_pos.limbs[3] != 0 ||
+      byte_pos.limbs[0] >= 31) {
+    return x;
+  }
+
+  // byte_pos is 0-30, indicating which byte's MSB is the sign bit
+  // Byte 0 = bits 0-7, Byte 1 = bits 8-15, etc.
+  // Sign bit is at position: (8 * byte_pos) + 7
+  const uint64_t pos = byte_pos.limbs[0];
+  const unsigned bit_index = (unsigned)((8 * pos) + 7);
+
+  // Determine which limb contains the sign bit
+  const unsigned limb_index = bit_index / 64;
+  const unsigned bit_in_limb = bit_index % 64;
+
+  // Check if the sign bit is set
+  const bool sign_bit = ((x.limbs[limb_index] >> bit_in_limb) & 1) != 0;
+
+  uint256_t result = x;
+
+  if (!sign_bit) {
+    // Positive: clear all bits above the sign bit position
+    // Create a mask with 1s from bit 0 to bit_index (inclusive)
+
+    // Clear bits above sign bit in the containing limb
+    // Handle bit_in_limb == 63 specially to avoid shift overflow
+    const uint64_t limb_mask = (bit_in_limb == 63) ? ~0ULL : (1ULL << (bit_in_limb + 1)) - 1;
+    result.limbs[limb_index] &= limb_mask;
+
+    // Clear all higher limbs
+    for (unsigned i = limb_index + 1; i < 4; ++i) {
+      result.limbs[i] = 0;
+    }
+  } else {
+    // Negative: set all bits above the sign bit position to 1
+
+    // Set bits above sign bit in the containing limb to 1
+    // Handle bit_in_limb == 63 specially to avoid shift overflow
+    const uint64_t limb_mask = (bit_in_limb == 63) ? 0ULL : ~((1ULL << (bit_in_limb + 1)) - 1);
+    result.limbs[limb_index] |= limb_mask;
+
+    // Set all higher limbs to all 1s
+    for (unsigned i = limb_index + 1; i < 4; ++i) {
+      result.limbs[i] = ~0ULL;
+    }
+  }
+
+  return result;
+}
+
+// =============================================================================
+// Modular Arithmetic Operations
+// =============================================================================
+
+uint256_t uint256_addmod(const uint256_t a, const uint256_t b, const uint256_t n) {
+  // Return 0 if modulus is zero (EVM semantics)
+  if (uint256_is_zero(n)) {
+    return uint256_zero();
+  }
+
+  // Compute a + b with potential 257-bit result
+  // We need to handle carry properly
+  uint256_t sum;
+  unsigned long long carry = 0;
+  sum.limbs[0] = __builtin_addcll(a.limbs[0], b.limbs[0], carry, &carry);
+  sum.limbs[1] = __builtin_addcll(a.limbs[1], b.limbs[1], carry, &carry);
+  sum.limbs[2] = __builtin_addcll(a.limbs[2], b.limbs[2], carry, &carry);
+  sum.limbs[3] = __builtin_addcll(a.limbs[3], b.limbs[3], carry, &carry);
+
+  if (carry == 0) {
+    // No overflow - simple modulo
+    return uint256_mod(sum, n);
+  }
+
+  // We have a 257-bit number: carry bit + sum
+  // Need to compute (carry * 2^256 + sum) mod n
+  // = ((carry * 2^256) mod n + sum mod n) mod n
+
+  // First, compute 2^256 mod n
+  // 2^256 = (2^256 - n) + n, so 2^256 mod n = (2^256 - n) mod n if 2^256 > n
+  // Since n <= 2^256 - 1, we have 2^256 - n >= 1
+  // We compute this as: (MAX_UINT256 + 1 - n) mod n = (MAX_UINT256 - n + 1) mod n
+  // But MAX_UINT256 + 1 = 0 (overflow), so we compute differently:
+  // 2^256 mod n = ((2^256 - 1) - (n - 1)) mod n = (MAX - (n-1)) mod n = (MAX - n + 1) mod n
+  // Since MAX = 2^256 - 1, MAX - n + 1 = 2^256 - n which is < 2^256
+
+  const uint256_t max_val = uint256_from_limbs(~0ULL, ~0ULL, ~0ULL, ~0ULL);
+  // pow_256_mod_n = (MAX - n + 1) mod n = (MAX - (n - 1)) mod n
+  // = uint256_sub(max_val, uint256_sub(n, one)) mod n
+  // Simplify: if n <= MAX, then MAX - n + 1 < 2^256, so we can compute directly
+  const uint256_t pow_256_mod_n =
+      uint256_mod(uint256_add(uint256_sub(max_val, n), uint256_from_u64(1)), n);
+
+  // Result = (carry * pow_256_mod_n + sum) mod n
+  // Since carry is 1, this is just (pow_256_mod_n + sum mod n) mod n
+  const uint256_t sum_mod_n = uint256_mod(sum, n);
+  const uint256_t partial = uint256_add(pow_256_mod_n, sum_mod_n);
+
+  // Check if this addition overflowed
+  if (uint256_lt(partial, pow_256_mod_n)) {
+    // Overflow - need to handle 257-bit case again (recursive case very rare)
+    // Actually, since pow_256_mod_n < n and sum_mod_n < n, their sum < 2n < 2^256
+    // So we just need to subtract n if result >= n
+    return uint256_mod(partial, n);
+  }
+
+  // No overflow, but result might be >= n
+  if (!uint256_lt(partial, n)) {
+    return uint256_sub(partial, n);
+  }
+  return partial;
+}
+
+/// 512-bit intermediate result for mulmod
+typedef struct {
+  uint64_t limbs[8];
+} uint512_t;
+
+/// Multiply two uint256 values to get full 512-bit result
+static uint512_t uint256_mul_full(const uint256_t a, const uint256_t b) {
+  uint512_t result = {{0}};
+
+  // Schoolbook multiplication for full 512-bit result
+  for (int i = 0; i < 4; i++) {
+    uint128_t carry = 0;
+    for (int j = 0; j < 4; j++) {
+      const uint128_t prod = ((uint128_t)a.limbs[i] * b.limbs[j]) + result.limbs[i + j] + carry;
+      result.limbs[i + j] = (uint64_t)prod;
+      carry = prod >> 64;
+    }
+    result.limbs[i + 4] = (uint64_t)carry;
+  }
+
+  return result;
+}
+
+/// Check if 512-bit value is zero
+static bool uint512_is_zero(const uint512_t a) {
+  return (a.limbs[0] | a.limbs[1] | a.limbs[2] | a.limbs[3] | a.limbs[4] | a.limbs[5] | a.limbs[6] |
+          a.limbs[7]) == 0;
+}
+
+/// 512-bit mod 256-bit using schoolbook division
+static uint256_t uint512_mod_256(const uint512_t a, const uint256_t b) {
+  // Handle special cases
+  if (uint256_is_zero(b)) {
+    return uint256_zero();
+  }
+
+  if (uint512_is_zero(a)) {
+    return uint256_zero();
+  }
+
+  // If a fits in 256 bits, use regular mod
+  if ((a.limbs[4] | a.limbs[5] | a.limbs[6] | a.limbs[7]) == 0) {
+    const uint256_t a_256 = uint256_from_limbs(a.limbs[0], a.limbs[1], a.limbs[2], a.limbs[3]);
+    return uint256_mod(a_256, b);
+  }
+
+  // Find highest non-zero limb in divisor
+  int div_top = -1;
+  for (int i = 3; i >= 0; i--) {
+    if (b.limbs[i] != 0) {
+      div_top = i;
+      break;
+    }
+  }
+
+  // Normalize divisor (shift so MSB is set)
+  const int shift = __builtin_clzll(b.limbs[div_top]);
+
+  // Shift divisor
+  uint256_t v = uint256_zero();
+  if (shift == 0) {
+    v = b;
+  } else {
+    uint64_t carry = 0;
+    for (int i = 0; i <= div_top; i++) {
+      v.limbs[i] = (b.limbs[i] << shift) | carry;
+      carry = b.limbs[i] >> (64 - shift);
+    }
+  }
+
+  // Shift dividend (need 9 limbs to handle overflow)
+  uint64_t u[9] = {0};
+  if (shift == 0) {
+    for (int i = 0; i < 8; i++) {
+      u[i] = a.limbs[i];
+    }
+  } else {
+    uint64_t carry = 0;
+    for (int i = 0; i < 8; i++) {
+      u[i] = (a.limbs[i] << shift) | carry;
+      carry = a.limbs[i] >> (64 - shift);
+    }
+    u[8] = carry;
+  }
+
+  const size_t n = (size_t)div_top + 1; // Number of divisor limbs
+  const size_t m = 8 - n;               // Number of quotient limbs
+
+  // Knuth's Algorithm D for multi-precision division
+  for (size_t j = m + 1; j-- > 0;) {
+    // Estimate quotient digit
+    const uint128_t tmp = ((uint128_t)u[j + n] << 64) | u[j + n - 1];
+    uint128_t q_hat = tmp / v.limbs[n - 1];
+    uint128_t r_hat = tmp % v.limbs[n - 1];
+
+    // Refine estimate
+    while (q_hat >= ((uint128_t)1 << 64) ||
+           (n >= 2 && q_hat * v.limbs[n - 2] > ((r_hat << 64) | u[j + n - 2]))) {
+      --q_hat;
+      r_hat += v.limbs[n - 1];
+      if (r_hat >= ((uint128_t)1 << 64)) {
+        break;
+      }
+    }
+
+    // Multiply and subtract
+    uint128_t carry = 0;
+    uint128_t borrow = 0;
+    for (size_t i = 0; i < n; ++i) {
+      const uint128_t prod = (q_hat * v.limbs[i]) + carry;
+      carry = prod >> 64;
+      const uint128_t sub_val = (prod & (((uint128_t)1 << 64) - 1)) + borrow;
+      const uint128_t diff = (uint128_t)u[j + i] + ((uint128_t)1 << 64) - sub_val;
+      u[j + i] = (uint64_t)diff;
+      borrow = 1 - (diff >> 64);
+    }
+
+    const uint128_t sub_final = carry + borrow;
+    const uint128_t diff_final = (uint128_t)u[j + n] + ((uint128_t)1 << 64) - sub_final;
+    u[j + n] = (uint64_t)diff_final;
+    const uint64_t final_borrow = (uint64_t)(1 - (diff_final >> 64));
+
+    // Add back if needed
+    if (final_borrow != 0) {
+      uint64_t add_carry = 0;
+      for (size_t i = 0; i < n; ++i) {
+        const uint128_t sum = (uint128_t)u[j + i] + v.limbs[i] + add_carry;
+        u[j + i] = (uint64_t)sum;
+        add_carry = (uint64_t)(sum >> 64);
+      }
+      u[j + n] += add_carry;
+    }
+  }
+
+  // Denormalize remainder
+  uint64_t r_limbs[4] = {0};
+  if (shift == 0) {
+    for (size_t i = 0; i < n; ++i) {
+      r_limbs[i] = u[i];
+    }
+  } else {
+    for (size_t i = 0; i < n - 1; ++i) {
+      r_limbs[i] = (u[i] >> shift) | (u[i + 1] << (64 - shift));
+    }
+    r_limbs[n - 1] = u[n - 1] >> shift;
+  }
+
+  return uint256_from_limbs(r_limbs[0], r_limbs[1], r_limbs[2], r_limbs[3]);
+}
+
+uint256_t uint256_mulmod(const uint256_t a, const uint256_t b, const uint256_t n) {
+  // Return 0 if modulus is zero (EVM semantics)
+  if (uint256_is_zero(n)) {
+    return uint256_zero();
+  }
+
+  // Return 0 if either operand is zero
+  if (uint256_is_zero(a) || uint256_is_zero(b)) {
+    return uint256_zero();
+  }
+
+  // Compute full 512-bit product
+  const uint512_t product = uint256_mul_full(a, b);
+
+  // Fast path: if product fits in 256 bits, use regular mod
+  if ((product.limbs[4] | product.limbs[5] | product.limbs[6] | product.limbs[7]) == 0) {
+    const uint256_t prod_256 =
+        uint256_from_limbs(product.limbs[0], product.limbs[1], product.limbs[2], product.limbs[3]);
+    return uint256_mod(prod_256, n);
+  }
+
+  // General case: 512-bit mod 256-bit
+  return uint512_mod_256(product, n);
+}
+
+// =============================================================================
+// Exponentiation
+// =============================================================================
+
+uint256_t uint256_exp(const uint256_t base, const uint256_t exponent) {
+  // Special cases for quick exit
+  if (uint256_is_zero(exponent)) {
+    return uint256_from_u64(1); // x^0 = 1
+  }
+
+  if (uint256_is_zero(base)) {
+    return uint256_zero(); // 0^n = 0 (for n > 0)
+  }
+
+  if (uint256_eq(base, uint256_from_u64(1))) {
+    return uint256_from_u64(1); // 1^n = 1
+  }
+
+  // Optimization: if base is even and exponent is large, result will overflow to 0
+  // An even base raised to power >= 256 will be 0 mod 2^256
+  // (2^k)^n = 2^(k*n), and k*n >= 256 when n >= 256/k
+  // For base divisible by 2, any exponent > 255 gives 0
+  if ((base.limbs[0] & 1) == 0 && (exponent.limbs[0] > 255 || exponent.limbs[1] != 0 ||
+                                   exponent.limbs[2] != 0 || exponent.limbs[3] != 0)) {
+    return uint256_zero();
+  }
+
+  // Binary exponentiation (square-and-multiply)
+  uint256_t result = uint256_from_u64(1);
+  uint256_t multiplier = base;
+  uint256_t exp = exponent;
+
+  while (!uint256_is_zero(exp)) {
+    if ((exp.limbs[0] & 1) != 0) {
+      result = uint256_mul(result, multiplier);
+    }
+    multiplier = uint256_mul(multiplier, multiplier);
+    // Right shift exp by 1
+    exp.limbs[0] = (exp.limbs[0] >> 1) | (exp.limbs[1] << 63);
+    exp.limbs[1] = (exp.limbs[1] >> 1) | (exp.limbs[2] << 63);
+    exp.limbs[2] = (exp.limbs[2] >> 1) | (exp.limbs[3] << 63);
+    exp.limbs[3] = exp.limbs[3] >> 1;
+  }
+
+  return result;
+}
+
+size_t uint256_byte_length(const uint256_t value) {
+  // Find highest non-zero limb
+  for (int i = 3; i >= 0; i--) {
+    if (value.limbs[i] != 0) {
+      // Find highest non-zero byte in this limb
+      const uint64_t limb = value.limbs[i];
+      int byte_pos = 7;
+      while (byte_pos >= 0 && ((limb >> (byte_pos * 8)) & 0xFF) == 0) {
+        byte_pos--;
+      }
+      return ((size_t)i * 8) + (size_t)byte_pos + 1;
+    }
+  }
+  return 0; // Value is zero
+}

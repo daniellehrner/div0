@@ -17,6 +17,7 @@
 
 // Test headers - evm
 #include "evm/test_evm.h"
+#include "evm/test_opcodes_arithmetic.h"
 #include "evm/test_stack.h"
 #include "evm/test_stack_pool.h"
 
@@ -98,6 +99,56 @@ int main(void) {
   RUN_TEST(test_uint256_mod_by_one);
   RUN_TEST(test_uint256_mod_no_remainder);
   RUN_TEST(test_uint256_div_mod_consistency);
+
+  // Signed arithmetic tests
+  RUN_TEST(test_uint256_is_negative_zero);
+  RUN_TEST(test_uint256_is_negative_positive);
+  RUN_TEST(test_uint256_is_negative_negative);
+  RUN_TEST(test_uint256_sdiv_by_zero);
+  RUN_TEST(test_uint256_sdiv_positive_by_positive);
+  RUN_TEST(test_uint256_sdiv_negative_by_positive);
+  RUN_TEST(test_uint256_sdiv_positive_by_negative);
+  RUN_TEST(test_uint256_sdiv_negative_by_negative);
+  RUN_TEST(test_uint256_sdiv_min_value_by_minus_one);
+  RUN_TEST(test_uint256_smod_by_zero);
+  RUN_TEST(test_uint256_smod_positive_by_positive);
+  RUN_TEST(test_uint256_smod_negative_by_positive);
+  RUN_TEST(test_uint256_smod_positive_by_negative);
+  RUN_TEST(test_uint256_smod_negative_by_negative);
+  RUN_TEST(test_uint256_sdiv_smod_identity);
+
+  // Sign extend tests
+  RUN_TEST(test_uint256_signextend_byte_pos_zero_positive);
+  RUN_TEST(test_uint256_signextend_byte_pos_zero_negative);
+  RUN_TEST(test_uint256_signextend_byte_pos_one_positive);
+  RUN_TEST(test_uint256_signextend_byte_pos_one_negative);
+  RUN_TEST(test_uint256_signextend_byte_pos_31_or_larger);
+  RUN_TEST(test_uint256_signextend_clears_high_bits);
+
+  // Modular arithmetic tests
+  RUN_TEST(test_uint256_addmod_by_zero);
+  RUN_TEST(test_uint256_addmod_no_overflow);
+  RUN_TEST(test_uint256_addmod_with_overflow);
+  RUN_TEST(test_uint256_addmod_result_equals_modulus);
+  RUN_TEST(test_uint256_addmod_modulus_one);
+  RUN_TEST(test_uint256_mulmod_by_zero);
+  RUN_TEST(test_uint256_mulmod_no_overflow);
+  RUN_TEST(test_uint256_mulmod_with_overflow);
+  RUN_TEST(test_uint256_mulmod_modulus_one);
+
+  // Exponentiation tests
+  RUN_TEST(test_uint256_exp_exponent_zero);
+  RUN_TEST(test_uint256_exp_base_zero);
+  RUN_TEST(test_uint256_exp_base_one);
+  RUN_TEST(test_uint256_exp_exponent_one);
+  RUN_TEST(test_uint256_exp_small_powers);
+  RUN_TEST(test_uint256_exp_powers_of_two);
+  RUN_TEST(test_uint256_exp_overflow);
+
+  // Byte length tests
+  RUN_TEST(test_uint256_byte_length_zero);
+  RUN_TEST(test_uint256_byte_length_small_values);
+  RUN_TEST(test_uint256_byte_length_limb_boundaries);
 
   // bytes32 tests
   RUN_TEST(test_bytes32_zero_is_zero);
@@ -199,6 +250,33 @@ int main(void) {
   RUN_TEST(test_evm_init_prague);
   RUN_TEST(test_evm_gas_refund_initialized);
   RUN_TEST(test_evm_gas_refund_reset);
+
+  // Arithmetic opcode tests
+  RUN_TEST(test_opcode_sub_basic);
+  RUN_TEST(test_opcode_mul_basic);
+  RUN_TEST(test_opcode_div_basic);
+  RUN_TEST(test_opcode_div_by_zero);
+  RUN_TEST(test_opcode_mod_basic);
+  RUN_TEST(test_opcode_mod_by_zero);
+  RUN_TEST(test_opcode_sdiv_positive_by_positive);
+  RUN_TEST(test_opcode_sdiv_negative_by_positive);
+  RUN_TEST(test_opcode_sdiv_by_zero);
+  RUN_TEST(test_opcode_smod_positive_by_positive);
+  RUN_TEST(test_opcode_smod_negative_by_positive);
+  RUN_TEST(test_opcode_smod_by_zero);
+  RUN_TEST(test_opcode_addmod_basic);
+  RUN_TEST(test_opcode_addmod_by_zero);
+  RUN_TEST(test_opcode_mulmod_basic);
+  RUN_TEST(test_opcode_mulmod_by_zero);
+  RUN_TEST(test_opcode_exp_basic);
+  RUN_TEST(test_opcode_exp_zero_exponent);
+  RUN_TEST(test_opcode_exp_gas_cost);
+  RUN_TEST(test_opcode_signextend_byte_zero);
+  RUN_TEST(test_opcode_signextend_byte_one);
+  RUN_TEST(test_opcode_signextend_byte_31);
+  RUN_TEST(test_opcode_sub_stack_underflow);
+  RUN_TEST(test_opcode_addmod_stack_underflow);
+  RUN_TEST(test_opcode_arithmetic_out_of_gas);
 
   // keccak256 tests
   RUN_TEST(test_keccak256_empty);

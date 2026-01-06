@@ -242,3 +242,397 @@ void test_uint256_div_mod_consistency(void) {
   uint256_t reconstructed = uint256_add(uint256_mul(q, b), r);
   TEST_ASSERT_TRUE(uint256_eq(a, reconstructed));
 }
+
+// =============================================================================
+// Signed Arithmetic Tests
+// =============================================================================
+
+// Helper to create -1 (all bits set)
+static uint256_t uint256_minus_one(void) {
+  return uint256_from_limbs(UINT64_MAX, UINT64_MAX, UINT64_MAX, UINT64_MAX);
+}
+
+// Helper to negate a value (two's complement)
+static uint256_t uint256_negate(uint256_t a) {
+  // -a = ~a + 1
+  uint256_t not_a = uint256_from_limbs(~a.limbs[0], ~a.limbs[1], ~a.limbs[2], ~a.limbs[3]);
+  return uint256_add(not_a, uint256_from_u64(1));
+}
+
+void test_uint256_is_negative_zero(void) {
+  TEST_ASSERT_FALSE(uint256_is_negative(uint256_zero()));
+}
+
+void test_uint256_is_negative_positive(void) {
+  TEST_ASSERT_FALSE(uint256_is_negative(uint256_from_u64(1)));
+  TEST_ASSERT_FALSE(uint256_is_negative(uint256_from_u64(UINT64_MAX)));
+  // Max positive: MSB is 0
+  uint256_t max_positive = uint256_from_limbs(UINT64_MAX, UINT64_MAX, UINT64_MAX, UINT64_MAX >> 1);
+  TEST_ASSERT_FALSE(uint256_is_negative(max_positive));
+}
+
+void test_uint256_is_negative_negative(void) {
+  TEST_ASSERT_TRUE(uint256_is_negative(uint256_minus_one()));
+  // Min negative: -2^255
+  uint256_t min_negative = uint256_from_limbs(0, 0, 0, 0x8000000000000000ULL);
+  TEST_ASSERT_TRUE(uint256_is_negative(min_negative));
+}
+
+void test_uint256_sdiv_by_zero(void) {
+  // EVM spec: SDIV by zero returns 0
+  TEST_ASSERT_TRUE(uint256_is_zero(uint256_sdiv(uint256_zero(), uint256_zero())));
+  TEST_ASSERT_TRUE(uint256_is_zero(uint256_sdiv(uint256_from_u64(1), uint256_zero())));
+  TEST_ASSERT_TRUE(uint256_is_zero(uint256_sdiv(uint256_minus_one(), uint256_zero())));
+}
+
+void test_uint256_sdiv_positive_by_positive(void) {
+  // 10 / 3 = 3
+  uint256_t result = uint256_sdiv(uint256_from_u64(10), uint256_from_u64(3));
+  TEST_ASSERT_EQUAL_UINT64(3, result.limbs[0]);
+  TEST_ASSERT_EQUAL_UINT64(0, result.limbs[1]);
+
+  // 100 / 10 = 10
+  result = uint256_sdiv(uint256_from_u64(100), uint256_from_u64(10));
+  TEST_ASSERT_EQUAL_UINT64(10, result.limbs[0]);
+}
+
+void test_uint256_sdiv_negative_by_positive(void) {
+  // -10 / 3 = -3 (truncated toward zero)
+  uint256_t neg_10 = uint256_negate(uint256_from_u64(10));
+  uint256_t neg_3 = uint256_negate(uint256_from_u64(3));
+  uint256_t result = uint256_sdiv(neg_10, uint256_from_u64(3));
+  TEST_ASSERT_TRUE(uint256_eq(result, neg_3));
+}
+
+void test_uint256_sdiv_positive_by_negative(void) {
+  // 10 / -3 = -3 (truncated toward zero)
+  uint256_t neg_3 = uint256_negate(uint256_from_u64(3));
+  uint256_t result = uint256_sdiv(uint256_from_u64(10), neg_3);
+  TEST_ASSERT_TRUE(uint256_eq(result, neg_3));
+}
+
+void test_uint256_sdiv_negative_by_negative(void) {
+  // -10 / -3 = 3 (positive result)
+  uint256_t neg_10 = uint256_negate(uint256_from_u64(10));
+  uint256_t neg_3 = uint256_negate(uint256_from_u64(3));
+  uint256_t result = uint256_sdiv(neg_10, neg_3);
+  TEST_ASSERT_EQUAL_UINT64(3, result.limbs[0]);
+  TEST_ASSERT_EQUAL_UINT64(0, result.limbs[1]);
+}
+
+void test_uint256_sdiv_min_value_by_minus_one(void) {
+  // EVM special case: MIN_VALUE / -1 = MIN_VALUE (overflow)
+  uint256_t min_negative = uint256_from_limbs(0, 0, 0, 0x8000000000000000ULL);
+  uint256_t result = uint256_sdiv(min_negative, uint256_minus_one());
+  TEST_ASSERT_TRUE(uint256_eq(result, min_negative));
+}
+
+void test_uint256_smod_by_zero(void) {
+  // EVM spec: SMOD by zero returns 0
+  TEST_ASSERT_TRUE(uint256_is_zero(uint256_smod(uint256_zero(), uint256_zero())));
+  TEST_ASSERT_TRUE(uint256_is_zero(uint256_smod(uint256_from_u64(1), uint256_zero())));
+  TEST_ASSERT_TRUE(uint256_is_zero(uint256_smod(uint256_minus_one(), uint256_zero())));
+}
+
+void test_uint256_smod_positive_by_positive(void) {
+  // 10 % 3 = 1
+  uint256_t result = uint256_smod(uint256_from_u64(10), uint256_from_u64(3));
+  TEST_ASSERT_EQUAL_UINT64(1, result.limbs[0]);
+  TEST_ASSERT_EQUAL_UINT64(0, result.limbs[1]);
+
+  // 100 % 10 = 0
+  result = uint256_smod(uint256_from_u64(100), uint256_from_u64(10));
+  TEST_ASSERT_TRUE(uint256_is_zero(result));
+}
+
+void test_uint256_smod_negative_by_positive(void) {
+  // -10 % 3 = -1 (sign follows dividend)
+  uint256_t neg_10 = uint256_negate(uint256_from_u64(10));
+  uint256_t neg_1 = uint256_negate(uint256_from_u64(1));
+  uint256_t result = uint256_smod(neg_10, uint256_from_u64(3));
+  TEST_ASSERT_TRUE(uint256_eq(result, neg_1));
+}
+
+void test_uint256_smod_positive_by_negative(void) {
+  // 10 % -3 = 1 (sign follows dividend, which is positive)
+  uint256_t neg_3 = uint256_negate(uint256_from_u64(3));
+  uint256_t result = uint256_smod(uint256_from_u64(10), neg_3);
+  TEST_ASSERT_EQUAL_UINT64(1, result.limbs[0]);
+  TEST_ASSERT_EQUAL_UINT64(0, result.limbs[1]);
+}
+
+void test_uint256_smod_negative_by_negative(void) {
+  // -10 % -3 = -1 (sign follows dividend)
+  uint256_t neg_10 = uint256_negate(uint256_from_u64(10));
+  uint256_t neg_3 = uint256_negate(uint256_from_u64(3));
+  uint256_t neg_1 = uint256_negate(uint256_from_u64(1));
+  uint256_t result = uint256_smod(neg_10, neg_3);
+  TEST_ASSERT_TRUE(uint256_eq(result, neg_1));
+}
+
+void test_uint256_sdiv_smod_identity(void) {
+  // For signed: a = (a SDIV b) * b + (a SMOD b)
+  uint256_t neg_10 = uint256_negate(uint256_from_u64(10));
+  uint256_t three = uint256_from_u64(3);
+
+  uint256_t q = uint256_sdiv(neg_10, three);
+  uint256_t r = uint256_smod(neg_10, three);
+
+  // Verify: a = q * b + r
+  uint256_t reconstructed = uint256_add(uint256_mul(q, three), r);
+  TEST_ASSERT_TRUE(uint256_eq(neg_10, reconstructed));
+}
+
+// =============================================================================
+// Sign Extend Tests
+// =============================================================================
+
+void test_uint256_signextend_byte_pos_zero_positive(void) {
+  // byte_pos = 0 means extend from bit 7
+  // 0x7F has bit 7 = 0 (positive), should remain unchanged in low byte
+  uint256_t result = uint256_signextend(uint256_zero(), uint256_from_u64(0x7F));
+  TEST_ASSERT_EQUAL_UINT64(0x7F, result.limbs[0]);
+  TEST_ASSERT_EQUAL_UINT64(0, result.limbs[1]);
+}
+
+void test_uint256_signextend_byte_pos_zero_negative(void) {
+  // 0x80 has bit 7 = 1 (negative), should extend 1s
+  uint256_t result = uint256_signextend(uint256_zero(), uint256_from_u64(0x80));
+  // Result should be 0xFFFFFFFF...FFFFFF80
+  TEST_ASSERT_TRUE(uint256_is_negative(result));
+  TEST_ASSERT_EQUAL_UINT64(0xFFFFFFFFFFFFFF80ULL, result.limbs[0]);
+  TEST_ASSERT_EQUAL_UINT64(UINT64_MAX, result.limbs[1]);
+  TEST_ASSERT_EQUAL_UINT64(UINT64_MAX, result.limbs[2]);
+  TEST_ASSERT_EQUAL_UINT64(UINT64_MAX, result.limbs[3]);
+}
+
+void test_uint256_signextend_byte_pos_one_positive(void) {
+  // byte_pos = 1 means extend from bit 15
+  // 0x7FFF has bit 15 = 0 (positive)
+  uint256_t result = uint256_signextend(uint256_from_u64(1), uint256_from_u64(0x7FFF));
+  TEST_ASSERT_EQUAL_UINT64(0x7FFF, result.limbs[0]);
+  TEST_ASSERT_EQUAL_UINT64(0, result.limbs[1]);
+}
+
+void test_uint256_signextend_byte_pos_one_negative(void) {
+  // 0x8000 has bit 15 = 1 (negative), should extend 1s
+  uint256_t result = uint256_signextend(uint256_from_u64(1), uint256_from_u64(0x8000));
+  // Result should be 0xFFFF...FFFF8000
+  TEST_ASSERT_TRUE(uint256_is_negative(result));
+  TEST_ASSERT_EQUAL_UINT64(0xFFFFFFFFFFFF8000ULL, result.limbs[0]);
+}
+
+void test_uint256_signextend_byte_pos_31_or_larger(void) {
+  // byte_pos >= 31 means all 256 bits are used, no extension needed
+  uint256_t val = uint256_from_limbs(0x12345678, 0x9ABCDEF0, 0x11111111, 0x22222222);
+
+  uint256_t result31 = uint256_signextend(uint256_from_u64(31), val);
+  TEST_ASSERT_TRUE(uint256_eq(result31, val));
+
+  uint256_t result100 = uint256_signextend(uint256_from_u64(100), val);
+  TEST_ASSERT_TRUE(uint256_eq(result100, val));
+}
+
+void test_uint256_signextend_clears_high_bits(void) {
+  // When sign bit is 0, high bits should be cleared
+  uint256_t val = uint256_from_limbs(0x0000007F, UINT64_MAX, UINT64_MAX, UINT64_MAX);
+  uint256_t result = uint256_signextend(uint256_zero(), val);
+  TEST_ASSERT_EQUAL_UINT64(0x7F, result.limbs[0]);
+  TEST_ASSERT_EQUAL_UINT64(0, result.limbs[1]);
+  TEST_ASSERT_EQUAL_UINT64(0, result.limbs[2]);
+  TEST_ASSERT_EQUAL_UINT64(0, result.limbs[3]);
+}
+
+// =============================================================================
+// Modular Arithmetic Tests
+// =============================================================================
+
+void test_uint256_addmod_by_zero(void) {
+  // EVM spec: ADDMOD with N=0 returns 0
+  TEST_ASSERT_TRUE(uint256_is_zero(uint256_addmod(uint256_zero(), uint256_zero(), uint256_zero())));
+  TEST_ASSERT_TRUE(
+      uint256_is_zero(uint256_addmod(uint256_from_u64(1), uint256_from_u64(1), uint256_zero())));
+}
+
+void test_uint256_addmod_no_overflow(void) {
+  // Simple cases without overflow
+  uint256_t result = uint256_addmod(uint256_from_u64(5), uint256_from_u64(3), uint256_from_u64(10));
+  TEST_ASSERT_EQUAL_UINT64(8, result.limbs[0]);
+
+  result = uint256_addmod(uint256_from_u64(7), uint256_from_u64(8), uint256_from_u64(10));
+  TEST_ASSERT_EQUAL_UINT64(5, result.limbs[0]);
+}
+
+void test_uint256_addmod_with_overflow(void) {
+  // MAX256 + 1 mod MAX256 = 1
+  uint256_t max256 = uint256_from_limbs(UINT64_MAX, UINT64_MAX, UINT64_MAX, UINT64_MAX);
+  uint256_t result = uint256_addmod(max256, uint256_from_u64(1), max256);
+  TEST_ASSERT_EQUAL_UINT64(1, result.limbs[0]);
+  TEST_ASSERT_EQUAL_UINT64(0, result.limbs[1]);
+
+  // MAX256 + MAX256 mod MAX256 = 0
+  result = uint256_addmod(max256, max256, max256);
+  TEST_ASSERT_TRUE(uint256_is_zero(result));
+}
+
+void test_uint256_addmod_result_equals_modulus(void) {
+  // a + b = N exactly
+  uint256_t result = uint256_addmod(uint256_from_u64(5), uint256_from_u64(5), uint256_from_u64(10));
+  TEST_ASSERT_TRUE(uint256_is_zero(result));
+}
+
+void test_uint256_addmod_modulus_one(void) {
+  // Any sum mod 1 = 0
+  uint256_t result =
+      uint256_addmod(uint256_from_u64(12345), uint256_from_u64(67890), uint256_from_u64(1));
+  TEST_ASSERT_TRUE(uint256_is_zero(result));
+}
+
+void test_uint256_mulmod_by_zero(void) {
+  // EVM spec: MULMOD with N=0 returns 0
+  TEST_ASSERT_TRUE(uint256_is_zero(uint256_mulmod(uint256_zero(), uint256_zero(), uint256_zero())));
+  TEST_ASSERT_TRUE(
+      uint256_is_zero(uint256_mulmod(uint256_from_u64(1), uint256_from_u64(1), uint256_zero())));
+}
+
+void test_uint256_mulmod_no_overflow(void) {
+  // Simple cases where product fits in 256 bits
+  uint256_t result = uint256_mulmod(uint256_from_u64(5), uint256_from_u64(3), uint256_from_u64(10));
+  TEST_ASSERT_EQUAL_UINT64(5, result.limbs[0]); // 15 % 10 = 5
+
+  result = uint256_mulmod(uint256_from_u64(7), uint256_from_u64(8), uint256_from_u64(10));
+  TEST_ASSERT_EQUAL_UINT64(6, result.limbs[0]); // 56 % 10 = 6
+}
+
+void test_uint256_mulmod_with_overflow(void) {
+  // MAX256 * MAX256 mod MAX256 = 0
+  uint256_t max256 = uint256_from_limbs(UINT64_MAX, UINT64_MAX, UINT64_MAX, UINT64_MAX);
+  uint256_t result = uint256_mulmod(max256, max256, max256);
+  TEST_ASSERT_TRUE(uint256_is_zero(result));
+
+  // MAX256 * 2 mod (MAX256 - 1) = 2
+  uint256_t max_minus_1 = uint256_sub(max256, uint256_from_u64(1));
+  result = uint256_mulmod(max256, uint256_from_u64(2), max_minus_1);
+  TEST_ASSERT_EQUAL_UINT64(2, result.limbs[0]);
+}
+
+void test_uint256_mulmod_modulus_one(void) {
+  // Any product mod 1 = 0
+  uint256_t result =
+      uint256_mulmod(uint256_from_u64(12345), uint256_from_u64(67890), uint256_from_u64(1));
+  TEST_ASSERT_TRUE(uint256_is_zero(result));
+}
+
+// =============================================================================
+// Exponentiation Tests
+// =============================================================================
+
+void test_uint256_exp_exponent_zero(void) {
+  // x^0 = 1 for any x
+  uint256_t one = uint256_from_u64(1);
+  TEST_ASSERT_TRUE(uint256_eq(uint256_exp(uint256_zero(), uint256_zero()), one));
+  TEST_ASSERT_TRUE(uint256_eq(uint256_exp(uint256_from_u64(1), uint256_zero()), one));
+  TEST_ASSERT_TRUE(uint256_eq(uint256_exp(uint256_from_u64(12345), uint256_zero()), one));
+}
+
+void test_uint256_exp_base_zero(void) {
+  // 0^n = 0 for n > 0
+  TEST_ASSERT_TRUE(uint256_is_zero(uint256_exp(uint256_zero(), uint256_from_u64(1))));
+  TEST_ASSERT_TRUE(uint256_is_zero(uint256_exp(uint256_zero(), uint256_from_u64(100))));
+}
+
+void test_uint256_exp_base_one(void) {
+  // 1^n = 1 for any n
+  uint256_t one = uint256_from_u64(1);
+  TEST_ASSERT_TRUE(uint256_eq(uint256_exp(one, one), one));
+  TEST_ASSERT_TRUE(uint256_eq(uint256_exp(one, uint256_from_u64(100)), one));
+}
+
+void test_uint256_exp_exponent_one(void) {
+  // x^1 = x
+  uint256_t val = uint256_from_u64(42);
+  TEST_ASSERT_TRUE(uint256_eq(uint256_exp(val, uint256_from_u64(1)), val));
+}
+
+void test_uint256_exp_small_powers(void) {
+  // 2^10 = 1024
+  uint256_t result = uint256_exp(uint256_from_u64(2), uint256_from_u64(10));
+  TEST_ASSERT_EQUAL_UINT64(1024, result.limbs[0]);
+
+  // 3^5 = 243
+  result = uint256_exp(uint256_from_u64(3), uint256_from_u64(5));
+  TEST_ASSERT_EQUAL_UINT64(243, result.limbs[0]);
+
+  // 10^6 = 1,000,000
+  result = uint256_exp(uint256_from_u64(10), uint256_from_u64(6));
+  TEST_ASSERT_EQUAL_UINT64(1000000, result.limbs[0]);
+}
+
+void test_uint256_exp_powers_of_two(void) {
+  // 2^64 = 2^64 (limb 1 = 1)
+  uint256_t result = uint256_exp(uint256_from_u64(2), uint256_from_u64(64));
+  TEST_ASSERT_EQUAL_UINT64(0, result.limbs[0]);
+  TEST_ASSERT_EQUAL_UINT64(1, result.limbs[1]);
+  TEST_ASSERT_EQUAL_UINT64(0, result.limbs[2]);
+
+  // 2^128 (limb 2 = 1)
+  result = uint256_exp(uint256_from_u64(2), uint256_from_u64(128));
+  TEST_ASSERT_EQUAL_UINT64(0, result.limbs[0]);
+  TEST_ASSERT_EQUAL_UINT64(0, result.limbs[1]);
+  TEST_ASSERT_EQUAL_UINT64(1, result.limbs[2]);
+
+  // 2^255 (highest bit)
+  result = uint256_exp(uint256_from_u64(2), uint256_from_u64(255));
+  TEST_ASSERT_EQUAL_UINT64(0, result.limbs[0]);
+  TEST_ASSERT_EQUAL_UINT64(0, result.limbs[1]);
+  TEST_ASSERT_EQUAL_UINT64(0, result.limbs[2]);
+  TEST_ASSERT_EQUAL_UINT64(0x8000000000000000ULL, result.limbs[3]);
+}
+
+void test_uint256_exp_overflow(void) {
+  // 2^256 overflows to 0
+  uint256_t result = uint256_exp(uint256_from_u64(2), uint256_from_u64(256));
+  TEST_ASSERT_TRUE(uint256_is_zero(result));
+
+  // 2^300 also 0
+  result = uint256_exp(uint256_from_u64(2), uint256_from_u64(300));
+  TEST_ASSERT_TRUE(uint256_is_zero(result));
+}
+
+// =============================================================================
+// Byte Length Tests
+// =============================================================================
+
+void test_uint256_byte_length_zero(void) {
+  TEST_ASSERT_EQUAL_UINT64(0, uint256_byte_length(uint256_zero()));
+}
+
+void test_uint256_byte_length_small_values(void) {
+  TEST_ASSERT_EQUAL_UINT64(1, uint256_byte_length(uint256_from_u64(1)));
+  TEST_ASSERT_EQUAL_UINT64(1, uint256_byte_length(uint256_from_u64(255)));
+  TEST_ASSERT_EQUAL_UINT64(2, uint256_byte_length(uint256_from_u64(256)));
+  TEST_ASSERT_EQUAL_UINT64(2, uint256_byte_length(uint256_from_u64(0xFFFF)));
+  TEST_ASSERT_EQUAL_UINT64(3, uint256_byte_length(uint256_from_u64(0x10000)));
+}
+
+void test_uint256_byte_length_limb_boundaries(void) {
+  // Limb 0 full
+  TEST_ASSERT_EQUAL_UINT64(8, uint256_byte_length(uint256_from_limbs(UINT64_MAX, 0, 0, 0)));
+
+  // Limb 1 starts
+  TEST_ASSERT_EQUAL_UINT64(9, uint256_byte_length(uint256_from_limbs(0, 1, 0, 0)));
+
+  // Limb 1 full
+  TEST_ASSERT_EQUAL_UINT64(16,
+                           uint256_byte_length(uint256_from_limbs(UINT64_MAX, UINT64_MAX, 0, 0)));
+
+  // Limb 2 starts
+  TEST_ASSERT_EQUAL_UINT64(17, uint256_byte_length(uint256_from_limbs(0, 0, 1, 0)));
+
+  // Limb 3 starts
+  TEST_ASSERT_EQUAL_UINT64(25, uint256_byte_length(uint256_from_limbs(0, 0, 0, 1)));
+
+  // Max value
+  TEST_ASSERT_EQUAL_UINT64(
+      32, uint256_byte_length(uint256_from_limbs(UINT64_MAX, UINT64_MAX, UINT64_MAX, UINT64_MAX)));
+}

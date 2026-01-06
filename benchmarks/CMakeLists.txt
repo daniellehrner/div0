@@ -1,0 +1,20 @@
+# Benchmarks for div0
+
+# uint256 benchmarks
+add_executable(uint256_bench
+  uint256_bench.c
+)
+
+target_include_directories(uint256_bench PRIVATE
+  ${CMAKE_CURRENT_SOURCE_DIR}
+  ${PROJECT_SOURCE_DIR}/include
+)
+
+target_link_libraries(uint256_bench PRIVATE
+  div0_types
+)
+
+# Enable optimizations for benchmarks even in debug mode
+if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+  target_compile_options(uint256_bench PRIVATE -O2)
+endif()

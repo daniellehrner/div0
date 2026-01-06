@@ -124,4 +124,56 @@ void uint256_to_bytes_be(uint256_t value, uint8_t *out);
 /// @return true if parsing succeeded, false on invalid input
 bool uint256_from_hex(const char *hex, uint256_t *out);
 
+// =============================================================================
+// Additional comparison operations
+// =============================================================================
+
+/// Compares two uint256 values. Returns true if a > b.
+static inline bool uint256_gt(uint256_t a, uint256_t b) {
+  return uint256_lt(b, a);
+}
+
+/// Checks if uint256 is negative (in two's complement representation).
+/// The value is negative if the most significant bit is set.
+static inline bool uint256_is_negative(uint256_t a) {
+  return (a.limbs[3] >> 63) != 0;
+}
+
+// =============================================================================
+// Signed arithmetic operations (Phase 1)
+// =============================================================================
+
+/// Signed division. Returns 0 if divisor is zero (EVM semantics).
+/// Special case: MIN_VALUE / -1 returns MIN_VALUE (overflow protection).
+uint256_t uint256_sdiv(uint256_t a, uint256_t b);
+
+/// Signed modulo. Returns 0 if divisor is zero (EVM semantics).
+/// Result sign follows dividend (not divisor) per EVM semantics.
+uint256_t uint256_smod(uint256_t a, uint256_t b);
+
+/// Sign extends value x at byte position byte_pos.
+/// If byte_pos >= 31, returns x unchanged.
+uint256_t uint256_signextend(uint256_t byte_pos, uint256_t x);
+
+// =============================================================================
+// Modular arithmetic operations (Phase 1)
+// =============================================================================
+
+/// Computes (a + b) mod n. Returns 0 if n is zero (EVM semantics).
+uint256_t uint256_addmod(uint256_t a, uint256_t b, uint256_t n);
+
+/// Computes (a * b) mod n. Returns 0 if n is zero (EVM semantics).
+uint256_t uint256_mulmod(uint256_t a, uint256_t b, uint256_t n);
+
+// =============================================================================
+// Exponentiation (Phase 1)
+// =============================================================================
+
+/// Computes base^exponent mod 2^256 using binary exponentiation.
+uint256_t uint256_exp(uint256_t base, uint256_t exponent);
+
+/// Returns the number of bytes needed to represent the exponent.
+/// Used for EXP gas calculation.
+size_t uint256_byte_length(uint256_t value);
+
 #endif // DIV0_TYPES_UINT256_H

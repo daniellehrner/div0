@@ -20,6 +20,7 @@
 #include "evm/test_opcodes_arithmetic.h"
 #include "evm/test_opcodes_bitwise.h"
 #include "evm/test_opcodes_comparison.h"
+#include "evm/test_opcodes_stack.h"
 #include "evm/test_stack.h"
 #include "evm/test_stack_pool.h"
 
@@ -369,6 +370,56 @@ int main(void) {
   RUN_TEST(test_opcode_sar_negative_by_large_shift);
   RUN_TEST(test_opcode_sar_stack_underflow);
   RUN_TEST(test_opcode_bitwise_out_of_gas);
+
+  // Stack manipulation opcode tests - POP
+  RUN_TEST(test_opcode_pop_basic);
+  RUN_TEST(test_opcode_pop_multiple);
+  RUN_TEST(test_opcode_pop_stack_underflow);
+  RUN_TEST(test_opcode_pop_gas_consumption);
+  RUN_TEST(test_opcode_pop_out_of_gas);
+
+  // Stack manipulation opcode tests - DUP
+  RUN_TEST(test_opcode_dup1_basic);
+  RUN_TEST(test_opcode_dup1_stack_underflow);
+  RUN_TEST(test_opcode_dup1_stack_overflow);
+  RUN_TEST(test_opcode_dup2_basic);
+  RUN_TEST(test_opcode_dup3_basic);
+  RUN_TEST(test_opcode_dup4_basic);
+  RUN_TEST(test_opcode_dup5_basic);
+  RUN_TEST(test_opcode_dup6_basic);
+  RUN_TEST(test_opcode_dup7_basic);
+  RUN_TEST(test_opcode_dup8_basic);
+  RUN_TEST(test_opcode_dup9_basic);
+  RUN_TEST(test_opcode_dup10_basic);
+  RUN_TEST(test_opcode_dup11_basic);
+  RUN_TEST(test_opcode_dup12_basic);
+  RUN_TEST(test_opcode_dup13_basic);
+  RUN_TEST(test_opcode_dup14_basic);
+  RUN_TEST(test_opcode_dup15_basic);
+  RUN_TEST(test_opcode_dup16_basic);
+  RUN_TEST(test_opcode_dup_gas_consumption);
+  RUN_TEST(test_opcode_dup_out_of_gas);
+
+  // Stack manipulation opcode tests - SWAP
+  RUN_TEST(test_opcode_swap1_basic);
+  RUN_TEST(test_opcode_swap1_stack_underflow);
+  RUN_TEST(test_opcode_swap2_basic);
+  RUN_TEST(test_opcode_swap3_basic);
+  RUN_TEST(test_opcode_swap4_basic);
+  RUN_TEST(test_opcode_swap5_basic);
+  RUN_TEST(test_opcode_swap6_basic);
+  RUN_TEST(test_opcode_swap7_basic);
+  RUN_TEST(test_opcode_swap8_basic);
+  RUN_TEST(test_opcode_swap9_basic);
+  RUN_TEST(test_opcode_swap10_basic);
+  RUN_TEST(test_opcode_swap11_basic);
+  RUN_TEST(test_opcode_swap12_basic);
+  RUN_TEST(test_opcode_swap13_basic);
+  RUN_TEST(test_opcode_swap14_basic);
+  RUN_TEST(test_opcode_swap15_basic);
+  RUN_TEST(test_opcode_swap16_basic);
+  RUN_TEST(test_opcode_swap_gas_consumption);
+  RUN_TEST(test_opcode_swap_out_of_gas);
 
   // keccak256 tests
   RUN_TEST(test_keccak256_empty);

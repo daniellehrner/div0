@@ -12,6 +12,7 @@
 #include "opcodes/bitwise.h"
 #include "opcodes/comparison.h"
 #include "opcodes/push.h"
+#include "opcodes/stack.h"
 #include "opcodes/storage.h"
 
 #include <stddef.h>
@@ -312,6 +313,7 @@ static constexpr uint8_t OPCODE_MAX = 0xFF;
 
 /// Executes a single frame until it returns, calls, or errors.
 /// Uses computed gotos for efficient opcode dispatch.
+// NOLINTBEGIN(readability-function-size)
 static frame_result_t execute_frame(evm_t *evm, call_frame_t *frame) {
   // Dispatch table using computed gotos (GCC/Clang extension)
   static void *dispatch_table[OPCODE_TABLE_SIZE] = {
@@ -381,6 +383,39 @@ static frame_result_t execute_frame(evm_t *evm, call_frame_t *frame) {
       [OP_MSTORE8] = &&op_mstore8,
       [OP_SLOAD] = &&op_sload,
       [OP_SSTORE] = &&op_sstore,
+      [OP_POP] = &&op_pop,
+      [OP_DUP1] = &&op_dup1,
+      [OP_DUP2] = &&op_dup2,
+      [OP_DUP3] = &&op_dup3,
+      [OP_DUP4] = &&op_dup4,
+      [OP_DUP5] = &&op_dup5,
+      [OP_DUP6] = &&op_dup6,
+      [OP_DUP7] = &&op_dup7,
+      [OP_DUP8] = &&op_dup8,
+      [OP_DUP9] = &&op_dup9,
+      [OP_DUP10] = &&op_dup10,
+      [OP_DUP11] = &&op_dup11,
+      [OP_DUP12] = &&op_dup12,
+      [OP_DUP13] = &&op_dup13,
+      [OP_DUP14] = &&op_dup14,
+      [OP_DUP15] = &&op_dup15,
+      [OP_DUP16] = &&op_dup16,
+      [OP_SWAP1] = &&op_swap1,
+      [OP_SWAP2] = &&op_swap2,
+      [OP_SWAP3] = &&op_swap3,
+      [OP_SWAP4] = &&op_swap4,
+      [OP_SWAP5] = &&op_swap5,
+      [OP_SWAP6] = &&op_swap6,
+      [OP_SWAP7] = &&op_swap7,
+      [OP_SWAP8] = &&op_swap8,
+      [OP_SWAP9] = &&op_swap9,
+      [OP_SWAP10] = &&op_swap10,
+      [OP_SWAP11] = &&op_swap11,
+      [OP_SWAP12] = &&op_swap12,
+      [OP_SWAP13] = &&op_swap13,
+      [OP_SWAP14] = &&op_swap14,
+      [OP_SWAP15] = &&op_swap15,
+      [OP_SWAP16] = &&op_swap16,
       [OP_CALL] = &&op_call,
       [OP_STATICCALL] = &&op_staticcall,
       [OP_DELEGATECALL] = &&op_delegatecall,
@@ -663,6 +698,74 @@ op_push0: {
 
 #undef PUSH_N_HANDLER
 
+  // =============================================================================
+  // Stack Manipulation Opcodes (POP, DUP, SWAP)
+  // =============================================================================
+
+op_pop: {
+  evm_status_t status = op_pop(frame, evm->gas_table[OP_POP]);
+  if (status != EVM_OK) {
+    return frame_result_error(status);
+  }
+  DISPATCH();
+}
+
+#define DUP_N_HANDLER(n)                                               \
+  op_dup##n : {                                                        \
+    evm_status_t status = op_dup(frame, n, evm->gas_table[OP_DUP##n]); \
+    if (status != EVM_OK) {                                            \
+      return frame_result_error(status);                               \
+    }                                                                  \
+    DISPATCH();                                                        \
+  }
+
+  DUP_N_HANDLER(1)
+  DUP_N_HANDLER(2)
+  DUP_N_HANDLER(3)
+  DUP_N_HANDLER(4)
+  DUP_N_HANDLER(5)
+  DUP_N_HANDLER(6)
+  DUP_N_HANDLER(7)
+  DUP_N_HANDLER(8)
+  DUP_N_HANDLER(9)
+  DUP_N_HANDLER(10)
+  DUP_N_HANDLER(11)
+  DUP_N_HANDLER(12)
+  DUP_N_HANDLER(13)
+  DUP_N_HANDLER(14)
+  DUP_N_HANDLER(15)
+  DUP_N_HANDLER(16)
+
+#undef DUP_N_HANDLER
+
+#define SWAP_N_HANDLER(n)                                                \
+  op_swap##n : {                                                         \
+    evm_status_t status = op_swap(frame, n, evm->gas_table[OP_SWAP##n]); \
+    if (status != EVM_OK) {                                              \
+      return frame_result_error(status);                                 \
+    }                                                                    \
+    DISPATCH();                                                          \
+  }
+
+  SWAP_N_HANDLER(1)
+  SWAP_N_HANDLER(2)
+  SWAP_N_HANDLER(3)
+  SWAP_N_HANDLER(4)
+  SWAP_N_HANDLER(5)
+  SWAP_N_HANDLER(6)
+  SWAP_N_HANDLER(7)
+  SWAP_N_HANDLER(8)
+  SWAP_N_HANDLER(9)
+  SWAP_N_HANDLER(10)
+  SWAP_N_HANDLER(11)
+  SWAP_N_HANDLER(12)
+  SWAP_N_HANDLER(13)
+  SWAP_N_HANDLER(14)
+  SWAP_N_HANDLER(15)
+  SWAP_N_HANDLER(16)
+
+#undef SWAP_N_HANDLER
+
 op_mstore: {
   // Stack: [offset, value] => []
   if (!evm_stack_has_items(frame->stack, 2)) {
@@ -864,3 +967,4 @@ done:
 
 #undef DISPATCH
 }
+// NOLINTEND(readability-function-size)

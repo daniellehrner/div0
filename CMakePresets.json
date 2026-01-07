@@ -54,6 +54,16 @@
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Release"
       }
+    },
+    {
+      "name": "qodana",
+      "displayName": "Qodana Analysis",
+      "description": "Configuration for Qodana static analysis",
+      "inherits": "base",
+      "binaryDir": "${sourceDir}/.qodana-build",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug"
+      }
     }
   ],
   "buildPresets": [

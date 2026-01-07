@@ -327,6 +327,8 @@ if(DIV0_BUILD_TESTS)
     tests/evm/test_stack_pool.c
     tests/evm/test_evm.c
     tests/evm/test_opcodes_arithmetic.c
+    tests/evm/test_opcodes_bitwise.c
+    tests/evm/test_opcodes_comparison.c
     # crypto tests
     tests/crypto/test_keccak256.c
     tests/crypto/test_secp256k1.c

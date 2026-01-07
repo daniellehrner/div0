@@ -877,3 +877,131 @@ size_t uint256_byte_length(const uint256_t value) {
   }
   return 0; // Value is zero
 }
+
+// =============================================================================
+// Shift Operations
+// =============================================================================
+
+uint256_t uint256_shl(uint256_t shift, uint256_t value) {
+  // If shift >= 256, result is 0
+  if (!uint256_fits_u64(shift) || shift.limbs[0] >= 256) {
+    return uint256_zero();
+  }
+
+  if (shift.limbs[0] == 0) {
+    return value;
+  }
+
+  const uint64_t s = shift.limbs[0];
+  const uint64_t limb_shift = s / 64; // How many whole limbs to shift
+  const uint64_t bit_shift = s % 64;  // Remaining bits to shift
+  const uint64_t inv_bit_shift = 64 - bit_shift;
+
+  uint256_t result = uint256_zero();
+
+  if (bit_shift == 0) {
+    // Shift by whole limbs only
+    for (uint64_t i = limb_shift; i < 4; ++i) {
+      result.limbs[i] = value.limbs[i - limb_shift];
+    }
+  } else {
+    // Shift with bit carry between limbs
+    for (uint64_t i = limb_shift; i < 4; ++i) {
+      const uint64_t src_idx = i - limb_shift;
+      result.limbs[i] = value.limbs[src_idx] << bit_shift;
+      if (src_idx > 0) {
+        result.limbs[i] |= value.limbs[src_idx - 1] >> inv_bit_shift;
+      }
+    }
+  }
+
+  return result;
+}
+
+uint256_t uint256_shr(uint256_t shift, uint256_t value) {
+  // If shift >= 256, result is 0
+  if (!uint256_fits_u64(shift) || shift.limbs[0] >= 256) {
+    return uint256_zero();
+  }
+
+  if (shift.limbs[0] == 0) {
+    return value;
+  }
+
+  const uint64_t s = shift.limbs[0];
+  const uint64_t limb_shift = s / 64; // How many whole limbs to shift
+  const uint64_t bit_shift = s % 64;  // Remaining bits to shift
+  const uint64_t inv_bit_shift = 64 - bit_shift;
+
+  uint256_t result = uint256_zero();
+
+  if (bit_shift == 0) {
+    // Shift by whole limbs only
+    for (uint64_t i = 0; i + limb_shift < 4; ++i) {
+      result.limbs[i] = value.limbs[i + limb_shift];
+    }
+  } else {
+    // Shift with bit carry between limbs
+    for (uint64_t i = 0; i + limb_shift < 4; ++i) {
+      const uint64_t src_idx = i + limb_shift;
+      result.limbs[i] = value.limbs[src_idx] >> bit_shift;
+      if (src_idx + 1 < 4) {
+        result.limbs[i] |= value.limbs[src_idx + 1] << inv_bit_shift;
+      }
+    }
+  }
+
+  return result;
+}
+
+uint256_t uint256_sar(uint256_t shift, uint256_t value) {
+  const bool is_negative = uint256_is_negative(value);
+
+  // If shift >= 256, result depends on sign
+  if (!uint256_fits_u64(shift) || shift.limbs[0] >= 256) {
+    // Negative: result is all 1s (-1), positive: result is 0
+    if (is_negative) {
+      return uint256_from_limbs(~0ULL, ~0ULL, ~0ULL, ~0ULL);
+    }
+    return uint256_zero();
+  }
+
+  if (shift.limbs[0] == 0) {
+    return value;
+  }
+
+  // Perform logical shift right first
+  uint256_t result = uint256_shr(shift, value);
+
+  // If value was negative, fill in high bits with 1s
+  if (is_negative) {
+    const uint64_t s = shift.limbs[0];
+
+    // Create a mask with s high bits set to 1
+    // e.g., if s=8, we want bits 248-255 to be 1
+    if (s > 0 && s < 256) {
+      // Calculate which limb and bit position
+      const uint64_t high_bit = 255;
+      const uint64_t first_clear_bit = high_bit - s + 1; // First bit that should stay as-is
+      const uint64_t first_limb = first_clear_bit / 64;
+      const uint64_t bit_in_limb = first_clear_bit % 64;
+
+      // Set all bits from position (256-s) to 255 to 1
+      // Fill limbs from first_limb up to 3
+
+      // Partial fill of first_limb (high bits)
+      if (bit_in_limb > 0) {
+        // Set bits from bit_in_limb to 63 in this limb
+        const uint64_t mask = ~((1ULL << bit_in_limb) - 1);
+        result.limbs[first_limb] |= mask;
+      }
+
+      // Fill remaining higher limbs completely
+      for (uint64_t i = first_limb + (bit_in_limb > 0 ? 1 : 0); i < 4; ++i) {
+        result.limbs[i] = ~0ULL;
+      }
+    }
+  }
+
+  return result;
+}

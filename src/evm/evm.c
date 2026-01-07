@@ -9,6 +9,8 @@
 #include "div0/types/uint256.h"
 
 #include "opcodes/arithmetic.h"
+#include "opcodes/bitwise.h"
+#include "opcodes/comparison.h"
 #include "opcodes/push.h"
 #include "opcodes/storage.h"
 
@@ -326,6 +328,22 @@ static frame_result_t execute_frame(evm_t *evm, call_frame_t *frame) {
       [OP_MULMOD] = &&op_mulmod,
       [OP_EXP] = &&op_exp,
       [OP_SIGNEXTEND] = &&op_signextend,
+      // Comparison opcodes
+      [OP_LT] = &&op_lt,
+      [OP_GT] = &&op_gt,
+      [OP_SLT] = &&op_slt,
+      [OP_SGT] = &&op_sgt,
+      [OP_EQ] = &&op_eq,
+      [OP_ISZERO] = &&op_iszero,
+      // Bitwise opcodes
+      [OP_AND] = &&op_and,
+      [OP_OR] = &&op_or,
+      [OP_XOR] = &&op_xor,
+      [OP_NOT] = &&op_not,
+      [OP_BYTE] = &&op_byte,
+      [OP_SHL] = &&op_shl,
+      [OP_SHR] = &&op_shr,
+      [OP_SAR] = &&op_sar,
       [OP_PUSH0] = &&op_push0,
       [OP_PUSH1] = &&op_push1,
       [OP_PUSH2] = &&op_push2,
@@ -467,6 +485,126 @@ op_exp: {
 
 op_signextend: {
   evm_status_t status = op_signextend(frame, evm->gas_table[OP_SIGNEXTEND]);
+  if (status != EVM_OK) {
+    return frame_result_error(status);
+  }
+  DISPATCH();
+}
+
+  // =========================================================================
+  // Comparison opcodes
+  // =========================================================================
+
+op_lt: {
+  evm_status_t status = op_lt(frame, evm->gas_table[OP_LT]);
+  if (status != EVM_OK) {
+    return frame_result_error(status);
+  }
+  DISPATCH();
+}
+
+op_gt: {
+  evm_status_t status = op_gt(frame, evm->gas_table[OP_GT]);
+  if (status != EVM_OK) {
+    return frame_result_error(status);
+  }
+  DISPATCH();
+}
+
+op_slt: {
+  evm_status_t status = op_slt(frame, evm->gas_table[OP_SLT]);
+  if (status != EVM_OK) {
+    return frame_result_error(status);
+  }
+  DISPATCH();
+}
+
+op_sgt: {
+  evm_status_t status = op_sgt(frame, evm->gas_table[OP_SGT]);
+  if (status != EVM_OK) {
+    return frame_result_error(status);
+  }
+  DISPATCH();
+}
+
+op_eq: {
+  evm_status_t status = op_eq(frame, evm->gas_table[OP_EQ]);
+  if (status != EVM_OK) {
+    return frame_result_error(status);
+  }
+  DISPATCH();
+}
+
+op_iszero: {
+  evm_status_t status = op_iszero(frame, evm->gas_table[OP_ISZERO]);
+  if (status != EVM_OK) {
+    return frame_result_error(status);
+  }
+  DISPATCH();
+}
+
+  // =========================================================================
+  // Bitwise opcodes
+  // =========================================================================
+
+op_and: {
+  evm_status_t status = op_and(frame, evm->gas_table[OP_AND]);
+  if (status != EVM_OK) {
+    return frame_result_error(status);
+  }
+  DISPATCH();
+}
+
+op_or: {
+  evm_status_t status = op_or(frame, evm->gas_table[OP_OR]);
+  if (status != EVM_OK) {
+    return frame_result_error(status);
+  }
+  DISPATCH();
+}
+
+op_xor: {
+  evm_status_t status = op_xor(frame, evm->gas_table[OP_XOR]);
+  if (status != EVM_OK) {
+    return frame_result_error(status);
+  }
+  DISPATCH();
+}
+
+op_not: {
+  evm_status_t status = op_not(frame, evm->gas_table[OP_NOT]);
+  if (status != EVM_OK) {
+    return frame_result_error(status);
+  }
+  DISPATCH();
+}
+
+op_byte: {
+  evm_status_t status = op_byte(frame, evm->gas_table[OP_BYTE]);
+  if (status != EVM_OK) {
+    return frame_result_error(status);
+  }
+  DISPATCH();
+}
+
+op_shl: {
+  evm_status_t status = op_shl(frame, evm->gas_table[OP_SHL]);
+  if (status != EVM_OK) {
+    return frame_result_error(status);
+  }
+  DISPATCH();
+}
+
+op_shr: {
+  evm_status_t status = op_shr(frame, evm->gas_table[OP_SHR]);
+  if (status != EVM_OK) {
+    return frame_result_error(status);
+  }
+  DISPATCH();
+}
+
+op_sar: {
+  evm_status_t status = op_sar(frame, evm->gas_table[OP_SAR]);
   if (status != EVM_OK) {
     return frame_result_error(status);
   }

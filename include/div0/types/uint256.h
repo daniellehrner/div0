@@ -140,6 +140,103 @@ static inline bool uint256_is_negative(uint256_t a) {
 }
 
 // =============================================================================
+// Bitwise operations
+// =============================================================================
+
+/// Returns the bitwise AND of two uint256 values.
+static inline uint256_t uint256_and(uint256_t a, uint256_t b) {
+  return (uint256_t){{
+      a.limbs[0] & b.limbs[0],
+      a.limbs[1] & b.limbs[1],
+      a.limbs[2] & b.limbs[2],
+      a.limbs[3] & b.limbs[3],
+  }};
+}
+
+/// Returns the bitwise OR of two uint256 values.
+static inline uint256_t uint256_or(uint256_t a, uint256_t b) {
+  return (uint256_t){{
+      a.limbs[0] | b.limbs[0],
+      a.limbs[1] | b.limbs[1],
+      a.limbs[2] | b.limbs[2],
+      a.limbs[3] | b.limbs[3],
+  }};
+}
+
+/// Returns the bitwise XOR of two uint256 values.
+static inline uint256_t uint256_xor(uint256_t a, uint256_t b) {
+  return (uint256_t){{
+      a.limbs[0] ^ b.limbs[0],
+      a.limbs[1] ^ b.limbs[1],
+      a.limbs[2] ^ b.limbs[2],
+      a.limbs[3] ^ b.limbs[3],
+  }};
+}
+
+/// Returns the bitwise NOT of a uint256 value.
+static inline uint256_t uint256_not(uint256_t a) {
+  return (uint256_t){{
+      ~a.limbs[0],
+      ~a.limbs[1],
+      ~a.limbs[2],
+      ~a.limbs[3],
+  }};
+}
+
+/// Extracts a single byte from a uint256 value (EVM BYTE opcode).
+/// Index 0 is the most significant byte, index 31 is the least significant.
+/// Returns 0 if index >= 32.
+static inline uint256_t uint256_byte(uint256_t index, uint256_t value) {
+  // If index doesn't fit in u64 or is >= 32, return 0
+  if (!uint256_fits_u64(index) || index.limbs[0] >= 32) {
+    return uint256_zero();
+  }
+
+  const uint64_t idx = index.limbs[0];
+  // Big-endian index 0 = byte 31 in little-endian (MSB)
+  // Big-endian index 31 = byte 0 in little-endian (LSB)
+  const uint64_t le_byte_idx = 31 - idx;
+  const uint64_t limb_idx = le_byte_idx / 8;
+  const uint64_t byte_in_limb = le_byte_idx % 8;
+
+  const uint8_t byte_val = (uint8_t)((value.limbs[limb_idx] >> (byte_in_limb * 8)) & 0xFF);
+  return uint256_from_u64(byte_val);
+}
+
+/// Shift left. Returns 0 if shift >= 256.
+uint256_t uint256_shl(uint256_t shift, uint256_t value);
+
+/// Logical shift right (zero-fill). Returns 0 if shift >= 256.
+uint256_t uint256_shr(uint256_t shift, uint256_t value);
+
+/// Arithmetic shift right (sign-extending). If shift >= 256, returns 0 or -1 depending on sign.
+uint256_t uint256_sar(uint256_t shift, uint256_t value);
+
+// =============================================================================
+// Signed comparison operations
+// =============================================================================
+
+/// Signed less-than comparison.
+/// Returns true if a < b when interpreted as two's complement signed integers.
+static inline bool uint256_slt(uint256_t a, uint256_t b) {
+  const bool a_neg = uint256_is_negative(a);
+  const bool b_neg = uint256_is_negative(b);
+
+  if (a_neg != b_neg) {
+    // Different signs: negative < non-negative
+    return a_neg;
+  }
+  // Same sign: unsigned comparison works
+  return uint256_lt(a, b);
+}
+
+/// Signed greater-than comparison.
+/// Returns true if a > b when interpreted as two's complement signed integers.
+static inline bool uint256_sgt(uint256_t a, uint256_t b) {
+  return uint256_slt(b, a);
+}
+
+// =============================================================================
 // Signed arithmetic operations (Phase 1)
 // =============================================================================
 

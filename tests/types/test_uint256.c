@@ -636,3 +636,256 @@ void test_uint256_byte_length_limb_boundaries(void) {
   TEST_ASSERT_EQUAL_UINT64(
       32, uint256_byte_length(uint256_from_limbs(UINT64_MAX, UINT64_MAX, UINT64_MAX, UINT64_MAX)));
 }
+
+// =============================================================================
+// Bitwise Operation Tests
+// =============================================================================
+
+void test_uint256_and_basic(void) {
+  uint256_t a = uint256_from_u64(0xFF00FF00);
+  uint256_t b = uint256_from_u64(0x0FF00FF0);
+  uint256_t result = uint256_and(a, b);
+  TEST_ASSERT_EQUAL_UINT64(0x0F000F00, result.limbs[0]);
+
+  // Multi-limb AND
+  uint256_t c = uint256_from_limbs(0xFFFFFFFF, 0xAAAAAAAA, 0x55555555, 0x12345678);
+  uint256_t d = uint256_from_limbs(0x0F0F0F0F, 0xF0F0F0F0, 0x0F0F0F0F, 0xFFFFFFFF);
+  result = uint256_and(c, d);
+  TEST_ASSERT_EQUAL_UINT64(0x0F0F0F0F, result.limbs[0]);
+  TEST_ASSERT_EQUAL_UINT64(0xA0A0A0A0, result.limbs[1]);
+  TEST_ASSERT_EQUAL_UINT64(0x05050505, result.limbs[2]);
+  TEST_ASSERT_EQUAL_UINT64(0x12345678, result.limbs[3]);
+}
+
+void test_uint256_or_basic(void) {
+  uint256_t a = uint256_from_u64(0xF0F0F0F0);
+  uint256_t b = uint256_from_u64(0x0F0F0F0F);
+  uint256_t result = uint256_or(a, b);
+  TEST_ASSERT_EQUAL_UINT64(0xFFFFFFFF, result.limbs[0]);
+
+  // OR with zero
+  result = uint256_or(a, uint256_zero());
+  TEST_ASSERT_TRUE(uint256_eq(result, a));
+}
+
+void test_uint256_xor_basic(void) {
+  uint256_t a = uint256_from_u64(0xFFFF0000);
+  uint256_t b = uint256_from_u64(0xFF00FF00);
+  uint256_t result = uint256_xor(a, b);
+  TEST_ASSERT_EQUAL_UINT64(0x00FFFF00, result.limbs[0]);
+
+  // XOR with self = 0
+  result = uint256_xor(a, a);
+  TEST_ASSERT_TRUE(uint256_is_zero(result));
+}
+
+void test_uint256_not_basic(void) {
+  uint256_t zero = uint256_zero();
+  uint256_t result = uint256_not(zero);
+  TEST_ASSERT_EQUAL_HEX64(UINT64_MAX, result.limbs[0]);
+  TEST_ASSERT_EQUAL_HEX64(UINT64_MAX, result.limbs[1]);
+  TEST_ASSERT_EQUAL_HEX64(UINT64_MAX, result.limbs[2]);
+  TEST_ASSERT_EQUAL_HEX64(UINT64_MAX, result.limbs[3]);
+
+  // Double NOT = identity
+  uint256_t val = uint256_from_u64(0x12345678);
+  result = uint256_not(uint256_not(val));
+  TEST_ASSERT_TRUE(uint256_eq(result, val));
+}
+
+// =============================================================================
+// Byte Extraction Tests
+// =============================================================================
+
+void test_uint256_byte_index_zero(void) {
+  // BYTE opcode: index 0 = most significant byte
+  // Value: 0x0102030405...1F20 (bytes 01-20 in big-endian)
+  uint256_t val = uint256_from_limbs(0x191A1B1C1D1E1F20ULL, 0x1112131415161718ULL,
+                                     0x090A0B0C0D0E0F10ULL, 0x0102030405060708ULL);
+  uint256_t result = uint256_byte(uint256_from_u64(0), val);
+  TEST_ASSERT_EQUAL_UINT64(0x01, result.limbs[0]);
+}
+
+void test_uint256_byte_index_31(void) {
+  // BYTE opcode: index 31 = least significant byte
+  uint256_t val = uint256_from_limbs(0x191A1B1C1D1E1F20ULL, 0x1112131415161718ULL,
+                                     0x090A0B0C0D0E0F10ULL, 0x0102030405060708ULL);
+  uint256_t result = uint256_byte(uint256_from_u64(31), val);
+  TEST_ASSERT_EQUAL_UINT64(0x20, result.limbs[0]);
+}
+
+void test_uint256_byte_index_out_of_range(void) {
+  uint256_t val = uint256_from_limbs(UINT64_MAX, UINT64_MAX, UINT64_MAX, UINT64_MAX);
+
+  // Index 32 should return 0
+  uint256_t result = uint256_byte(uint256_from_u64(32), val);
+  TEST_ASSERT_TRUE(uint256_is_zero(result));
+
+  // Very large index should return 0
+  result = uint256_byte(uint256_from_u64(1000), val);
+  TEST_ASSERT_TRUE(uint256_is_zero(result));
+}
+
+// =============================================================================
+// Shift Operation Tests
+// =============================================================================
+
+void test_uint256_shl_by_zero(void) {
+  uint256_t val = uint256_from_u64(0x12345678);
+  uint256_t result = uint256_shl(uint256_from_u64(0), val);
+  TEST_ASSERT_TRUE(uint256_eq(result, val));
+}
+
+void test_uint256_shl_by_small(void) {
+  // 1 << 1 = 2
+  uint256_t result = uint256_shl(uint256_from_u64(1), uint256_from_u64(1));
+  TEST_ASSERT_EQUAL_UINT64(2, result.limbs[0]);
+
+  // 1 << 8 = 256
+  result = uint256_shl(uint256_from_u64(8), uint256_from_u64(1));
+  TEST_ASSERT_EQUAL_UINT64(256, result.limbs[0]);
+}
+
+void test_uint256_shl_cross_limb(void) {
+  // Shift 1 by 64 bits - should move to limb 1
+  uint256_t result = uint256_shl(uint256_from_u64(64), uint256_from_u64(1));
+  TEST_ASSERT_EQUAL_UINT64(0, result.limbs[0]);
+  TEST_ASSERT_EQUAL_UINT64(1, result.limbs[1]);
+
+  // Shift 0xFF by 60 bits - should span limbs 0 and 1
+  result = uint256_shl(uint256_from_u64(60), uint256_from_u64(0xFF));
+  TEST_ASSERT_EQUAL_UINT64(0xF000000000000000ULL, result.limbs[0]);
+  TEST_ASSERT_EQUAL_UINT64(0x0F, result.limbs[1]);
+}
+
+void test_uint256_shl_by_256(void) {
+  // Shift by 256 or more should return 0
+  uint256_t val = uint256_from_limbs(UINT64_MAX, UINT64_MAX, UINT64_MAX, UINT64_MAX);
+
+  uint256_t result = uint256_shl(uint256_from_u64(256), val);
+  TEST_ASSERT_TRUE(uint256_is_zero(result));
+
+  result = uint256_shl(uint256_from_u64(300), val);
+  TEST_ASSERT_TRUE(uint256_is_zero(result));
+}
+
+void test_uint256_shr_by_zero(void) {
+  uint256_t val = uint256_from_u64(0x12345678);
+  uint256_t result = uint256_shr(uint256_from_u64(0), val);
+  TEST_ASSERT_TRUE(uint256_eq(result, val));
+}
+
+void test_uint256_shr_by_small(void) {
+  // 4 >> 1 = 2
+  uint256_t result = uint256_shr(uint256_from_u64(1), uint256_from_u64(4));
+  TEST_ASSERT_EQUAL_UINT64(2, result.limbs[0]);
+
+  // 256 >> 8 = 1
+  result = uint256_shr(uint256_from_u64(8), uint256_from_u64(256));
+  TEST_ASSERT_EQUAL_UINT64(1, result.limbs[0]);
+}
+
+void test_uint256_shr_cross_limb(void) {
+  // Value in limb 1, shift right by 64 should move to limb 0
+  uint256_t val = uint256_from_limbs(0, 1, 0, 0);
+  uint256_t result = uint256_shr(uint256_from_u64(64), val);
+  TEST_ASSERT_EQUAL_UINT64(1, result.limbs[0]);
+  TEST_ASSERT_EQUAL_UINT64(0, result.limbs[1]);
+
+  // Shift that spans limbs
+  val = uint256_from_limbs(0, 0xFF, 0, 0);
+  result = uint256_shr(uint256_from_u64(60), val);
+  TEST_ASSERT_EQUAL_UINT64(0xFF0, result.limbs[0]);
+}
+
+void test_uint256_shr_by_256(void) {
+  // Shift by 256 or more should return 0
+  uint256_t val = uint256_from_limbs(UINT64_MAX, UINT64_MAX, UINT64_MAX, UINT64_MAX);
+
+  uint256_t result = uint256_shr(uint256_from_u64(256), val);
+  TEST_ASSERT_TRUE(uint256_is_zero(result));
+
+  result = uint256_shr(uint256_from_u64(300), val);
+  TEST_ASSERT_TRUE(uint256_is_zero(result));
+}
+
+void test_uint256_sar_positive(void) {
+  // Positive value: SAR behaves like SHR
+  uint256_t val = uint256_from_u64(0x100);
+  uint256_t result = uint256_sar(uint256_from_u64(4), val);
+  TEST_ASSERT_EQUAL_UINT64(0x10, result.limbs[0]);
+}
+
+void test_uint256_sar_negative(void) {
+  // -2 (all 1s except last bit) >> 1 should give -1 (all 1s)
+  uint256_t neg2 = uint256_from_limbs(UINT64_MAX - 1, UINT64_MAX, UINT64_MAX, UINT64_MAX);
+  uint256_t result = uint256_sar(uint256_from_u64(1), neg2);
+  TEST_ASSERT_EQUAL_HEX64(UINT64_MAX, result.limbs[0]);
+  TEST_ASSERT_EQUAL_HEX64(UINT64_MAX, result.limbs[1]);
+  TEST_ASSERT_EQUAL_HEX64(UINT64_MAX, result.limbs[2]);
+  TEST_ASSERT_EQUAL_HEX64(UINT64_MAX, result.limbs[3]);
+}
+
+void test_uint256_sar_negative_large_shift(void) {
+  // Negative value with shift >= 256 should return -1 (all 1s)
+  uint256_t neg1 = uint256_from_limbs(UINT64_MAX, UINT64_MAX, UINT64_MAX, UINT64_MAX);
+  uint256_t result = uint256_sar(uint256_from_u64(256), neg1);
+  TEST_ASSERT_EQUAL_HEX64(UINT64_MAX, result.limbs[0]);
+  TEST_ASSERT_EQUAL_HEX64(UINT64_MAX, result.limbs[1]);
+  TEST_ASSERT_EQUAL_HEX64(UINT64_MAX, result.limbs[2]);
+  TEST_ASSERT_EQUAL_HEX64(UINT64_MAX, result.limbs[3]);
+
+  // Positive value with shift >= 256 should return 0
+  uint256_t pos = uint256_from_u64(12345);
+  result = uint256_sar(uint256_from_u64(256), pos);
+  TEST_ASSERT_TRUE(uint256_is_zero(result));
+}
+
+// =============================================================================
+// Signed Comparison Tests
+// =============================================================================
+
+void test_uint256_slt_both_positive(void) {
+  // 5 < 10 (signed) = true
+  TEST_ASSERT_TRUE(uint256_slt(uint256_from_u64(5), uint256_from_u64(10)));
+
+  // 10 < 5 (signed) = false
+  TEST_ASSERT_FALSE(uint256_slt(uint256_from_u64(10), uint256_from_u64(5)));
+
+  // Equal values
+  TEST_ASSERT_FALSE(uint256_slt(uint256_from_u64(42), uint256_from_u64(42)));
+}
+
+void test_uint256_slt_both_negative(void) {
+  // -2 < -1 (signed) = true (-2 is more negative)
+  uint256_t neg1 = uint256_from_limbs(UINT64_MAX, UINT64_MAX, UINT64_MAX, UINT64_MAX);
+  uint256_t neg2 = uint256_from_limbs(UINT64_MAX - 1, UINT64_MAX, UINT64_MAX, UINT64_MAX);
+  TEST_ASSERT_TRUE(uint256_slt(neg2, neg1));
+  TEST_ASSERT_FALSE(uint256_slt(neg1, neg2));
+}
+
+void test_uint256_slt_mixed_signs(void) {
+  uint256_t neg1 = uint256_from_limbs(UINT64_MAX, UINT64_MAX, UINT64_MAX, UINT64_MAX);
+  uint256_t pos1 = uint256_from_u64(1);
+
+  // -1 < 1 (signed) = true
+  TEST_ASSERT_TRUE(uint256_slt(neg1, pos1));
+
+  // 1 < -1 (signed) = false
+  TEST_ASSERT_FALSE(uint256_slt(pos1, neg1));
+}
+
+void test_uint256_sgt_basic(void) {
+  // SGT is just SLT with arguments swapped
+  uint256_t neg1 = uint256_from_limbs(UINT64_MAX, UINT64_MAX, UINT64_MAX, UINT64_MAX);
+  uint256_t pos1 = uint256_from_u64(1);
+
+  // 1 > -1 (signed) = true
+  TEST_ASSERT_TRUE(uint256_sgt(pos1, neg1));
+
+  // -1 > 1 (signed) = false
+  TEST_ASSERT_FALSE(uint256_sgt(neg1, pos1));
+
+  // 10 > 5 (signed) = true
+  TEST_ASSERT_TRUE(uint256_sgt(uint256_from_u64(10), uint256_from_u64(5)));
+}

@@ -18,6 +18,8 @@
 // Test headers - evm
 #include "evm/test_evm.h"
 #include "evm/test_opcodes_arithmetic.h"
+#include "evm/test_opcodes_bitwise.h"
+#include "evm/test_opcodes_comparison.h"
 #include "evm/test_stack.h"
 #include "evm/test_stack_pool.h"
 
@@ -150,6 +152,36 @@ int main(void) {
   RUN_TEST(test_uint256_byte_length_small_values);
   RUN_TEST(test_uint256_byte_length_limb_boundaries);
 
+  // Bitwise operation tests
+  RUN_TEST(test_uint256_and_basic);
+  RUN_TEST(test_uint256_or_basic);
+  RUN_TEST(test_uint256_xor_basic);
+  RUN_TEST(test_uint256_not_basic);
+
+  // Byte extraction tests
+  RUN_TEST(test_uint256_byte_index_zero);
+  RUN_TEST(test_uint256_byte_index_31);
+  RUN_TEST(test_uint256_byte_index_out_of_range);
+
+  // Shift operation tests
+  RUN_TEST(test_uint256_shl_by_zero);
+  RUN_TEST(test_uint256_shl_by_small);
+  RUN_TEST(test_uint256_shl_cross_limb);
+  RUN_TEST(test_uint256_shl_by_256);
+  RUN_TEST(test_uint256_shr_by_zero);
+  RUN_TEST(test_uint256_shr_by_small);
+  RUN_TEST(test_uint256_shr_cross_limb);
+  RUN_TEST(test_uint256_shr_by_256);
+  RUN_TEST(test_uint256_sar_positive);
+  RUN_TEST(test_uint256_sar_negative);
+  RUN_TEST(test_uint256_sar_negative_large_shift);
+
+  // Signed comparison tests
+  RUN_TEST(test_uint256_slt_both_positive);
+  RUN_TEST(test_uint256_slt_both_negative);
+  RUN_TEST(test_uint256_slt_mixed_signs);
+  RUN_TEST(test_uint256_sgt_basic);
+
   // bytes32 tests
   RUN_TEST(test_bytes32_zero_is_zero);
   RUN_TEST(test_bytes32_from_bytes_works);
@@ -277,6 +309,66 @@ int main(void) {
   RUN_TEST(test_opcode_sub_stack_underflow);
   RUN_TEST(test_opcode_addmod_stack_underflow);
   RUN_TEST(test_opcode_arithmetic_out_of_gas);
+
+  // Comparison opcode tests
+  RUN_TEST(test_opcode_lt_true_when_less);
+  RUN_TEST(test_opcode_lt_false_when_greater);
+  RUN_TEST(test_opcode_lt_false_when_equal);
+  RUN_TEST(test_opcode_lt_stack_underflow);
+  RUN_TEST(test_opcode_gt_true_when_greater);
+  RUN_TEST(test_opcode_gt_false_when_less);
+  RUN_TEST(test_opcode_gt_false_when_equal);
+  RUN_TEST(test_opcode_gt_stack_underflow);
+  RUN_TEST(test_opcode_eq_true_when_equal);
+  RUN_TEST(test_opcode_eq_false_when_not_equal);
+  RUN_TEST(test_opcode_eq_zero_equals_zero);
+  RUN_TEST(test_opcode_eq_stack_underflow);
+  RUN_TEST(test_opcode_iszero_true_when_zero);
+  RUN_TEST(test_opcode_iszero_false_when_nonzero);
+  RUN_TEST(test_opcode_iszero_false_when_one);
+  RUN_TEST(test_opcode_iszero_stack_underflow);
+  RUN_TEST(test_opcode_slt_positive_less_than_positive);
+  RUN_TEST(test_opcode_slt_negative_less_than_positive);
+  RUN_TEST(test_opcode_slt_positive_not_less_than_negative);
+  RUN_TEST(test_opcode_slt_stack_underflow);
+  RUN_TEST(test_opcode_sgt_positive_greater_than_negative);
+  RUN_TEST(test_opcode_sgt_negative_not_greater_than_positive);
+  RUN_TEST(test_opcode_sgt_larger_positive_greater);
+  RUN_TEST(test_opcode_sgt_stack_underflow);
+  RUN_TEST(test_opcode_comparison_out_of_gas);
+
+  // Bitwise opcode tests
+  RUN_TEST(test_opcode_and_basic);
+  RUN_TEST(test_opcode_and_with_zero);
+  RUN_TEST(test_opcode_and_with_max);
+  RUN_TEST(test_opcode_and_stack_underflow);
+  RUN_TEST(test_opcode_or_basic);
+  RUN_TEST(test_opcode_or_with_zero);
+  RUN_TEST(test_opcode_or_stack_underflow);
+  RUN_TEST(test_opcode_xor_basic);
+  RUN_TEST(test_opcode_xor_with_self);
+  RUN_TEST(test_opcode_xor_stack_underflow);
+  RUN_TEST(test_opcode_not_zero);
+  RUN_TEST(test_opcode_not_max);
+  RUN_TEST(test_opcode_not_double);
+  RUN_TEST(test_opcode_not_stack_underflow);
+  RUN_TEST(test_opcode_byte_extract_byte0);
+  RUN_TEST(test_opcode_byte_extract_byte31);
+  RUN_TEST(test_opcode_byte_index_out_of_range);
+  RUN_TEST(test_opcode_byte_stack_underflow);
+  RUN_TEST(test_opcode_shl_by_one);
+  RUN_TEST(test_opcode_shl_by_zero);
+  RUN_TEST(test_opcode_shl_by_256);
+  RUN_TEST(test_opcode_shl_stack_underflow);
+  RUN_TEST(test_opcode_shr_by_one);
+  RUN_TEST(test_opcode_shr_by_zero);
+  RUN_TEST(test_opcode_shr_by_256);
+  RUN_TEST(test_opcode_shr_stack_underflow);
+  RUN_TEST(test_opcode_sar_positive_value);
+  RUN_TEST(test_opcode_sar_negative_value);
+  RUN_TEST(test_opcode_sar_negative_by_large_shift);
+  RUN_TEST(test_opcode_sar_stack_underflow);
+  RUN_TEST(test_opcode_bitwise_out_of_gas);
 
   // keccak256 tests
   RUN_TEST(test_keccak256_empty);

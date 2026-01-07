@@ -80,4 +80,34 @@ void test_uint256_byte_length_zero(void);
 void test_uint256_byte_length_small_values(void);
 void test_uint256_byte_length_limb_boundaries(void);
 
+// Bitwise operation tests
+void test_uint256_and_basic(void);
+void test_uint256_or_basic(void);
+void test_uint256_xor_basic(void);
+void test_uint256_not_basic(void);
+
+// Byte extraction tests
+void test_uint256_byte_index_zero(void);
+void test_uint256_byte_index_31(void);
+void test_uint256_byte_index_out_of_range(void);
+
+// Shift operation tests
+void test_uint256_shl_by_zero(void);
+void test_uint256_shl_by_small(void);
+void test_uint256_shl_cross_limb(void);
+void test_uint256_shl_by_256(void);
+void test_uint256_shr_by_zero(void);
+void test_uint256_shr_by_small(void);
+void test_uint256_shr_cross_limb(void);
+void test_uint256_shr_by_256(void);
+void test_uint256_sar_positive(void);
+void test_uint256_sar_negative(void);
+void test_uint256_sar_negative_large_shift(void);
+
+// Signed comparison tests
+void test_uint256_slt_both_positive(void);
+void test_uint256_slt_both_negative(void);
+void test_uint256_slt_mixed_signs(void);
+void test_uint256_sgt_basic(void);
+
 #endif // TEST_UINT256_H

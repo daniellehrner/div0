@@ -408,6 +408,193 @@ static void bench_exp_power_of_2(void) {
 }
 
 // =============================================================================
+// Comparison Benchmarks
+// =============================================================================
+
+static void bench_lt(void) {
+  const uint256_t a = random_uint256();
+  const uint256_t b = random_uint256();
+  bool result;
+
+  BENCH_RUN("uint256_lt", BENCH_DEFAULT_ITERATIONS, {
+    result = uint256_lt(a, b);
+    BENCH_DO_NOT_OPTIMIZE(result);
+  });
+}
+
+static void bench_gt(void) {
+  const uint256_t a = random_uint256();
+  const uint256_t b = random_uint256();
+  bool result;
+
+  BENCH_RUN("uint256_gt", BENCH_DEFAULT_ITERATIONS, {
+    result = uint256_gt(a, b);
+    BENCH_DO_NOT_OPTIMIZE(result);
+  });
+}
+
+static void bench_eq(void) {
+  const uint256_t a = random_uint256();
+  const uint256_t b = random_uint256();
+  bool result;
+
+  BENCH_RUN("uint256_eq", BENCH_DEFAULT_ITERATIONS, {
+    result = uint256_eq(a, b);
+    BENCH_DO_NOT_OPTIMIZE(result);
+  });
+}
+
+static void bench_slt(void) {
+  const uint256_t a = random_uint256();
+  const uint256_t b = random_uint256();
+  bool result;
+
+  BENCH_RUN("uint256_slt", BENCH_DEFAULT_ITERATIONS, {
+    result = uint256_slt(a, b);
+    BENCH_DO_NOT_OPTIMIZE(result);
+  });
+}
+
+static void bench_sgt(void) {
+  const uint256_t a = random_uint256();
+  const uint256_t b = random_uint256();
+  bool result;
+
+  BENCH_RUN("uint256_sgt", BENCH_DEFAULT_ITERATIONS, {
+    result = uint256_sgt(a, b);
+    BENCH_DO_NOT_OPTIMIZE(result);
+  });
+}
+
+// =============================================================================
+// Bitwise Benchmarks
+// =============================================================================
+
+static void bench_and(void) {
+  const uint256_t a = random_uint256();
+  const uint256_t b = random_uint256();
+  uint256_t result;
+
+  BENCH_RUN("uint256_and", BENCH_DEFAULT_ITERATIONS, {
+    result = uint256_and(a, b);
+    BENCH_DO_NOT_OPTIMIZE(result);
+  });
+}
+
+static void bench_or(void) {
+  const uint256_t a = random_uint256();
+  const uint256_t b = random_uint256();
+  uint256_t result;
+
+  BENCH_RUN("uint256_or", BENCH_DEFAULT_ITERATIONS, {
+    result = uint256_or(a, b);
+    BENCH_DO_NOT_OPTIMIZE(result);
+  });
+}
+
+static void bench_xor(void) {
+  const uint256_t a = random_uint256();
+  const uint256_t b = random_uint256();
+  uint256_t result;
+
+  BENCH_RUN("uint256_xor", BENCH_DEFAULT_ITERATIONS, {
+    result = uint256_xor(a, b);
+    BENCH_DO_NOT_OPTIMIZE(result);
+  });
+}
+
+static void bench_not(void) {
+  const uint256_t a = random_uint256();
+  uint256_t result;
+
+  BENCH_RUN("uint256_not", BENCH_DEFAULT_ITERATIONS, {
+    result = uint256_not(a);
+    BENCH_DO_NOT_OPTIMIZE(result);
+  });
+}
+
+static void bench_byte(void) {
+  const uint256_t i = uint256_from_u64(15); // Middle byte
+  const uint256_t x = random_uint256();
+  uint256_t result;
+
+  BENCH_RUN("uint256_byte", BENCH_DEFAULT_ITERATIONS, {
+    result = uint256_byte(i, x);
+    BENCH_DO_NOT_OPTIMIZE(result);
+  });
+}
+
+// =============================================================================
+// Shift Benchmarks
+// =============================================================================
+
+static void bench_shl_small(void) {
+  const uint256_t shift = uint256_from_u64(8);
+  const uint256_t value = random_uint256();
+  uint256_t result;
+
+  BENCH_RUN("uint256_shl (shift=8)", BENCH_DEFAULT_ITERATIONS, {
+    result = uint256_shl(shift, value);
+    BENCH_DO_NOT_OPTIMIZE(result);
+  });
+}
+
+static void bench_shl_large(void) {
+  const uint256_t shift = uint256_from_u64(200);
+  const uint256_t value = random_uint256();
+  uint256_t result;
+
+  BENCH_RUN("uint256_shl (shift=200)", BENCH_DEFAULT_ITERATIONS, {
+    result = uint256_shl(shift, value);
+    BENCH_DO_NOT_OPTIMIZE(result);
+  });
+}
+
+static void bench_shr_small(void) {
+  const uint256_t shift = uint256_from_u64(8);
+  const uint256_t value = random_uint256();
+  uint256_t result;
+
+  BENCH_RUN("uint256_shr (shift=8)", BENCH_DEFAULT_ITERATIONS, {
+    result = uint256_shr(shift, value);
+    BENCH_DO_NOT_OPTIMIZE(result);
+  });
+}
+
+static void bench_shr_large(void) {
+  const uint256_t shift = uint256_from_u64(200);
+  const uint256_t value = random_uint256();
+  uint256_t result;
+
+  BENCH_RUN("uint256_shr (shift=200)", BENCH_DEFAULT_ITERATIONS, {
+    result = uint256_shr(shift, value);
+    BENCH_DO_NOT_OPTIMIZE(result);
+  });
+}
+
+static void bench_sar_positive(void) {
+  const uint256_t shift = uint256_from_u64(8);
+  const uint256_t value = random_uint256();
+  uint256_t result;
+
+  BENCH_RUN("uint256_sar (positive)", BENCH_DEFAULT_ITERATIONS, {
+    result = uint256_sar(shift, value);
+    BENCH_DO_NOT_OPTIMIZE(result);
+  });
+}
+
+static void bench_sar_negative(void) {
+  const uint256_t shift = uint256_from_u64(8);
+  const uint256_t value = negate(random_uint256());
+  uint256_t result;
+
+  BENCH_RUN("uint256_sar (negative)", BENCH_DEFAULT_ITERATIONS, {
+    result = uint256_sar(shift, value);
+    BENCH_DO_NOT_OPTIMIZE(result);
+  });
+}
+
+// =============================================================================
 // SDIV Benchmarks (signed division)
 // =============================================================================
 
@@ -619,6 +806,34 @@ int main(void) {
   bench_exp_medium();
   bench_exp_large();
   bench_exp_power_of_2();
+
+  // Comparison
+  reset_prng();
+  bench_section("Comparison");
+  bench_lt();
+  bench_gt();
+  bench_eq();
+  bench_slt();
+  bench_sgt();
+
+  // Bitwise
+  reset_prng();
+  bench_section("Bitwise");
+  bench_and();
+  bench_or();
+  bench_xor();
+  bench_not();
+  bench_byte();
+
+  // Shifts
+  reset_prng();
+  bench_section("Shifts");
+  bench_shl_small();
+  bench_shl_large();
+  bench_shr_small();
+  bench_shr_large();
+  bench_sar_positive();
+  bench_sar_negative();
 
   // SDIV
   reset_prng();

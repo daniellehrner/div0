@@ -1,9 +1,9 @@
 version: "1.0"
 
-# Use separate build directory to avoid conflicts with normal CMake builds
-ide:
-  cmake:
-    buildDirectory: .qodana-build
+ide: QDCL
+
+cpp:
+  cmakePreset: qodana
 
 exclude:
   - name: Build artifacts

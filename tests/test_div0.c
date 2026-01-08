@@ -296,6 +296,24 @@ int main(void) {
   RUN_TEST(test_evm_mstore_underflow);
   RUN_TEST(test_evm_mstore8_underflow);
 
+  // Block information opcodes (0x40-0x4A)
+  RUN_TEST(test_evm_coinbase);
+  RUN_TEST(test_evm_timestamp);
+  RUN_TEST(test_evm_number);
+  RUN_TEST(test_evm_prevrandao);
+  RUN_TEST(test_evm_gaslimit);
+  RUN_TEST(test_evm_chainid);
+  RUN_TEST(test_evm_basefee);
+  RUN_TEST(test_evm_blobbasefee);
+  RUN_TEST(test_evm_selfbalance);
+  RUN_TEST(test_evm_selfbalance_without_state);
+  RUN_TEST(test_evm_blockhash_valid);
+  RUN_TEST(test_evm_blockhash_out_of_range);
+  RUN_TEST(test_evm_blockhash_no_callback);
+  RUN_TEST(test_evm_blobhash_valid);
+  RUN_TEST(test_evm_blobhash_out_of_bounds);
+  RUN_TEST(test_evm_blobhash_no_blobs);
+
   // Arithmetic opcode tests
   RUN_TEST(test_opcode_sub_basic);
   RUN_TEST(test_opcode_mul_basic);

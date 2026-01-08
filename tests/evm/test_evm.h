@@ -45,4 +45,22 @@ void test_evm_keccak256_out_of_gas(void);
 void test_evm_mstore_underflow(void);
 void test_evm_mstore8_underflow(void);
 
+// Block information opcodes (0x40-0x4A)
+void test_evm_coinbase(void);
+void test_evm_timestamp(void);
+void test_evm_number(void);
+void test_evm_prevrandao(void);
+void test_evm_gaslimit(void);
+void test_evm_chainid(void);
+void test_evm_basefee(void);
+void test_evm_blobbasefee(void);
+void test_evm_selfbalance(void);
+void test_evm_selfbalance_without_state(void);
+void test_evm_blockhash_valid(void);
+void test_evm_blockhash_out_of_range(void);
+void test_evm_blockhash_no_callback(void);
+void test_evm_blobhash_valid(void);
+void test_evm_blobhash_out_of_bounds(void);
+void test_evm_blobhash_no_blobs(void);
+
 #endif // TEST_EVM_H

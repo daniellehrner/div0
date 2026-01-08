@@ -11,6 +11,8 @@
 #include "opcodes/arithmetic.h"
 #include "opcodes/bitwise.h"
 #include "opcodes/comparison.h"
+#include "opcodes/context.h"
+#include "opcodes/external.h"
 #include "opcodes/push.h"
 #include "opcodes/stack.h"
 #include "opcodes/storage.h"
@@ -383,6 +385,23 @@ static frame_result_t execute_frame(evm_t *evm, call_frame_t *frame) {
       [OP_MSTORE8] = &&op_mstore8,
       [OP_SLOAD] = &&op_sload,
       [OP_SSTORE] = &&op_sstore,
+      // Environmental information opcodes
+      [OP_ADDRESS] = &&op_address,
+      [OP_BALANCE] = &&op_balance,
+      [OP_ORIGIN] = &&op_origin,
+      [OP_CALLER] = &&op_caller,
+      [OP_CALLVALUE] = &&op_callvalue,
+      [OP_CALLDATALOAD] = &&op_calldataload,
+      [OP_CALLDATASIZE] = &&op_calldatasize,
+      [OP_CALLDATACOPY] = &&op_calldatacopy,
+      [OP_CODESIZE] = &&op_codesize,
+      [OP_CODECOPY] = &&op_codecopy,
+      [OP_GASPRICE] = &&op_gasprice,
+      [OP_EXTCODESIZE] = &&op_extcodesize,
+      [OP_EXTCODECOPY] = &&op_extcodecopy,
+      [OP_RETURNDATASIZE] = &&op_returndatasize,
+      [OP_RETURNDATACOPY] = &&op_returndatacopy,
+      [OP_EXTCODEHASH] = &&op_extcodehash,
       [OP_POP] = &&op_pop,
       [OP_DUP1] = &&op_dup1,
       [OP_DUP2] = &&op_dup2,
@@ -697,6 +716,100 @@ op_push0: {
   PUSH_N_HANDLER(32)
 
 #undef PUSH_N_HANDLER
+
+  // =============================================================================
+  // Environmental Information Opcodes (0x30-0x3F)
+  // =============================================================================
+
+// Macro for simple context opcodes that only need frame and gas_table
+#define CONTEXT_OP_HANDLER(name, opcode)                            \
+  op_##name : {                                                     \
+    evm_status_t status = op_##name(frame, evm->gas_table[opcode]); \
+    if (status != EVM_OK) {                                         \
+      return frame_result_error(status);                            \
+    }                                                               \
+    DISPATCH();                                                     \
+  }
+
+// Macro for state-dependent opcodes (BALANCE, EXTCODESIZE, etc.)
+// Returns EVM_STATE_UNAVAILABLE if state is not available
+#define STATE_OP_HANDLER(name, opcode)                  \
+  op_##name : {                                         \
+    if (evm->state == nullptr) {                        \
+      return frame_result_error(EVM_STATE_UNAVAILABLE); \
+    }                                                   \
+    evm_status_t status = op_##name(frame, evm->state); \
+    if (status != EVM_OK) {                             \
+      return frame_result_error(status);                \
+    }                                                   \
+    DISPATCH();                                         \
+  }
+
+  CONTEXT_OP_HANDLER(address, OP_ADDRESS)
+  STATE_OP_HANDLER(balance, OP_BALANCE)
+
+op_origin: {
+  // ORIGIN needs access to evm->tx, so inline here
+  if (!evm_stack_ensure_space(frame->stack, 1)) {
+    return frame_result_error(EVM_STACK_OVERFLOW);
+  }
+  if (frame->gas < evm->gas_table[OP_ORIGIN]) {
+    return frame_result_error(EVM_OUT_OF_GAS);
+  }
+  frame->gas -= evm->gas_table[OP_ORIGIN];
+  evm_stack_push_unsafe(frame->stack, address_to_uint256(&evm->tx->origin));
+  DISPATCH();
+}
+
+  CONTEXT_OP_HANDLER(caller, OP_CALLER)
+  CONTEXT_OP_HANDLER(callvalue, OP_CALLVALUE)
+  CONTEXT_OP_HANDLER(calldataload, OP_CALLDATALOAD)
+  CONTEXT_OP_HANDLER(calldatasize, OP_CALLDATASIZE)
+  CONTEXT_OP_HANDLER(calldatacopy, OP_CALLDATACOPY)
+  CONTEXT_OP_HANDLER(codesize, OP_CODESIZE)
+  CONTEXT_OP_HANDLER(codecopy, OP_CODECOPY)
+  STATE_OP_HANDLER(extcodesize, OP_EXTCODESIZE)
+  STATE_OP_HANDLER(extcodecopy, OP_EXTCODECOPY)
+
+op_gasprice: {
+  // GASPRICE needs access to evm->tx, so inline here
+  if (!evm_stack_ensure_space(frame->stack, 1)) {
+    return frame_result_error(EVM_STACK_OVERFLOW);
+  }
+  if (frame->gas < evm->gas_table[OP_GASPRICE]) {
+    return frame_result_error(EVM_OUT_OF_GAS);
+  }
+  frame->gas -= evm->gas_table[OP_GASPRICE];
+  evm_stack_push_unsafe(frame->stack, evm->tx->gas_price);
+  DISPATCH();
+}
+
+op_returndatasize: {
+  // RETURNDATASIZE needs access to evm->return_data_size, so inline here
+  if (!evm_stack_ensure_space(frame->stack, 1)) {
+    return frame_result_error(EVM_STACK_OVERFLOW);
+  }
+  if (frame->gas < evm->gas_table[OP_RETURNDATASIZE]) {
+    return frame_result_error(EVM_OUT_OF_GAS);
+  }
+  frame->gas -= evm->gas_table[OP_RETURNDATASIZE];
+  evm_stack_push_unsafe(frame->stack, uint256_from_u64(evm->return_data_size));
+  DISPATCH();
+}
+
+op_returndatacopy: {
+  evm_status_t status = op_returndatacopy(frame, evm->gas_table[OP_RETURNDATACOPY],
+                                          evm->return_data, evm->return_data_size);
+  if (status != EVM_OK) {
+    return frame_result_error(status);
+  }
+  DISPATCH();
+}
+
+  STATE_OP_HANDLER(extcodehash, OP_EXTCODEHASH)
+
+#undef CONTEXT_OP_HANDLER
+#undef STATE_OP_HANDLER
 
   // =============================================================================
   // Stack Manipulation Opcodes (POP, DUP, SWAP)

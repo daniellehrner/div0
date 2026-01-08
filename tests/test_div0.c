@@ -20,6 +20,7 @@
 #include "evm/test_opcodes_arithmetic.h"
 #include "evm/test_opcodes_bitwise.h"
 #include "evm/test_opcodes_comparison.h"
+#include "evm/test_opcodes_context.h"
 #include "evm/test_opcodes_stack.h"
 #include "evm/test_stack.h"
 #include "evm/test_stack_pool.h"
@@ -420,6 +421,67 @@ int main(void) {
   RUN_TEST(test_opcode_swap16_basic);
   RUN_TEST(test_opcode_swap_gas_consumption);
   RUN_TEST(test_opcode_swap_out_of_gas);
+
+  // Context opcode tests - ADDRESS
+  RUN_TEST(test_opcode_address_basic);
+  RUN_TEST(test_opcode_address_gas_consumption);
+  RUN_TEST(test_opcode_address_out_of_gas);
+  RUN_TEST(test_opcode_address_stack_overflow);
+
+  // Context opcode tests - CALLER
+  RUN_TEST(test_opcode_caller_basic);
+  RUN_TEST(test_opcode_caller_gas_consumption);
+  RUN_TEST(test_opcode_caller_out_of_gas);
+
+  // Context opcode tests - CALLVALUE
+  RUN_TEST(test_opcode_callvalue_basic);
+  RUN_TEST(test_opcode_callvalue_zero);
+  RUN_TEST(test_opcode_callvalue_large);
+  RUN_TEST(test_opcode_callvalue_gas_consumption);
+
+  // Context opcode tests - CALLDATASIZE
+  RUN_TEST(test_opcode_calldatasize_basic);
+  RUN_TEST(test_opcode_calldatasize_empty);
+  RUN_TEST(test_opcode_calldatasize_large);
+
+  // Context opcode tests - CODESIZE
+  RUN_TEST(test_opcode_codesize_basic);
+  RUN_TEST(test_opcode_codesize_minimal);
+
+  // Context opcode tests - ORIGIN
+  RUN_TEST(test_opcode_origin_basic);
+  RUN_TEST(test_opcode_origin_gas_consumption);
+
+  // Context opcode tests - GASPRICE
+  RUN_TEST(test_opcode_gasprice_basic);
+  RUN_TEST(test_opcode_gasprice_large);
+
+  // Context opcode tests - CALLDATALOAD
+  RUN_TEST(test_opcode_calldataload_basic);
+  RUN_TEST(test_opcode_calldataload_offset);
+  RUN_TEST(test_opcode_calldataload_partial);
+  RUN_TEST(test_opcode_calldataload_out_of_bounds);
+  RUN_TEST(test_opcode_calldataload_empty);
+  RUN_TEST(test_opcode_calldataload_stack_underflow);
+
+  // Context opcode tests - CALLDATACOPY
+  RUN_TEST(test_opcode_calldatacopy_basic);
+  RUN_TEST(test_opcode_calldatacopy_zero_size);
+  RUN_TEST(test_opcode_calldatacopy_zero_pad);
+  RUN_TEST(test_opcode_calldatacopy_out_of_bounds);
+  RUN_TEST(test_opcode_calldatacopy_stack_underflow);
+
+  // Context opcode tests - CODECOPY
+  RUN_TEST(test_opcode_codecopy_basic);
+  RUN_TEST(test_opcode_codecopy_zero_size);
+  RUN_TEST(test_opcode_codecopy_zero_pad);
+  RUN_TEST(test_opcode_codecopy_stack_underflow);
+
+  // Context opcode tests - RETURNDATASIZE
+  RUN_TEST(test_opcode_returndatasize_zero);
+
+  // Context opcode tests - RETURNDATACOPY
+  RUN_TEST(test_opcode_returndatacopy_empty);
 
   // keccak256 tests
   RUN_TEST(test_keccak256_empty);

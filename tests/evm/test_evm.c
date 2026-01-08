@@ -742,3 +742,428 @@ void test_evm_mstore8_underflow(void) {
   TEST_ASSERT_EQUAL(EVM_RESULT_ERROR, result.result);
   TEST_ASSERT_EQUAL(EVM_STACK_UNDERFLOW, result.error);
 }
+
+// =============================================================================
+// Block Information Opcodes (0x40-0x4A)
+// =============================================================================
+
+/// Helper to create execution environment with block context.
+static execution_env_t make_test_env_with_block(const uint8_t *code, size_t code_size, uint64_t gas,
+                                                const block_context_t *block) {
+  execution_env_t env;
+  memset(&env, 0, sizeof(env));
+  env.call.code = code;
+  env.call.code_size = code_size;
+  env.call.gas = gas;
+  env.block = block;
+  return env;
+}
+
+void test_evm_coinbase(void) {
+  // COINBASE, STOP
+  uint8_t code[] = {OP_COINBASE, OP_STOP};
+
+  evm_t evm;
+  evm_init(&evm, &test_arena, FORK_SHANGHAI);
+
+  block_context_t block;
+  block_context_init(&block);
+  // Set coinbase to 0x1234...5678
+  memset(block.coinbase.bytes, 0, 20);
+  block.coinbase.bytes[0] = 0x12;
+  block.coinbase.bytes[19] = 0x78;
+
+  execution_env_t env = make_test_env_with_block(code, sizeof(code), 100000, &block);
+  evm_execution_result_t result = evm_execute_env(&evm, &env);
+
+  TEST_ASSERT_EQUAL(EVM_RESULT_STOP, result.result);
+  TEST_ASSERT_EQUAL(EVM_OK, result.error);
+
+  // Verify stack has coinbase address
+  TEST_ASSERT_NOT_NULL(evm.current_frame);
+  TEST_ASSERT_EQUAL_UINT16(1, evm_stack_size(evm.current_frame->stack));
+
+  uint8_t output[32];
+  uint256_to_bytes_be(evm_stack_peek_unsafe(evm.current_frame->stack, 0), output);
+  // Address is right-aligned (last 20 bytes)
+  TEST_ASSERT_EQUAL_UINT8(0x12, output[12]);
+  TEST_ASSERT_EQUAL_UINT8(0x78, output[31]);
+}
+
+void test_evm_timestamp(void) {
+  // TIMESTAMP, STOP
+  uint8_t code[] = {OP_TIMESTAMP, OP_STOP};
+
+  evm_t evm;
+  evm_init(&evm, &test_arena, FORK_SHANGHAI);
+
+  block_context_t block;
+  block_context_init(&block);
+  block.timestamp = 1234567890;
+
+  execution_env_t env = make_test_env_with_block(code, sizeof(code), 100000, &block);
+  evm_execution_result_t result = evm_execute_env(&evm, &env);
+
+  TEST_ASSERT_EQUAL(EVM_RESULT_STOP, result.result);
+  TEST_ASSERT_EQUAL(EVM_OK, result.error);
+
+  TEST_ASSERT_NOT_NULL(evm.current_frame);
+  TEST_ASSERT_EQUAL_UINT16(1, evm_stack_size(evm.current_frame->stack));
+  TEST_ASSERT_EQUAL_UINT64(1234567890, evm_stack_peek_unsafe(evm.current_frame->stack, 0).limbs[0]);
+}
+
+void test_evm_number(void) {
+  // NUMBER, STOP
+  uint8_t code[] = {OP_NUMBER, OP_STOP};
+
+  evm_t evm;
+  evm_init(&evm, &test_arena, FORK_SHANGHAI);
+
+  block_context_t block;
+  block_context_init(&block);
+  block.number = 12345678;
+
+  execution_env_t env = make_test_env_with_block(code, sizeof(code), 100000, &block);
+  evm_execution_result_t result = evm_execute_env(&evm, &env);
+
+  TEST_ASSERT_EQUAL(EVM_RESULT_STOP, result.result);
+  TEST_ASSERT_EQUAL(EVM_OK, result.error);
+
+  TEST_ASSERT_NOT_NULL(evm.current_frame);
+  TEST_ASSERT_EQUAL_UINT16(1, evm_stack_size(evm.current_frame->stack));
+  TEST_ASSERT_EQUAL_UINT64(12345678, evm_stack_peek_unsafe(evm.current_frame->stack, 0).limbs[0]);
+}
+
+void test_evm_prevrandao(void) {
+  // PREVRANDAO, STOP
+  uint8_t code[] = {OP_PREVRANDAO, OP_STOP};
+
+  evm_t evm;
+  evm_init(&evm, &test_arena, FORK_SHANGHAI);
+
+  block_context_t block;
+  block_context_init(&block);
+  block.prev_randao = uint256_from_u64(0xDEADBEEF);
+
+  execution_env_t env = make_test_env_with_block(code, sizeof(code), 100000, &block);
+  evm_execution_result_t result = evm_execute_env(&evm, &env);
+
+  TEST_ASSERT_EQUAL(EVM_RESULT_STOP, result.result);
+  TEST_ASSERT_EQUAL(EVM_OK, result.error);
+
+  TEST_ASSERT_NOT_NULL(evm.current_frame);
+  TEST_ASSERT_EQUAL_UINT16(1, evm_stack_size(evm.current_frame->stack));
+  TEST_ASSERT_EQUAL_UINT64(0xDEADBEEF, evm_stack_peek_unsafe(evm.current_frame->stack, 0).limbs[0]);
+}
+
+void test_evm_gaslimit(void) {
+  // GASLIMIT, STOP
+  uint8_t code[] = {OP_GASLIMIT, OP_STOP};
+
+  evm_t evm;
+  evm_init(&evm, &test_arena, FORK_SHANGHAI);
+
+  block_context_t block;
+  block_context_init(&block);
+  block.gas_limit = 30000000;
+
+  execution_env_t env = make_test_env_with_block(code, sizeof(code), 100000, &block);
+  evm_execution_result_t result = evm_execute_env(&evm, &env);
+
+  TEST_ASSERT_EQUAL(EVM_RESULT_STOP, result.result);
+  TEST_ASSERT_EQUAL(EVM_OK, result.error);
+
+  TEST_ASSERT_NOT_NULL(evm.current_frame);
+  TEST_ASSERT_EQUAL_UINT16(1, evm_stack_size(evm.current_frame->stack));
+  TEST_ASSERT_EQUAL_UINT64(30000000, evm_stack_peek_unsafe(evm.current_frame->stack, 0).limbs[0]);
+}
+
+void test_evm_chainid(void) {
+  // CHAINID, STOP
+  uint8_t code[] = {OP_CHAINID, OP_STOP};
+
+  evm_t evm;
+  evm_init(&evm, &test_arena, FORK_SHANGHAI);
+
+  block_context_t block;
+  block_context_init(&block);
+  block.chain_id = 1; // Mainnet
+
+  execution_env_t env = make_test_env_with_block(code, sizeof(code), 100000, &block);
+  evm_execution_result_t result = evm_execute_env(&evm, &env);
+
+  TEST_ASSERT_EQUAL(EVM_RESULT_STOP, result.result);
+  TEST_ASSERT_EQUAL(EVM_OK, result.error);
+
+  TEST_ASSERT_NOT_NULL(evm.current_frame);
+  TEST_ASSERT_EQUAL_UINT16(1, evm_stack_size(evm.current_frame->stack));
+  TEST_ASSERT_EQUAL_UINT64(1, evm_stack_peek_unsafe(evm.current_frame->stack, 0).limbs[0]);
+}
+
+void test_evm_basefee(void) {
+  // BASEFEE, STOP
+  uint8_t code[] = {OP_BASEFEE, OP_STOP};
+
+  evm_t evm;
+  evm_init(&evm, &test_arena, FORK_SHANGHAI);
+
+  block_context_t block;
+  block_context_init(&block);
+  block.base_fee = uint256_from_u64(1000000000); // 1 gwei
+
+  execution_env_t env = make_test_env_with_block(code, sizeof(code), 100000, &block);
+  evm_execution_result_t result = evm_execute_env(&evm, &env);
+
+  TEST_ASSERT_EQUAL(EVM_RESULT_STOP, result.result);
+  TEST_ASSERT_EQUAL(EVM_OK, result.error);
+
+  TEST_ASSERT_NOT_NULL(evm.current_frame);
+  TEST_ASSERT_EQUAL_UINT16(1, evm_stack_size(evm.current_frame->stack));
+  TEST_ASSERT_EQUAL_UINT64(1000000000, evm_stack_peek_unsafe(evm.current_frame->stack, 0).limbs[0]);
+}
+
+void test_evm_blobbasefee(void) {
+  // BLOBBASEFEE, STOP
+  uint8_t code[] = {OP_BLOBBASEFEE, OP_STOP};
+
+  evm_t evm;
+  evm_init(&evm, &test_arena, FORK_CANCUN);
+
+  block_context_t block;
+  block_context_init(&block);
+  block.blob_base_fee = uint256_from_u64(5000000); // 5 million wei
+
+  execution_env_t env = make_test_env_with_block(code, sizeof(code), 100000, &block);
+  evm_execution_result_t result = evm_execute_env(&evm, &env);
+
+  TEST_ASSERT_EQUAL(EVM_RESULT_STOP, result.result);
+  TEST_ASSERT_EQUAL(EVM_OK, result.error);
+
+  TEST_ASSERT_NOT_NULL(evm.current_frame);
+  TEST_ASSERT_EQUAL_UINT16(1, evm_stack_size(evm.current_frame->stack));
+  TEST_ASSERT_EQUAL_UINT64(5000000, evm_stack_peek_unsafe(evm.current_frame->stack, 0).limbs[0]);
+}
+
+void test_evm_selfbalance(void) {
+  // SELFBALANCE, STOP
+  uint8_t code[] = {OP_SELFBALANCE, OP_STOP};
+
+  world_state_t *ws = world_state_create(&test_arena);
+  TEST_ASSERT_NOT_NULL(ws);
+
+  evm_t evm;
+  evm_init(&evm, &test_arena, FORK_SHANGHAI);
+  evm_set_state(&evm, world_state_access(ws));
+
+  block_context_t block;
+  block_context_init(&block);
+
+  // Set up execution environment with address and state
+  execution_env_t env = make_test_env_with_block(code, sizeof(code), 100000, &block);
+
+  // Set the contract address
+  memset(env.call.address.bytes, 0, 20);
+  env.call.address.bytes[19] = 0x42;
+
+  // Set balance for the contract address
+  state_set_balance(world_state_access(ws), &env.call.address, uint256_from_u64(1000000));
+
+  evm_execution_result_t result = evm_execute_env(&evm, &env);
+
+  TEST_ASSERT_EQUAL(EVM_RESULT_STOP, result.result);
+  TEST_ASSERT_EQUAL(EVM_OK, result.error);
+
+  TEST_ASSERT_NOT_NULL(evm.current_frame);
+  TEST_ASSERT_EQUAL_UINT16(1, evm_stack_size(evm.current_frame->stack));
+  TEST_ASSERT_EQUAL_UINT64(1000000, evm_stack_peek_unsafe(evm.current_frame->stack, 0).limbs[0]);
+
+  world_state_destroy(ws);
+}
+
+void test_evm_selfbalance_without_state(void) {
+  // SELFBALANCE without state should fail
+  uint8_t code[] = {OP_SELFBALANCE};
+
+  evm_t evm;
+  evm_init(&evm, &test_arena, FORK_SHANGHAI);
+
+  block_context_t block;
+  block_context_init(&block);
+
+  execution_env_t env = make_test_env_with_block(code, sizeof(code), 100000, &block);
+  evm_execution_result_t result = evm_execute_env(&evm, &env);
+
+  TEST_ASSERT_EQUAL(EVM_RESULT_ERROR, result.result);
+  TEST_ASSERT_EQUAL(EVM_STATE_UNAVAILABLE, result.error);
+}
+
+/// Test callback for BLOCKHASH
+static bool test_blockhash_callback(uint64_t block_number, void *user_data, hash_t *out) {
+  (void)user_data;
+  // Return a hash based on block number for testing
+  memset(out->bytes, 0, 32);
+  out->bytes[31] = (uint8_t)(block_number & 0xFF);
+  return true;
+}
+
+void test_evm_blockhash_valid(void) {
+  // PUSH1 99 (block number), BLOCKHASH, STOP
+  uint8_t code[] = {OP_PUSH1, 99, OP_BLOCKHASH, OP_STOP};
+
+  evm_t evm;
+  evm_init(&evm, &test_arena, FORK_SHANGHAI);
+
+  block_context_t block;
+  block_context_init(&block);
+  block.number = 100; // Current block
+  block.get_block_hash = test_blockhash_callback;
+
+  execution_env_t env = make_test_env_with_block(code, sizeof(code), 100000, &block);
+  evm_execution_result_t result = evm_execute_env(&evm, &env);
+
+  TEST_ASSERT_EQUAL(EVM_RESULT_STOP, result.result);
+  TEST_ASSERT_EQUAL(EVM_OK, result.error);
+
+  TEST_ASSERT_NOT_NULL(evm.current_frame);
+  TEST_ASSERT_EQUAL_UINT16(1, evm_stack_size(evm.current_frame->stack));
+
+  // The callback sets the last byte to block_number
+  uint8_t output[32];
+  uint256_to_bytes_be(evm_stack_peek_unsafe(evm.current_frame->stack, 0), output);
+  TEST_ASSERT_EQUAL_UINT8(99, output[31]);
+}
+
+void test_evm_blockhash_out_of_range(void) {
+  // PUSH1 200 (block number > current), BLOCKHASH, STOP
+  uint8_t code[] = {OP_PUSH1, 200, OP_BLOCKHASH, OP_STOP};
+
+  evm_t evm;
+  evm_init(&evm, &test_arena, FORK_SHANGHAI);
+
+  block_context_t block;
+  block_context_init(&block);
+  block.number = 100; // Current block
+  block.get_block_hash = test_blockhash_callback;
+
+  execution_env_t env = make_test_env_with_block(code, sizeof(code), 100000, &block);
+  evm_execution_result_t result = evm_execute_env(&evm, &env);
+
+  TEST_ASSERT_EQUAL(EVM_RESULT_STOP, result.result);
+  TEST_ASSERT_EQUAL(EVM_OK, result.error);
+
+  // Should return zero hash (out of range)
+  TEST_ASSERT_NOT_NULL(evm.current_frame);
+  TEST_ASSERT_EQUAL_UINT16(1, evm_stack_size(evm.current_frame->stack));
+  TEST_ASSERT_TRUE(uint256_is_zero(evm_stack_peek_unsafe(evm.current_frame->stack, 0)));
+}
+
+void test_evm_blockhash_no_callback(void) {
+  // BLOCKHASH without callback should return zero
+  uint8_t code[] = {OP_PUSH1, 99, OP_BLOCKHASH, OP_STOP};
+
+  evm_t evm;
+  evm_init(&evm, &test_arena, FORK_SHANGHAI);
+
+  block_context_t block;
+  block_context_init(&block);
+  block.number = 100;
+  block.get_block_hash = nullptr; // No callback
+
+  execution_env_t env = make_test_env_with_block(code, sizeof(code), 100000, &block);
+  evm_execution_result_t result = evm_execute_env(&evm, &env);
+
+  TEST_ASSERT_EQUAL(EVM_RESULT_STOP, result.result);
+  TEST_ASSERT_EQUAL(EVM_OK, result.error);
+
+  // Should return zero hash (no callback)
+  TEST_ASSERT_NOT_NULL(evm.current_frame);
+  TEST_ASSERT_EQUAL_UINT16(1, evm_stack_size(evm.current_frame->stack));
+  TEST_ASSERT_TRUE(uint256_is_zero(evm_stack_peek_unsafe(evm.current_frame->stack, 0)));
+}
+
+void test_evm_blobhash_valid(void) {
+  // PUSH1 0 (index), BLOBHASH, STOP
+  uint8_t code[] = {OP_PUSH1, 0, OP_BLOBHASH, OP_STOP};
+
+  evm_t evm;
+  evm_init(&evm, &test_arena, FORK_CANCUN);
+
+  block_context_t block;
+  block_context_init(&block);
+
+  // Set up blob hash
+  hash_t blob_hash;
+  memset(blob_hash.bytes, 0, 32);
+  blob_hash.bytes[0] = 0x01; // versioned hash prefix
+  blob_hash.bytes[31] = 0xAB;
+
+  execution_env_t env = make_test_env_with_block(code, sizeof(code), 100000, &block);
+  env.tx.blob_hashes = &blob_hash;
+  env.tx.blob_hashes_count = 1;
+
+  evm_execution_result_t result = evm_execute_env(&evm, &env);
+
+  TEST_ASSERT_EQUAL(EVM_RESULT_STOP, result.result);
+  TEST_ASSERT_EQUAL(EVM_OK, result.error);
+
+  TEST_ASSERT_NOT_NULL(evm.current_frame);
+  TEST_ASSERT_EQUAL_UINT16(1, evm_stack_size(evm.current_frame->stack));
+
+  uint8_t output[32];
+  uint256_to_bytes_be(evm_stack_peek_unsafe(evm.current_frame->stack, 0), output);
+  TEST_ASSERT_EQUAL_UINT8(0x01, output[0]);
+  TEST_ASSERT_EQUAL_UINT8(0xAB, output[31]);
+}
+
+void test_evm_blobhash_out_of_bounds(void) {
+  // PUSH1 5 (index out of bounds), BLOBHASH, STOP
+  uint8_t code[] = {OP_PUSH1, 5, OP_BLOBHASH, OP_STOP};
+
+  evm_t evm;
+  evm_init(&evm, &test_arena, FORK_CANCUN);
+
+  block_context_t block;
+  block_context_init(&block);
+
+  hash_t blob_hash;
+  memset(blob_hash.bytes, 0xAA, 32);
+
+  execution_env_t env = make_test_env_with_block(code, sizeof(code), 100000, &block);
+  env.tx.blob_hashes = &blob_hash;
+  env.tx.blob_hashes_count = 1; // Only 1 blob, index 5 is out of bounds
+
+  evm_execution_result_t result = evm_execute_env(&evm, &env);
+
+  TEST_ASSERT_EQUAL(EVM_RESULT_STOP, result.result);
+  TEST_ASSERT_EQUAL(EVM_OK, result.error);
+
+  // Should return zero (index out of bounds)
+  TEST_ASSERT_NOT_NULL(evm.current_frame);
+  TEST_ASSERT_EQUAL_UINT16(1, evm_stack_size(evm.current_frame->stack));
+  TEST_ASSERT_TRUE(uint256_is_zero(evm_stack_peek_unsafe(evm.current_frame->stack, 0)));
+}
+
+void test_evm_blobhash_no_blobs(void) {
+  // BLOBHASH with no blob hashes should return zero
+  uint8_t code[] = {OP_PUSH1, 0, OP_BLOBHASH, OP_STOP};
+
+  evm_t evm;
+  evm_init(&evm, &test_arena, FORK_CANCUN);
+
+  block_context_t block;
+  block_context_init(&block);
+
+  execution_env_t env = make_test_env_with_block(code, sizeof(code), 100000, &block);
+  env.tx.blob_hashes = nullptr;
+  env.tx.blob_hashes_count = 0;
+
+  evm_execution_result_t result = evm_execute_env(&evm, &env);
+
+  TEST_ASSERT_EQUAL(EVM_RESULT_STOP, result.result);
+  TEST_ASSERT_EQUAL(EVM_OK, result.error);
+
+  // Should return zero (no blobs)
+  TEST_ASSERT_NOT_NULL(evm.current_frame);
+  TEST_ASSERT_EQUAL_UINT16(1, evm_stack_size(evm.current_frame->stack));
+  TEST_ASSERT_TRUE(uint256_is_zero(evm_stack_peek_unsafe(evm.current_frame->stack, 0)));
+}

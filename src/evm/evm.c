@@ -9,6 +9,7 @@
 
 #include "opcodes/arithmetic.h"
 #include "opcodes/bitwise.h"
+#include "opcodes/block.h"
 #include "opcodes/comparison.h"
 #include "opcodes/context.h"
 #include "opcodes/external.h"
@@ -21,7 +22,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
-void evm_init(evm_t *evm, div0_arena_t *arena, fork_t fork) {
+void evm_init(evm_t *evm, div0_arena_t *arena, const fork_t fork) {
   __builtin___memset_chk(evm, 0, sizeof(evm_t), __builtin_object_size(evm, 0));
   evm->arena = arena;
   evm->fork = fork;
@@ -98,7 +99,8 @@ static frame_result_t execute_frame(evm_t *evm, call_frame_t *frame);
 
 /// Copies return data from frame memory to EVM's stable buffer.
 /// Must be called before releasing the frame's memory.
-static void copy_return_data(evm_t *evm, const evm_memory_t *mem, uint64_t offset, uint64_t size) {
+static void copy_return_data(evm_t *evm, const evm_memory_t *mem, const uint64_t offset,
+                             const uint64_t size) {
   if (size == 0) {
     evm->return_data_size = 0;
     return;
@@ -149,11 +151,11 @@ evm_execution_result_t evm_execute_env(evm_t *evm, const execution_env_t *env) {
   call_frame_t *frame_stack[EVM_MAX_CALL_DEPTH];
   size_t stack_depth = 0;
 
-  uint64_t initial_gas = env->call.gas;
+  const uint64_t initial_gas = env->call.gas;
 
   // Main execution loop
   while (true) {
-    frame_result_t result = execute_frame(evm, frame);
+    const frame_result_t result = execute_frame(evm, frame);
 
     switch (result.action) {
     case FRAME_STOP:
@@ -163,7 +165,7 @@ evm_execution_result_t evm_execute_env(evm_t *evm, const execution_env_t *env) {
         if (result.action == FRAME_RETURN) {
           copy_return_data(evm, frame->memory, result.return_offset, result.return_size);
         }
-        uint64_t gas_used = initial_gas - frame->gas;
+        const uint64_t gas_used = initial_gas - frame->gas;
         return (evm_execution_result_t){
             .result = EVM_RESULT_STOP,
             .error = EVM_OK,
@@ -209,7 +211,7 @@ evm_execution_result_t evm_execute_env(evm_t *evm, const execution_env_t *env) {
       if (frame->depth == 0) {
         // Top-level revert - copy revert data
         copy_return_data(evm, frame->memory, result.return_offset, result.return_size);
-        uint64_t gas_used = initial_gas - frame->gas;
+        const uint64_t gas_used = initial_gas - frame->gas;
         return (evm_execution_result_t){
             .result = EVM_RESULT_ERROR,
             .error = EVM_OK, // Revert is not a fatal error
@@ -405,6 +407,18 @@ static frame_result_t execute_frame(evm_t *evm, call_frame_t *frame) {
       [OP_RETURNDATASIZE] = &&op_returndatasize,
       [OP_RETURNDATACOPY] = &&op_returndatacopy,
       [OP_EXTCODEHASH] = &&op_extcodehash,
+      // Block information opcodes
+      [OP_BLOCKHASH] = &&op_blockhash,
+      [OP_COINBASE] = &&op_coinbase,
+      [OP_TIMESTAMP] = &&op_timestamp,
+      [OP_NUMBER] = &&op_number,
+      [OP_PREVRANDAO] = &&op_prevrandao,
+      [OP_GASLIMIT] = &&op_gaslimit,
+      [OP_CHAINID] = &&op_chainid,
+      [OP_SELFBALANCE] = &&op_selfbalance,
+      [OP_BASEFEE] = &&op_basefee,
+      [OP_BLOBHASH] = &&op_blobhash,
+      [OP_BLOBBASEFEE] = &&op_blobbasefee,
       [OP_POP] = &&op_pop,
       [OP_DUP1] = &&op_dup1,
       [OP_DUP2] = &&op_dup2,
@@ -813,6 +827,51 @@ op_returndatacopy: {
 
 #undef CONTEXT_OP_HANDLER
 #undef STATE_OP_HANDLER
+
+  // =============================================================================
+  // Block Information Opcodes (0x40-0x4A)
+  // =============================================================================
+
+// Macro for block opcodes that need block context
+#define BLOCK_OP_HANDLER(name, opcode)                                          \
+  op_##name : {                                                                 \
+    evm_status_t status = op_##name(frame, evm->block, evm->gas_table[opcode]); \
+    if (status != EVM_OK) {                                                     \
+      return frame_result_error(status);                                        \
+    }                                                                           \
+    DISPATCH();                                                                 \
+  }
+
+  BLOCK_OP_HANDLER(blockhash, OP_BLOCKHASH)
+  BLOCK_OP_HANDLER(coinbase, OP_COINBASE)
+  BLOCK_OP_HANDLER(timestamp, OP_TIMESTAMP)
+  BLOCK_OP_HANDLER(number, OP_NUMBER)
+  BLOCK_OP_HANDLER(prevrandao, OP_PREVRANDAO)
+  BLOCK_OP_HANDLER(gaslimit, OP_GASLIMIT)
+  BLOCK_OP_HANDLER(chainid, OP_CHAINID)
+  BLOCK_OP_HANDLER(basefee, OP_BASEFEE)
+  BLOCK_OP_HANDLER(blobbasefee, OP_BLOBBASEFEE)
+
+#undef BLOCK_OP_HANDLER
+
+op_selfbalance: {
+  if (evm->state == nullptr) {
+    return frame_result_error(EVM_STATE_UNAVAILABLE);
+  }
+  evm_status_t status = op_selfbalance(frame, evm->state, evm->gas_table[OP_SELFBALANCE]);
+  if (status != EVM_OK) {
+    return frame_result_error(status);
+  }
+  DISPATCH();
+}
+
+op_blobhash: {
+  evm_status_t status = op_blobhash(frame, evm->tx, evm->gas_table[OP_BLOBHASH]);
+  if (status != EVM_OK) {
+    return frame_result_error(status);
+  }
+  DISPATCH();
+}
 
   // =============================================================================
   // Stack Manipulation Opcodes (POP, DUP, SWAP)

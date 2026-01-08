@@ -14,7 +14,7 @@ High-performance EVM (Ethereum Virtual Machine) implementation in C23.
 ### macOS
 
 ```bash
-brew install cmake ninja ccache llvm lld uv
+brew install cmake ninja ccache llvm lld uv lcov
 uv tool install semgrep
 ```
 
@@ -22,7 +22,7 @@ uv tool install semgrep
 
 ```bash
 # Install base tools
-sudo apt install ninja-build ccache wget gpg xsltproc
+sudo apt install ninja-build ccache wget gpg xsltproc lcov
 
 # Install CMake 4.x from Kitware APT repository (Ubuntu's default is too old)
 test -f /usr/share/doc/kitware-archive-keyring/copyright || \

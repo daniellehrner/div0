@@ -268,6 +268,11 @@ int main(void) {
   RUN_TEST(test_evm_stack_underflow);
   RUN_TEST(test_evm_mstore);
   RUN_TEST(test_evm_mstore8);
+  RUN_TEST(test_evm_mload);
+  RUN_TEST(test_evm_mload_mstore_roundtrip);
+  RUN_TEST(test_evm_keccak256_empty);
+  RUN_TEST(test_evm_keccak256_single_byte);
+  RUN_TEST(test_evm_keccak256_32_bytes);
   RUN_TEST(test_evm_return_empty);
   RUN_TEST(test_evm_return_with_data);
   RUN_TEST(test_evm_revert_empty);
@@ -284,6 +289,12 @@ int main(void) {
   RUN_TEST(test_evm_init_prague);
   RUN_TEST(test_evm_gas_refund_initialized);
   RUN_TEST(test_evm_gas_refund_reset);
+  RUN_TEST(test_evm_mload_underflow);
+  RUN_TEST(test_evm_keccak256_underflow);
+  RUN_TEST(test_evm_mload_out_of_gas);
+  RUN_TEST(test_evm_keccak256_out_of_gas);
+  RUN_TEST(test_evm_mstore_underflow);
+  RUN_TEST(test_evm_mstore8_underflow);
 
   // Arithmetic opcode tests
   RUN_TEST(test_opcode_sub_basic);

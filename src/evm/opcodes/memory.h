@@ -68,6 +68,11 @@ static inline evm_status_t op_mstore(call_frame_t *frame, const uint64_t gas_cos
   }
   uint64_t offset = uint256_to_u64_unsafe(offset_u256);
 
+  // Prevent offset + 32 overflow
+  if (offset > UINT64_MAX - 32) {
+    return EVM_OUT_OF_GAS;
+  }
+
   // Calculate memory expansion cost
   uint64_t mem_cost = 0;
   if (!evm_memory_expand(frame->memory, offset, 32, &mem_cost)) {
@@ -102,6 +107,11 @@ static inline evm_status_t op_mstore8(call_frame_t *frame, const uint64_t gas_co
     return EVM_OUT_OF_GAS;
   }
   uint64_t offset = uint256_to_u64_unsafe(offset_u256);
+
+  // Prevent offset + 1 overflow
+  if (offset > UINT64_MAX - 1) {
+    return EVM_OUT_OF_GAS;
+  }
 
   // Calculate memory expansion cost
   uint64_t mem_cost = 0;

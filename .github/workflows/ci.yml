@@ -24,6 +24,18 @@ jobs:
         with:
           version: ${{ env.LLVM_VERSION }}
 
+      - name: Cache build dependencies
+        uses: ubicloud/cache@v4
+        with:
+          path: build/debug/_deps
+          key: deps-debug-${{ hashFiles('cmake/Dependencies.cmake', 'cmake/dependencies/*.cmake') }}
+
+      - name: Cache pip packages
+        uses: ubicloud/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: pip-semgrep-${{ runner.os }}
+
       - name: Check formatting
         run: make format-check
 
@@ -53,11 +65,15 @@ jobs:
         with:
           version: ${{ env.LLVM_VERSION }}
 
-      - name: Cache FetchContent dependencies
+      - name: Cache build dependencies
         uses: ubicloud/cache@v4
         with:
-          path: build/${{ matrix.preset }}/_deps
-          key: deps-${{ matrix.preset }}-${{ hashFiles('cmake/Dependencies.cmake') }}
+          path: |
+            build/${{ matrix.preset }}/_deps
+            build/${{ matrix.preset }}/picolibc_ext-prefix
+            build/${{ matrix.preset }}/picolibc-install
+            build/${{ matrix.preset }}/compiler_rt_ext-prefix
+          key: deps-${{ matrix.preset }}-${{ hashFiles('cmake/Dependencies.cmake', 'cmake/dependencies/*.cmake') }}
 
       - name: Configure ccache
         run: |

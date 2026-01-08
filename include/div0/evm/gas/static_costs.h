@@ -51,10 +51,18 @@ static inline void gas_table_init_shanghai(gas_table_t table) {
   table[OP_MSIZE] = 2;
 
   // Context opcodes
+  table[OP_ADDRESS] = 2;
+  table[OP_ORIGIN] = 2;
   table[OP_CALLER] = 2;
+  table[OP_CALLVALUE] = 2;
   table[OP_CALLDATALOAD] = 3;
   table[OP_CALLDATASIZE] = 2;
   table[OP_CALLDATACOPY] = 3;
+  table[OP_CODESIZE] = 2;
+  table[OP_CODECOPY] = 3;
+  table[OP_GASPRICE] = 2;
+  table[OP_RETURNDATASIZE] = 2;
+  table[OP_RETURNDATACOPY] = 3;
 
   // Control flow opcodes
   table[OP_POP] = 2;

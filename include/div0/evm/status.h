@@ -11,6 +11,7 @@ typedef enum {
   EVM_WRITE_PROTECTION,     // State modification in static context
   EVM_CALL_DEPTH_EXCEEDED,  // Call depth limit reached (not fatal)
   EVM_INSUFFICIENT_BALANCE, // Not enough balance for value transfer
+  EVM_STATE_UNAVAILABLE,    // State access required but no state provider set
 } evm_status_t;
 
 /// EVM execution result.

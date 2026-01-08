@@ -56,7 +56,7 @@ add_link_options(
 # Mark custom build types as valid configurations
 # ============================================================================
 
-set(CMAKE_CONFIGURATION_TYPES "Debug;Release;ThreadSan"
+set(CMAKE_CONFIGURATION_TYPES "Debug;Release;ThreadSan;Coverage"
   CACHE STRING "Available build types" FORCE)
 
 # ============================================================================

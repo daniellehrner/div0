@@ -1,7 +1,7 @@
 # div0 - High-performance EVM implementation
 # Makefile wrapper for CMake builds
 
-.PHONY: all check debug release threadsan bare-metal-riscv test test-threadsan bench clean distclean format clang-tidy semgrep help
+.PHONY: all check debug release threadsan bare-metal-riscv test test-threadsan coverage bench clean distclean format clang-tidy semgrep help
 
 # Default compiler - must be Clang
 CC := clang
@@ -10,6 +10,7 @@ CC := clang
 BUILD_DEBUG = build/debug
 BUILD_RELEASE = build/release
 BUILD_THREADSAN = build/threadsan
+BUILD_COVERAGE = build/coverage
 BUILD_RISCV = build/riscv64
 
 # Default target
@@ -56,13 +57,30 @@ test: debug
 test-threadsan: threadsan
 	ctest --test-dir $(BUILD_THREADSAN) --output-on-failure
 
+# Code coverage report (requires lcov: sudo apt install lcov)
+coverage:
+	cmake -B $(BUILD_COVERAGE) -G Ninja \
+		-DCMAKE_C_COMPILER=$(CC) \
+		-DCMAKE_BUILD_TYPE=Coverage \
+		-DCMAKE_C_FLAGS_COVERAGE="-g -O0 --coverage -fno-inline" \
+		-DCMAKE_EXE_LINKER_FLAGS_COVERAGE="--coverage"
+	cmake --build $(BUILD_COVERAGE)
+	-ctest --test-dir $(BUILD_COVERAGE) --output-on-failure
+	llvm-profdata merge -sparse $(BUILD_COVERAGE)/default.profraw -o $(BUILD_COVERAGE)/coverage.profdata 2>/dev/null || true
+	lcov --capture --directory $(BUILD_COVERAGE) --output-file $(BUILD_COVERAGE)/coverage.info \
+		--gcov-tool $(CURDIR)/scripts/llvm-gcov.sh --ignore-errors gcov
+	lcov --remove $(BUILD_COVERAGE)/coverage.info '/usr/*' '*/tests/*' '*/unity/*' '*/build/*' \
+		--output-file $(BUILD_COVERAGE)/coverage.info --ignore-errors unused
+	genhtml $(BUILD_COVERAGE)/coverage.info --output-directory $(BUILD_COVERAGE)/report --ignore-errors unmapped
+	@echo "Coverage report: $(BUILD_COVERAGE)/report/index.html"
+
 # Run benchmarks (release build)
 bench: release
 	$(BUILD_RELEASE)/benchmarks/uint256_bench
 
 # Clean project build artifacts (preserves external dependencies like picolibc)
 clean:
-	@for dir in $(BUILD_DEBUG) $(BUILD_RELEASE) $(BUILD_THREADSAN) $(BUILD_RISCV); do \
+	@for dir in $(BUILD_DEBUG) $(BUILD_RELEASE) $(BUILD_THREADSAN) $(BUILD_COVERAGE) $(BUILD_RISCV); do \
 		if [ -d "$$dir" ]; then \
 			echo "Cleaning $$dir (preserving external deps)..."; \
 			rm -f "$$dir"/*.a "$$dir"/div0_tests "$$dir"/div0_tests.exe; \
@@ -104,6 +122,7 @@ help:
 	@echo "  bare-metal-riscv - RISC-V 64-bit bare-metal build (requires PICOLIBC_ROOT)"
 	@echo "  test             - Run tests (debug build)"
 	@echo "  test-threadsan   - Run tests with ThreadSanitizer"
+	@echo "  coverage         - Generate code coverage report (requires lcov)"
 	@echo "  bench            - Run benchmarks (release build)"
 	@echo "  clean            - Clean project artifacts (preserves external deps)"
 	@echo "  distclean        - Remove everything including external dependencies"

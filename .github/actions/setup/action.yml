@@ -15,6 +15,20 @@ runs:
         packages: ninja-build ccache qemu-user gcc-riscv64-unknown-elf xsltproc
         version: 1.0
 
+    - name: Cache LLVM installation
+      id: cache-llvm
+      uses: ubicloud/cache@v4
+      with:
+        path: |
+          /usr/lib/llvm-${{ inputs.version }}
+          /usr/bin/clang-${{ inputs.version }}
+          /usr/bin/clang++-${{ inputs.version }}
+          /usr/bin/clang-tidy-${{ inputs.version }}
+          /usr/bin/clang-format-${{ inputs.version }}
+          /usr/bin/lld-${{ inputs.version }}
+          /usr/bin/ld.lld-${{ inputs.version }}
+        key: llvm-${{ inputs.version }}-ubuntu-2404
+
     - name: Install CMake 4.x from Kitware
       shell: bash
       run: |
@@ -34,6 +48,7 @@ runs:
         hash -r
 
     - name: Install LLVM ${{ inputs.version }}
+      if: steps.cache-llvm.outputs.cache-hit != 'true'
       shell: bash
       env:
         # LLVM APT repository GPG key fingerprint (from https://apt.llvm.org)

@@ -214,6 +214,135 @@ void test_evm_mstore8(void) {
   TEST_ASSERT_EQUAL_UINT8(0x00, mem[6]);
 }
 
+void test_evm_mload(void) {
+  // PUSH1 0, MLOAD, STOP
+  // Load from memory offset 0 (should be all zeros initially)
+  uint8_t code[] = {OP_PUSH1, 0, OP_MLOAD, OP_STOP};
+
+  evm_t evm;
+  evm_init(&evm, &test_arena, FORK_SHANGHAI);
+
+  execution_env_t env = make_test_env(code, sizeof(code), 100000);
+  evm_execution_result_t result = evm_execute_env(&evm, &env);
+
+  TEST_ASSERT_EQUAL(EVM_RESULT_STOP, result.result);
+  TEST_ASSERT_EQUAL(EVM_OK, result.error);
+
+  // Verify stack has the loaded value (should be zero)
+  TEST_ASSERT_NOT_NULL(evm.current_frame);
+  TEST_ASSERT_EQUAL_UINT16(1, evm_stack_size(evm.current_frame->stack));
+  uint256_t loaded = evm_stack_peek_unsafe(evm.current_frame->stack, 0);
+  TEST_ASSERT_TRUE(uint256_is_zero(loaded));
+
+  // Memory should be expanded to 32 bytes
+  TEST_ASSERT_EQUAL(32, evm_memory_size(evm.current_frame->memory));
+}
+
+void test_evm_mload_mstore_roundtrip(void) {
+  // PUSH1 0x42, PUSH1 0, MSTORE, PUSH1 0, MLOAD, STOP
+  // Store 0x42 at offset 0, then load it back
+  uint8_t code[] = {OP_PUSH1, 0x42, OP_PUSH1, 0, OP_MSTORE, OP_PUSH1, 0, OP_MLOAD, OP_STOP};
+
+  evm_t evm;
+  evm_init(&evm, &test_arena, FORK_SHANGHAI);
+
+  execution_env_t env = make_test_env(code, sizeof(code), 100000);
+  evm_execution_result_t result = evm_execute_env(&evm, &env);
+
+  TEST_ASSERT_EQUAL(EVM_RESULT_STOP, result.result);
+  TEST_ASSERT_EQUAL(EVM_OK, result.error);
+
+  // Verify stack has the value we stored
+  TEST_ASSERT_NOT_NULL(evm.current_frame);
+  TEST_ASSERT_EQUAL_UINT16(1, evm_stack_size(evm.current_frame->stack));
+  uint256_t loaded = evm_stack_peek_unsafe(evm.current_frame->stack, 0);
+  TEST_ASSERT_EQUAL_UINT64(0x42, loaded.limbs[0]);
+}
+
+void test_evm_keccak256_empty(void) {
+  // PUSH1 0 (size), PUSH1 0 (offset), KECCAK256, STOP
+  // Hash of empty input
+  uint8_t code[] = {OP_PUSH1, 0, OP_PUSH1, 0, OP_KECCAK256, OP_STOP};
+
+  evm_t evm;
+  evm_init(&evm, &test_arena, FORK_SHANGHAI);
+
+  execution_env_t env = make_test_env(code, sizeof(code), 100000);
+  evm_execution_result_t result = evm_execute_env(&evm, &env);
+
+  TEST_ASSERT_EQUAL(EVM_RESULT_STOP, result.result);
+  TEST_ASSERT_EQUAL(EVM_OK, result.error);
+
+  // Verify stack has the keccak256 of empty string
+  // keccak256("") = c5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470
+  TEST_ASSERT_NOT_NULL(evm.current_frame);
+  TEST_ASSERT_EQUAL_UINT16(1, evm_stack_size(evm.current_frame->stack));
+  uint256_t hash_result = evm_stack_peek_unsafe(evm.current_frame->stack, 0);
+
+  uint8_t expected[32] = {0xc5, 0xd2, 0x46, 0x01, 0x86, 0xf7, 0x23, 0x3c, 0x92, 0x7e, 0x7d,
+                          0xb2, 0xdc, 0xc7, 0x03, 0xc0, 0xe5, 0x00, 0xb6, 0x53, 0xca, 0x82,
+                          0x27, 0x3b, 0x7b, 0xfa, 0xd8, 0x04, 0x5d, 0x85, 0xa4, 0x70};
+  uint8_t actual[32];
+  uint256_to_bytes_be(hash_result, actual);
+  TEST_ASSERT_EQUAL_UINT8_ARRAY(expected, actual, 32);
+}
+
+void test_evm_keccak256_single_byte(void) {
+  // Store a byte at memory offset 0, then hash 1 byte
+  // PUSH1 0xAB, PUSH1 0, MSTORE8, PUSH1 1 (size), PUSH1 0 (offset), KECCAK256, STOP
+  uint8_t code[] = {OP_PUSH1, 0xAB, OP_PUSH1,     0,      OP_MSTORE8, OP_PUSH1, 1,
+                    OP_PUSH1, 0,    OP_KECCAK256, OP_STOP};
+
+  evm_t evm;
+  evm_init(&evm, &test_arena, FORK_SHANGHAI);
+
+  execution_env_t env = make_test_env(code, sizeof(code), 100000);
+  evm_execution_result_t result = evm_execute_env(&evm, &env);
+
+  TEST_ASSERT_EQUAL(EVM_RESULT_STOP, result.result);
+  TEST_ASSERT_EQUAL(EVM_OK, result.error);
+
+  // keccak256(0xAB) = 468fc9c005382579139846222b7b0aebc9182ba073b2455938a86d9753bfb078
+  TEST_ASSERT_NOT_NULL(evm.current_frame);
+  TEST_ASSERT_EQUAL_UINT16(1, evm_stack_size(evm.current_frame->stack));
+  uint256_t hash_result = evm_stack_peek_unsafe(evm.current_frame->stack, 0);
+
+  uint8_t expected[32] = {0x46, 0x8f, 0xc9, 0xc0, 0x05, 0x38, 0x25, 0x79, 0x13, 0x98, 0x46,
+                          0x22, 0x2b, 0x7b, 0x0a, 0xeb, 0xc9, 0x18, 0x2b, 0xa0, 0x73, 0xb2,
+                          0x45, 0x59, 0x38, 0xa8, 0x6d, 0x97, 0x53, 0xbf, 0xb0, 0x78};
+  uint8_t actual[32];
+  uint256_to_bytes_be(hash_result, actual);
+  TEST_ASSERT_EQUAL_UINT8_ARRAY(expected, actual, 32);
+}
+
+void test_evm_keccak256_32_bytes(void) {
+  // Hash 32 zero bytes from memory
+  // PUSH1 32 (size), PUSH1 0 (offset), KECCAK256, STOP
+  // Memory is initially zero, so hashing from offset 0 with size 32 gives us keccak256(0x00...00)
+  uint8_t code[] = {OP_PUSH1, 32, OP_PUSH1, 0, OP_KECCAK256, OP_STOP};
+
+  evm_t evm;
+  evm_init(&evm, &test_arena, FORK_SHANGHAI);
+
+  execution_env_t env = make_test_env(code, sizeof(code), 100000);
+  evm_execution_result_t result = evm_execute_env(&evm, &env);
+
+  TEST_ASSERT_EQUAL(EVM_RESULT_STOP, result.result);
+  TEST_ASSERT_EQUAL(EVM_OK, result.error);
+
+  // keccak256(32 zero bytes) = 290decd9548b62a8d60345a988386fc84ba6bc95484008f6362f93160ef3e563
+  TEST_ASSERT_NOT_NULL(evm.current_frame);
+  TEST_ASSERT_EQUAL_UINT16(1, evm_stack_size(evm.current_frame->stack));
+  uint256_t hash_result = evm_stack_peek_unsafe(evm.current_frame->stack, 0);
+
+  uint8_t expected[32] = {0x29, 0x0d, 0xec, 0xd9, 0x54, 0x8b, 0x62, 0xa8, 0xd6, 0x03, 0x45,
+                          0xa9, 0x88, 0x38, 0x6f, 0xc8, 0x4b, 0xa6, 0xbc, 0x95, 0x48, 0x40,
+                          0x08, 0xf6, 0x36, 0x2f, 0x93, 0x16, 0x0e, 0xf3, 0xe5, 0x63};
+  uint8_t actual[32];
+  uint256_to_bytes_be(hash_result, actual);
+  TEST_ASSERT_EQUAL_UINT8_ARRAY(expected, actual, 32);
+}
+
 void test_evm_return_empty(void) {
   // PUSH1 0 (size), PUSH1 0 (offset), RETURN
   // RETURN pops offset first, then size from the stack.
@@ -518,4 +647,98 @@ void test_evm_gas_refund_reset(void) {
   // Reset should clear it
   evm_reset(&evm);
   TEST_ASSERT_EQUAL(0, evm.gas_refund);
+}
+
+// =============================================================================
+// Edge case tests for MLOAD and KECCAK256
+// =============================================================================
+
+void test_evm_mload_underflow(void) {
+  // MLOAD with empty stack should fail
+  uint8_t code[] = {OP_MLOAD};
+
+  evm_t evm;
+  evm_init(&evm, &test_arena, FORK_SHANGHAI);
+
+  execution_env_t env = make_test_env(code, sizeof(code), 100000);
+  evm_execution_result_t result = evm_execute_env(&evm, &env);
+
+  TEST_ASSERT_EQUAL(EVM_RESULT_ERROR, result.result);
+  TEST_ASSERT_EQUAL(EVM_STACK_UNDERFLOW, result.error);
+}
+
+void test_evm_keccak256_underflow(void) {
+  // KECCAK256 needs 2 stack items (offset, size), test with only 1
+  uint8_t code[] = {OP_PUSH1, 0, OP_KECCAK256};
+
+  evm_t evm;
+  evm_init(&evm, &test_arena, FORK_SHANGHAI);
+
+  execution_env_t env = make_test_env(code, sizeof(code), 100000);
+  evm_execution_result_t result = evm_execute_env(&evm, &env);
+
+  TEST_ASSERT_EQUAL(EVM_RESULT_ERROR, result.result);
+  TEST_ASSERT_EQUAL(EVM_STACK_UNDERFLOW, result.error);
+}
+
+void test_evm_mload_out_of_gas(void) {
+  // MLOAD costs 3 (base) + memory expansion cost
+  // Give only 2 gas to trigger out-of-gas
+  uint8_t code[] = {OP_PUSH1, 0, OP_MLOAD};
+
+  evm_t evm;
+  evm_init(&evm, &test_arena, FORK_SHANGHAI);
+
+  // PUSH1 costs 3, MLOAD costs 3 + memory expansion
+  // Start with 4 gas: enough for PUSH1 (3), but not enough for MLOAD (3+mem)
+  execution_env_t env = make_test_env(code, sizeof(code), 4);
+  evm_execution_result_t result = evm_execute_env(&evm, &env);
+
+  TEST_ASSERT_EQUAL(EVM_RESULT_ERROR, result.result);
+  TEST_ASSERT_EQUAL(EVM_OUT_OF_GAS, result.error);
+}
+
+void test_evm_keccak256_out_of_gas(void) {
+  // KECCAK256 costs 30 (base) + 6 * words + memory expansion
+  // For empty input (size=0), only base cost of 30 is charged
+  uint8_t code[] = {OP_PUSH1, 0, OP_PUSH1, 0, OP_KECCAK256};
+
+  evm_t evm;
+  evm_init(&evm, &test_arena, FORK_SHANGHAI);
+
+  // 2 PUSH1 = 6 gas, need 30 for KECCAK256 base cost
+  // Give 35 gas: enough for PUSH1s (6), not enough for KECCAK256 (30)
+  execution_env_t env = make_test_env(code, sizeof(code), 35);
+  evm_execution_result_t result = evm_execute_env(&evm, &env);
+
+  TEST_ASSERT_EQUAL(EVM_RESULT_ERROR, result.result);
+  TEST_ASSERT_EQUAL(EVM_OUT_OF_GAS, result.error);
+}
+
+void test_evm_mstore_underflow(void) {
+  // MSTORE needs 2 stack items (offset, value), test with only 1
+  uint8_t code[] = {OP_PUSH1, 0, OP_MSTORE};
+
+  evm_t evm;
+  evm_init(&evm, &test_arena, FORK_SHANGHAI);
+
+  execution_env_t env = make_test_env(code, sizeof(code), 100000);
+  evm_execution_result_t result = evm_execute_env(&evm, &env);
+
+  TEST_ASSERT_EQUAL(EVM_RESULT_ERROR, result.result);
+  TEST_ASSERT_EQUAL(EVM_STACK_UNDERFLOW, result.error);
+}
+
+void test_evm_mstore8_underflow(void) {
+  // MSTORE8 needs 2 stack items (offset, value), test with only 1
+  uint8_t code[] = {OP_PUSH1, 0, OP_MSTORE8};
+
+  evm_t evm;
+  evm_init(&evm, &test_arena, FORK_SHANGHAI);
+
+  execution_env_t env = make_test_env(code, sizeof(code), 100000);
+  evm_execution_result_t result = evm_execute_env(&evm, &env);
+
+  TEST_ASSERT_EQUAL(EVM_RESULT_ERROR, result.result);
+  TEST_ASSERT_EQUAL(EVM_STACK_UNDERFLOW, result.error);
 }

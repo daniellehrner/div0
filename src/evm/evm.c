@@ -1,6 +1,5 @@
 #include "div0/evm/evm.h"
 
-#include "div0/evm/gas.h"
 #include "div0/evm/gas/static_costs.h"
 #include "div0/evm/opcodes.h"
 #include "div0/evm/opcodes/call.h"
@@ -13,6 +12,8 @@
 #include "opcodes/comparison.h"
 #include "opcodes/context.h"
 #include "opcodes/external.h"
+#include "opcodes/keccak.h"
+#include "opcodes/memory.h"
 #include "opcodes/push.h"
 #include "opcodes/stack.h"
 #include "opcodes/storage.h"
@@ -381,8 +382,10 @@ static frame_result_t execute_frame(evm_t *evm, call_frame_t *frame) {
       [OP_PUSH30] = &&op_push30,
       [OP_PUSH31] = &&op_push31,
       [OP_PUSH32] = &&op_push32,
+      [OP_MLOAD] = &&op_mload,
       [OP_MSTORE] = &&op_mstore,
       [OP_MSTORE8] = &&op_mstore8,
+      [OP_KECCAK256] = &&op_keccak256,
       [OP_SLOAD] = &&op_sload,
       [OP_SSTORE] = &&op_sstore,
       // Environmental information opcodes
@@ -879,70 +882,35 @@ op_pop: {
 
 #undef SWAP_N_HANDLER
 
+op_mload: {
+  evm_status_t status = op_mload(frame, evm->gas_table[OP_MLOAD]);
+  if (status != EVM_OK) {
+    return frame_result_error(status);
+  }
+  DISPATCH();
+}
+
 op_mstore: {
-  // Stack: [offset, value] => []
-  if (!evm_stack_has_items(frame->stack, 2)) {
-    return frame_result_error(EVM_STACK_UNDERFLOW);
+  evm_status_t status = op_mstore(frame, evm->gas_table[OP_MSTORE]);
+  if (status != EVM_OK) {
+    return frame_result_error(status);
   }
-  uint256_t offset_u256 = evm_stack_pop_unsafe(frame->stack);
-  uint256_t value = evm_stack_pop_unsafe(frame->stack);
-
-  if (!uint256_fits_u64(offset_u256)) {
-    return frame_result_error(EVM_OUT_OF_GAS);
-  }
-  uint64_t offset = uint256_to_u64_unsafe(offset_u256);
-
-  // Calculate memory expansion cost
-  uint64_t mem_cost = 0;
-  if (!evm_memory_expand(frame->memory, offset, 32, &mem_cost)) {
-    return frame_result_error(EVM_OUT_OF_GAS);
-  }
-
-  // Charge base gas (GAS_VERY_LOW) + memory expansion
-  if (mem_cost > UINT64_MAX - GAS_VERY_LOW) {
-    return frame_result_error(EVM_OUT_OF_GAS);
-  }
-  uint64_t total_cost = GAS_VERY_LOW + mem_cost;
-  if (frame->gas < total_cost) {
-    return frame_result_error(EVM_OUT_OF_GAS);
-  }
-  frame->gas -= total_cost;
-
-  evm_memory_store32_unsafe(frame->memory, offset, value);
   DISPATCH();
 }
 
 op_mstore8: {
-  // Stack: [offset, value] => []
-  if (!evm_stack_has_items(frame->stack, 2)) {
-    return frame_result_error(EVM_STACK_UNDERFLOW);
+  evm_status_t status = op_mstore8(frame, evm->gas_table[OP_MSTORE8]);
+  if (status != EVM_OK) {
+    return frame_result_error(status);
   }
-  uint256_t offset_u256 = evm_stack_pop_unsafe(frame->stack);
-  uint256_t value = evm_stack_pop_unsafe(frame->stack);
+  DISPATCH();
+}
 
-  if (!uint256_fits_u64(offset_u256)) {
-    return frame_result_error(EVM_OUT_OF_GAS);
+op_keccak256: {
+  evm_status_t status = op_keccak256(frame, evm->gas_table[OP_KECCAK256]);
+  if (status != EVM_OK) {
+    return frame_result_error(status);
   }
-  uint64_t offset = uint256_to_u64_unsafe(offset_u256);
-
-  // Calculate memory expansion cost
-  uint64_t mem_cost = 0;
-  if (!evm_memory_expand(frame->memory, offset, 1, &mem_cost)) {
-    return frame_result_error(EVM_OUT_OF_GAS);
-  }
-
-  // Charge base gas (GAS_VERY_LOW) + memory expansion
-  if (mem_cost > UINT64_MAX - GAS_VERY_LOW) {
-    return frame_result_error(EVM_OUT_OF_GAS);
-  }
-  uint64_t total_cost = GAS_VERY_LOW + mem_cost;
-  if (frame->gas < total_cost) {
-    return frame_result_error(EVM_OUT_OF_GAS);
-  }
-  frame->gas -= total_cost;
-
-  // Store low byte of value
-  evm_memory_store8_unsafe(frame->memory, offset, (uint8_t)(value.limbs[0] & 0xFF));
   DISPATCH();
 }
 

@@ -60,6 +60,10 @@ static call_frame_t *init_child_frame(evm_t *const evm, call_frame_t *const pare
   child->address = params->address;
   child->value = params->value;
 
+  // Jump destination analysis (lazy: computed on first JUMP/JUMPI)
+  child->jumpdest_bitmap = nullptr;
+  child->code_hash = hash_zero(); // TODO: set from state if code hash is known
+
   // Store parent's output location
   parent->output_offset = setup->ret_offset;
   parent->output_size = (uint32_t)setup->ret_size;

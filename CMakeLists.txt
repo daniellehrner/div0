@@ -139,6 +139,7 @@ div0_target_options(div0_types)
 # EVM library (stack, interpreter, memory, call frames) - depends on types, mem, state
 add_library(div0_evm STATIC
   src/evm/evm.c
+  src/evm/log_vec.c
   src/evm/memory.c
   src/evm/call_op.c
   src/evm/opcodes/call.c

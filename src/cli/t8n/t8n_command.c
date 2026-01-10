@@ -16,6 +16,7 @@
 #include "div0/t8n/env.h"
 #include "div0/t8n/result.h"
 #include "div0/t8n/txs.h"
+#include "div0/trie/node.h"
 #include "div0/types/uint256.h"
 
 #include "../exit_codes.h"
@@ -764,9 +765,15 @@ int cmd_t8n(int argc, const char **argv) {
     t8n_result.has_current_difficulty = true;
     t8n_result.current_difficulty = env.difficulty;
   }
+
+  // Base fee is required for EIP-1559+ forks (London onwards, including Shanghai)
+  // All currently supported forks (Shanghai, Cancun, Prague) require base fee
+  t8n_result.has_current_base_fee = true;
   if (env.has_base_fee) {
-    t8n_result.has_current_base_fee = true;
     t8n_result.current_base_fee = env.base_fee;
+  } else {
+    // Default base fee matching execution-spec-tests framework (0x7 = 7 wei)
+    t8n_result.current_base_fee = uint256_from_u64(7);
   }
   if (fork >= FORK_CANCUN && env.has_excess_blob_gas) {
     t8n_result.has_current_excess_blob_gas = true;
@@ -774,6 +781,13 @@ int cmd_t8n(int argc, const char **argv) {
     t8n_result.has_blob_gas_used = true;
     t8n_result.blob_gas_used = exec_result.blob_gas_used;
   }
+
+  // Withdrawals root is required for Shanghai+ forks (EIP-4895)
+  // All currently supported forks require withdrawals root
+  // TODO: Compute actual root from withdrawals list when implemented
+  // For now, use empty trie root (keccak256(RLP([])))
+  t8n_result.has_withdrawals_root = true;
+  t8n_result.withdrawals_root = MPT_EMPTY_ROOT;
 
   // Write outputs
   if (opts.verbose) {

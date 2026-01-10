@@ -115,6 +115,19 @@ static constexpr uint64_t GAS_ACCESS_LIST_STORAGE_KEY = 1900;
 /// Maximum call depth.
 static constexpr uint16_t MAX_CALL_DEPTH = 1024;
 
+// =============================================================================
+// LOG Gas Constants
+// =============================================================================
+
+/// Base gas for LOG opcode.
+static constexpr uint64_t GAS_LOG = 375;
+
+/// Gas per topic.
+static constexpr uint64_t GAS_LOG_TOPIC = 375;
+
+/// Gas per byte of log data.
+static constexpr uint64_t GAS_LOG_DATA = 8;
+
 /// Maximum code size (EIP-170).
 static constexpr uint64_t MAX_CODE_SIZE = 24576;
 

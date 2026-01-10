@@ -37,6 +37,7 @@ set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
 # Override executable link command to wrap ALL inputs in --start-group/--end-group
 # This is necessary for freestanding builds where object files depend on libc
 # which may have internal dependencies requiring multiple passes
+# Using lld for faster linking (supports RISC-V cross-compilation)
 set(CMAKE_C_LINK_EXECUTABLE
-    "<CMAKE_C_COMPILER> <FLAGS> <CMAKE_C_LINK_FLAGS> <LINK_FLAGS> -Wl,--start-group <OBJECTS> <LINK_LIBRARIES> -Wl,--end-group -o <TARGET>"
+    "<CMAKE_C_COMPILER> <FLAGS> <CMAKE_C_LINK_FLAGS> <LINK_FLAGS> -fuse-ld=lld -Wl,--start-group <OBJECTS> <LINK_LIBRARIES> -Wl,--end-group -o <TARGET>"
 )

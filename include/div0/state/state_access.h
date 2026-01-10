@@ -224,6 +224,24 @@ typedef struct {
   hash_t (*state_root)(state_access_t *state);
 
   // ===========================================================================
+  // JUMPDEST ANALYSIS CACHE (optional, may be nullptr if not implemented)
+  // ===========================================================================
+
+  /// Get cached jumpdest analysis bitmap for code hash.
+  /// @param state State access instance
+  /// @param code_hash Keccak256 hash of bytecode
+  /// @return Bitmap pointer or nullptr if not cached
+  const uint8_t *(*get_jumpdest_analysis)(state_access_t *state, const hash_t *code_hash);
+
+  /// Cache jumpdest analysis bitmap for code hash.
+  /// @param state State access instance
+  /// @param code_hash Keccak256 hash of bytecode
+  /// @param bitmap Bitmap to cache (implementation copies if needed)
+  /// @param bitmap_size Size of bitmap in bytes
+  void (*set_jumpdest_analysis)(state_access_t *state, const hash_t *code_hash,
+                                const uint8_t *bitmap, size_t bitmap_size);
+
+  // ===========================================================================
   // LIFECYCLE
   // ===========================================================================
 

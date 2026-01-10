@@ -4,6 +4,7 @@
 #include "div0/evm/memory.h"
 #include "div0/evm/stack.h"
 #include "div0/types/address.h"
+#include "div0/types/hash.h"
 #include "div0/types/uint256.h"
 
 #include <stdalign.h>
@@ -44,6 +45,10 @@ struct call_frame {
   uint256_t value;      // CALLVALUE opcode - msg.value
   const uint8_t *input; // Calldata pointer
   size_t input_size;    // Calldata size
+
+  // Jump destination analysis (lazy, set on first JUMP/JUMPI)
+  const uint8_t *jumpdest_bitmap; // 1 bit per code byte, nullptr = not analyzed
+  hash_t code_hash;               // For cache lookup (set if known)
 };
 
 typedef struct call_frame call_frame_t;
@@ -66,6 +71,8 @@ static inline void call_frame_reset(call_frame_t *frame) {
   frame->value = uint256_zero();
   frame->input = nullptr;
   frame->input_size = 0;
+  frame->jumpdest_bitmap = nullptr;
+  frame->code_hash = hash_zero();
 }
 
 /// Returns true if the frame is in a static context.

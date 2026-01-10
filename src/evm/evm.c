@@ -7,11 +7,13 @@
 #include "div0/evm/status.h"
 #include "div0/types/uint256.h"
 
+#include "jumpdest.h"
 #include "opcodes/arithmetic.h"
 #include "opcodes/bitwise.h"
 #include "opcodes/block.h"
 #include "opcodes/comparison.h"
 #include "opcodes/context.h"
+#include "opcodes/control_flow.h"
 #include "opcodes/external.h"
 #include "opcodes/keccak.h"
 #include "opcodes/memory.h"
@@ -93,6 +95,8 @@ static void init_root_frame(evm_t *const evm, call_frame_t *const frame,
   frame->value = env->call.value;
   frame->input = env->call.input;
   frame->input_size = env->call.input_size;
+  frame->jumpdest_bitmap = nullptr; // Lazy: computed on first JUMP/JUMPI
+  frame->code_hash = hash_zero();   // Set by caller if code hash is known
 }
 
 /// Executes a single frame until it returns, calls, or errors.
@@ -318,6 +322,41 @@ evm_execution_result_t evm_execute_env(evm_t *const evm, const execution_env_t *
 static constexpr int OPCODE_TABLE_SIZE = 256;
 static constexpr uint8_t OPCODE_MAX = 0xFF;
 
+/// Get or compute jumpdest bitmap for current frame (lazy initialization).
+/// Checks frame cache first, then state cache, finally computes if needed.
+/// @return Bitmap pointer, or nullptr on allocation failure
+static const uint8_t *get_jumpdest_bitmap(const evm_t *evm, call_frame_t *frame) {
+  // Already computed for this frame?
+  if (frame->jumpdest_bitmap != nullptr) {
+    return frame->jumpdest_bitmap;
+  }
+
+  // Try cache lookup via state_access (if available and code_hash known)
+  if (evm->state != nullptr && evm->state->vtable->get_jumpdest_analysis != nullptr) {
+    if (!hash_is_zero(&frame->code_hash)) {
+      const uint8_t *cached =
+          evm->state->vtable->get_jumpdest_analysis(evm->state, &frame->code_hash);
+      if (cached != nullptr) {
+        frame->jumpdest_bitmap = cached;
+        return cached;
+      }
+    }
+  }
+
+  // Compute bitmap from bytecode
+  const uint8_t *bitmap = jumpdest_compute_bitmap(frame->code, frame->code_size, evm->arena);
+  frame->jumpdest_bitmap = bitmap;
+
+  // Store in cache if available
+  if (bitmap != nullptr && evm->state != nullptr &&
+      evm->state->vtable->set_jumpdest_analysis != nullptr && !hash_is_zero(&frame->code_hash)) {
+    evm->state->vtable->set_jumpdest_analysis(evm->state, &frame->code_hash, bitmap,
+                                              jumpdest_bitmap_size(frame->code_size));
+  }
+
+  return bitmap;
+}
+
 /// Executes a single frame until it returns, calls, or errors.
 /// Uses computed gotos for efficient opcode dispatch.
 // NOLINTBEGIN(readability-function-size)
@@ -389,7 +428,14 @@ static frame_result_t execute_frame(evm_t *evm, call_frame_t *frame) {
       [OP_MLOAD] = &&op_mload,
       [OP_MSTORE] = &&op_mstore,
       [OP_MSTORE8] = &&op_mstore8,
+      [OP_MSIZE] = &&op_msize,
       [OP_KECCAK256] = &&op_keccak256,
+      // Control flow opcodes
+      [OP_JUMP] = &&op_jump,
+      [OP_JUMPI] = &&op_jumpi,
+      [OP_JUMPDEST] = &&op_jumpdest,
+      [OP_PC] = &&op_pc,
+      [OP_GAS] = &&op_gas,
       [OP_SLOAD] = &&op_sload,
       [OP_SSTORE] = &&op_sstore,
       // Environmental information opcodes
@@ -969,6 +1015,67 @@ op_mstore8: {
 
 op_keccak256: {
   const evm_status_t status = op_keccak256(frame, evm->gas_table[OP_KECCAK256]);
+  if (status != EVM_OK) {
+    return frame_result_error(status);
+  }
+  DISPATCH();
+}
+
+op_msize: {
+  const evm_status_t status = op_msize(frame, evm->gas_table[OP_MSIZE]);
+  if (status != EVM_OK) {
+    return frame_result_error(status);
+  }
+  DISPATCH();
+}
+
+  // =============================================================================
+  // Control Flow Opcodes (JUMP, JUMPI, JUMPDEST, PC, GAS)
+  // =============================================================================
+
+op_jump: {
+  const uint8_t *bitmap = get_jumpdest_bitmap(evm, frame);
+  if (bitmap == nullptr) {
+    return frame_result_error(EVM_OUT_OF_GAS); // Allocation failure
+  }
+  const evm_status_t status = op_jump(frame, bitmap, evm->gas_table[OP_JUMP]);
+  if (status != EVM_OK) {
+    return frame_result_error(status);
+  }
+  DISPATCH();
+}
+
+op_jumpi: {
+  const uint8_t *bitmap = get_jumpdest_bitmap(evm, frame);
+  if (bitmap == nullptr) {
+    return frame_result_error(EVM_OUT_OF_GAS);
+  }
+  const evm_status_t status = op_jumpi(frame, bitmap, evm->gas_table[OP_JUMPI]);
+  if (status != EVM_OK) {
+    return frame_result_error(status);
+  }
+  DISPATCH();
+}
+
+op_jumpdest: {
+  const evm_status_t status = op_jumpdest(frame, evm->gas_table[OP_JUMPDEST]);
+  if (status != EVM_OK) {
+    return frame_result_error(status);
+  }
+  DISPATCH();
+}
+
+op_pc: {
+  // PC pushes the position of THIS instruction, frame->pc was already incremented by DISPATCH
+  const evm_status_t status = op_pc(frame, frame->pc - 1, evm->gas_table[OP_PC]);
+  if (status != EVM_OK) {
+    return frame_result_error(status);
+  }
+  DISPATCH();
+}
+
+op_gas: {
+  const evm_status_t status = op_gas(frame, evm->gas_table[OP_GAS]);
   if (status != EVM_OK) {
     return frame_result_error(status);
   }

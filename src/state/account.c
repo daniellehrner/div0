@@ -45,19 +45,19 @@ bytes_t account_rlp_encode(const account_t *acc, div0_arena_t *arena) {
 
   // Encode and append each field
   // 1. nonce (uint64)
-  bytes_t nonce_rlp = rlp_encode_u64(arena, acc->nonce);
+  const bytes_t nonce_rlp = rlp_encode_u64(arena, acc->nonce);
   rlp_list_append(&result, &nonce_rlp);
 
   // 2. balance (uint256)
-  bytes_t balance_rlp = rlp_encode_uint256(arena, &acc->balance);
+  const bytes_t balance_rlp = rlp_encode_uint256(arena, &acc->balance);
   rlp_list_append(&result, &balance_rlp);
 
   // 3. storage_root (32 bytes)
-  bytes_t storage_root_rlp = rlp_encode_bytes(arena, acc->storage_root.bytes, HASH_SIZE);
+  const bytes_t storage_root_rlp = rlp_encode_bytes(arena, acc->storage_root.bytes, HASH_SIZE);
   rlp_list_append(&result, &storage_root_rlp);
 
   // 4. code_hash (32 bytes)
-  bytes_t code_hash_rlp = rlp_encode_bytes(arena, acc->code_hash.bytes, HASH_SIZE);
+  const bytes_t code_hash_rlp = rlp_encode_bytes(arena, acc->code_hash.bytes, HASH_SIZE);
   rlp_list_append(&result, &code_hash_rlp);
 
   // Finalize the list
@@ -66,7 +66,7 @@ bytes_t account_rlp_encode(const account_t *acc, div0_arena_t *arena) {
   return result;
 }
 
-bool account_rlp_decode(const uint8_t *data, size_t len, account_t *out) {
+bool account_rlp_decode(const uint8_t *const data, const size_t len, account_t *const out) {
   if (data == nullptr || len == 0 || out == nullptr) {
     return false;
   }
@@ -75,7 +75,7 @@ bool account_rlp_decode(const uint8_t *data, size_t len, account_t *out) {
   rlp_decoder_init(&decoder, data, len);
 
   // Decode list header
-  rlp_list_result_t list_result = rlp_decode_list_header(&decoder);
+  const rlp_list_result_t list_result = rlp_decode_list_header(&decoder);
   if (list_result.error != RLP_SUCCESS) {
     return false;
   }
@@ -86,28 +86,28 @@ bool account_rlp_decode(const uint8_t *data, size_t len, account_t *out) {
   }
 
   // 1. Decode nonce (uint64)
-  rlp_u64_result_t nonce_result = rlp_decode_u64(&decoder);
+  const rlp_u64_result_t nonce_result = rlp_decode_u64(&decoder);
   if (nonce_result.error != RLP_SUCCESS) {
     return false;
   }
   out->nonce = nonce_result.value;
 
   // 2. Decode balance (uint256)
-  rlp_uint256_result_t balance_result = rlp_decode_uint256(&decoder);
+  const rlp_uint256_result_t balance_result = rlp_decode_uint256(&decoder);
   if (balance_result.error != RLP_SUCCESS) {
     return false;
   }
   out->balance = balance_result.value;
 
   // 3. Decode storage_root (32 bytes)
-  rlp_bytes_result_t storage_root_result = rlp_decode_bytes(&decoder);
+  const rlp_bytes_result_t storage_root_result = rlp_decode_bytes(&decoder);
   if (storage_root_result.error != RLP_SUCCESS || storage_root_result.len != HASH_SIZE) {
     return false;
   }
   out->storage_root = hash_from_bytes(storage_root_result.data);
 
   // 4. Decode code_hash (32 bytes)
-  rlp_bytes_result_t code_hash_result = rlp_decode_bytes(&decoder);
+  const rlp_bytes_result_t code_hash_result = rlp_decode_bytes(&decoder);
   if (code_hash_result.error != RLP_SUCCESS || code_hash_result.len != HASH_SIZE) {
     return false;
   }

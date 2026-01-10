@@ -61,14 +61,14 @@ static bool validate_memory_args(const call_stack_args_t *args, call_setup_t *re
 
 /// Calculates gas costs and child gas allocation.
 /// Returns false on out-of-gas.
-static bool calculate_call_gas(uint64_t *parent_gas, const call_setup_t *setup,
-                               const call_stack_args_t *args, evm_memory_t *memory,
-                               state_access_t *state, bool transfers_value, bool is_new_account,
-                               uint64_t *out_child_gas) {
+static bool calculate_call_gas(uint64_t *const parent_gas, const call_setup_t *const setup,
+                               const call_stack_args_t *const args, evm_memory_t *const memory,
+                               state_access_t *const state, const bool transfers_value,
+                               const bool is_new_account, uint64_t *const out_child_gas) {
   uint64_t call_gas_cost = 0;
 
   // 1. EIP-2929: Cold/warm address access cost
-  bool was_cold = state_warm_address(state, &setup->target);
+  const bool was_cold = state_warm_address(state, &setup->target);
   call_gas_cost += was_cold ? GAS_COLD_ACCOUNT_ACCESS : GAS_WARM_ACCESS;
 
   // 2. Value transfer cost
@@ -95,9 +95,9 @@ static bool calculate_call_gas(uint64_t *parent_gas, const call_setup_t *setup,
   *parent_gas -= call_gas_cost;
 
   // 5. Calculate child gas using EIP-150 63/64 rule
-  uint64_t requested_gas = uint256_fits_u64(args->requested_gas)
-                               ? uint256_to_u64_unsafe(args->requested_gas)
-                               : UINT64_MAX;
+  const uint64_t requested_gas = uint256_fits_u64(args->requested_gas)
+                                     ? uint256_to_u64_unsafe(args->requested_gas)
+                                     : UINT64_MAX;
   uint64_t child_gas = call_child_gas(*parent_gas, requested_gas);
 
   // Add gas stipend if transferring value
@@ -120,13 +120,13 @@ static bool calculate_call_gas(uint64_t *parent_gas, const call_setup_t *setup,
 static void expand_call_memory(evm_memory_t *memory, const call_setup_t *setup) {
   uint64_t max_end = 0;
   if (setup->args_size > 0) {
-    uint64_t args_end = setup->args_offset + setup->args_size;
+    const uint64_t args_end = setup->args_offset + setup->args_size;
     if (args_end > max_end) {
       max_end = args_end;
     }
   }
   if (setup->ret_size > 0) {
-    uint64_t ret_end = setup->ret_offset + setup->ret_size;
+    const uint64_t ret_end = setup->ret_offset + setup->ret_size;
     if (ret_end > max_end) {
       max_end = ret_end;
     }
@@ -141,8 +141,9 @@ static void expand_call_memory(evm_memory_t *memory, const call_setup_t *setup) 
 // Public API
 // =============================================================================
 
-call_setup_t prepare_call(evm_stack_t *stack, uint64_t *gas, evm_memory_t *memory,
-                          state_access_t *state, bool is_static, uint16_t current_depth) {
+call_setup_t prepare_call(evm_stack_t *const stack, uint64_t *const gas, evm_memory_t *const memory,
+                          state_access_t *const state, const bool is_static,
+                          const uint16_t current_depth) {
   call_setup_t result = {.status = EVM_OK};
 
   // Check stack underflow (need 7 items)
@@ -161,7 +162,7 @@ call_setup_t prepare_call(evm_stack_t *stack, uint64_t *gas, evm_memory_t *memor
   }
 
   // Pop and validate arguments
-  call_stack_args_t args = pop_call_args(stack);
+  const call_stack_args_t args = pop_call_args(stack);
   result.value = args.value;
 
   if (!validate_memory_args(&args, &result)) {
@@ -170,7 +171,7 @@ call_setup_t prepare_call(evm_stack_t *stack, uint64_t *gas, evm_memory_t *memor
   }
 
   // Check static context violation
-  bool transfers_value = !uint256_is_zero(result.value);
+  const bool transfers_value = !uint256_is_zero(result.value);
   if (is_static && transfers_value) {
     result.status = EVM_WRITE_PROTECTION;
     return result;
@@ -179,7 +180,7 @@ call_setup_t prepare_call(evm_stack_t *stack, uint64_t *gas, evm_memory_t *memor
   result.target = address_from_uint256(&args.addr);
 
   // Calculate gas and allocate child gas
-  bool is_new_account = transfers_value && state_account_is_empty(state, &result.target);
+  const bool is_new_account = transfers_value && state_account_is_empty(state, &result.target);
   if (!calculate_call_gas(gas, &result, &args, memory, state, transfers_value, is_new_account,
                           &result.child_gas)) {
     result.status = EVM_OUT_OF_GAS;
@@ -190,8 +191,9 @@ call_setup_t prepare_call(evm_stack_t *stack, uint64_t *gas, evm_memory_t *memor
   return result;
 }
 
-call_setup_t prepare_staticcall(evm_stack_t *stack, uint64_t *gas, evm_memory_t *memory,
-                                state_access_t *state, uint16_t current_depth) {
+call_setup_t prepare_staticcall(evm_stack_t *const stack, uint64_t *const gas,
+                                evm_memory_t *const memory, state_access_t *const state,
+                                const uint16_t current_depth) {
   call_setup_t result = {.status = EVM_OK, .value = uint256_zero()};
 
   if (!evm_stack_has_items(stack, 6)) {
@@ -207,7 +209,7 @@ call_setup_t prepare_staticcall(evm_stack_t *stack, uint64_t *gas, evm_memory_t 
     return result;
   }
 
-  call_stack_args_t args = pop_call_args_no_value(stack);
+  const call_stack_args_t args = pop_call_args_no_value(stack);
 
   if (!validate_memory_args(&args, &result)) {
     result.status = EVM_OUT_OF_GAS;
@@ -226,8 +228,9 @@ call_setup_t prepare_staticcall(evm_stack_t *stack, uint64_t *gas, evm_memory_t 
   return result;
 }
 
-call_setup_t prepare_delegatecall(evm_stack_t *stack, uint64_t *gas, evm_memory_t *memory,
-                                  state_access_t *state, uint16_t current_depth) {
+call_setup_t prepare_delegatecall(evm_stack_t *const stack, uint64_t *const gas,
+                                  evm_memory_t *const memory, state_access_t *const state,
+                                  const uint16_t current_depth) {
   call_setup_t result = {.status = EVM_OK, .value = uint256_zero()};
 
   if (!evm_stack_has_items(stack, 6)) {
@@ -243,7 +246,7 @@ call_setup_t prepare_delegatecall(evm_stack_t *stack, uint64_t *gas, evm_memory_
     return result;
   }
 
-  call_stack_args_t args = pop_call_args_no_value(stack);
+  const call_stack_args_t args = pop_call_args_no_value(stack);
 
   if (!validate_memory_args(&args, &result)) {
     result.status = EVM_OUT_OF_GAS;
@@ -262,8 +265,9 @@ call_setup_t prepare_delegatecall(evm_stack_t *stack, uint64_t *gas, evm_memory_
   return result;
 }
 
-call_setup_t prepare_callcode(evm_stack_t *stack, uint64_t *gas, evm_memory_t *memory,
-                              state_access_t *state, bool is_static, uint16_t current_depth) {
+call_setup_t prepare_callcode(evm_stack_t *const stack, uint64_t *const gas,
+                              evm_memory_t *const memory, state_access_t *const state,
+                              const bool is_static, const uint16_t current_depth) {
   call_setup_t result = {.status = EVM_OK};
 
   if (!evm_stack_has_items(stack, 7)) {
@@ -279,7 +283,7 @@ call_setup_t prepare_callcode(evm_stack_t *stack, uint64_t *gas, evm_memory_t *m
     return result;
   }
 
-  call_stack_args_t args = pop_call_args(stack);
+  const call_stack_args_t args = pop_call_args(stack);
   result.value = args.value;
 
   if (!validate_memory_args(&args, &result)) {
@@ -287,7 +291,7 @@ call_setup_t prepare_callcode(evm_stack_t *stack, uint64_t *gas, evm_memory_t *m
     return result;
   }
 
-  bool transfers_value = !uint256_is_zero(result.value);
+  const bool transfers_value = !uint256_is_zero(result.value);
   if (is_static && transfers_value) {
     result.status = EVM_WRITE_PROTECTION;
     return result;

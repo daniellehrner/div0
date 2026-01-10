@@ -5,14 +5,14 @@
 #include <stdint.h>
 #include <string.h>
 
-bytes32_t bytes32_from_bytes_padded(const uint8_t *data, size_t len) {
+bytes32_t bytes32_from_bytes_padded(const uint8_t *const data, const size_t len) {
   bytes32_t result = bytes32_zero();
 
   if (data == nullptr || len == 0) {
     return result;
   }
 
-  size_t copy_len = len < BYTES32_SIZE ? len : BYTES32_SIZE;
+  const size_t copy_len = len < BYTES32_SIZE ? len : BYTES32_SIZE;
   // NOLINTNEXTLINE(clang-analyzer-security.insecureAPI.DeprecatedOrUnsafeBufferHandling)
   memcpy(result.bytes, data, copy_len);
 

@@ -4,7 +4,7 @@
 #include "div0/rlp/encode.h"
 #include "div0/types/bytes.h"
 
-address_t compute_create_address(const address_t *sender, uint64_t nonce) {
+address_t compute_create_address(const address_t *const sender, const uint64_t nonce) {
   // CREATE address = keccak256(rlp([sender, nonce]))[12:]
 
   // Use stack-allocated arena for temporary RLP encoding
@@ -12,10 +12,10 @@ address_t compute_create_address(const address_t *sender, uint64_t nonce) {
   (void)div0_arena_init(&arena);
 
   // Encode sender address (20 bytes)
-  bytes_t encoded_addr = rlp_encode_address(&arena, sender);
+  const bytes_t encoded_addr = rlp_encode_address(&arena, sender);
 
   // Encode nonce
-  bytes_t encoded_nonce = rlp_encode_u64(&arena, nonce);
+  const bytes_t encoded_nonce = rlp_encode_u64(&arena, nonce);
 
   // Build RLP list: [sender, nonce]
   bytes_t list_data;
@@ -29,7 +29,7 @@ address_t compute_create_address(const address_t *sender, uint64_t nonce) {
   rlp_list_end(&builder);
 
   // Hash the RLP-encoded list
-  hash_t hash = keccak256(list_data.data, list_data.size);
+  const hash_t hash = keccak256(list_data.data, list_data.size);
 
   // Take last 20 bytes (bytes 12-31)
   address_t result;
@@ -51,7 +51,7 @@ address_t compute_create2_address(const address_t *sender, const hash_t *salt,
   __builtin___memcpy_chk(preimage + 53, init_code_hash->bytes, 32, 32);
 
   // Hash the preimage
-  hash_t hash = keccak256(preimage, sizeof(preimage));
+  const hash_t hash = keccak256(preimage, sizeof(preimage));
 
   // Take last 20 bytes (bytes 12-31)
   address_t result;

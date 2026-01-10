@@ -40,7 +40,8 @@ static void write_stderr_uint(unsigned int val) {
 }
 
 // Error callback for libbacktrace
-static void error_callback(void *data, const char *msg, int errnum) {
+// NOLINTNEXTLINE(CppParameterMayBeConstPtrOrRef) - libbacktrace callback signature is fixed
+static void error_callback(void *const data, const char *const msg, const int errnum) {
   (void)data;
   (void)errnum;
   write_stderr("  backtrace error: ");
@@ -49,10 +50,10 @@ static void error_callback(void *data, const char *msg, int errnum) {
 }
 
 // Full callback for each stack frame (async-signal-safe)
-static int full_callback(void *data, uintptr_t pc, const char *filename, int lineno,
-                         const char *function) {
+static int full_callback(void *const data, const uintptr_t pc, const char *const filename,
+                         const int lineno, const char *const function) {
   (void)pc;
-  int *frame_num = (int *)data;
+  int *const frame_num = data;
 
   // Build output using only write() and string literals
   write_stderr("  #");
@@ -69,7 +70,7 @@ static int full_callback(void *data, uintptr_t pc, const char *filename, int lin
 }
 
 // Signal handler
-static void crash_handler(int sig) {
+static void crash_handler(const int sig) {
   write_stderr("\n");
   write_stderr("========================================================================"
                "========\n");

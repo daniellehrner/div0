@@ -36,8 +36,9 @@ void secp256k1_ctx_destroy(secp256k1_ctx_t *ctx) {
   }
 }
 
-pubkey_result_t secp256k1_recover_pubkey(const secp256k1_ctx_t *ctx, const uint8_t message_hash[32],
-                                         int recovery_id, const uint8_t signature[64]) {
+pubkey_result_t secp256k1_recover_pubkey(const secp256k1_ctx_t *const ctx,
+                                         const uint8_t message_hash[32], const int recovery_id,
+                                         const uint8_t signature[64]) {
   pubkey_result_t result = {.success = false, .pubkey = {0}};
 
   // Validate parameters
@@ -74,9 +75,10 @@ pubkey_result_t secp256k1_recover_pubkey(const secp256k1_ctx_t *ctx, const uint8
   return result;
 }
 
-ecrecover_result_t secp256k1_ecrecover(const secp256k1_ctx_t *ctx, const uint256_t *message_hash,
-                                       uint64_t v, const uint256_t *r, const uint256_t *s,
-                                       uint64_t chain_id) {
+ecrecover_result_t secp256k1_ecrecover(const secp256k1_ctx_t *const ctx,
+                                       const uint256_t *const message_hash, const uint64_t v,
+                                       const uint256_t *const r, const uint256_t *const s,
+                                       const uint64_t chain_id) {
   ecrecover_result_t result = {.success = false, .address = address_zero()};
 
   // Validate parameters
@@ -97,7 +99,7 @@ ecrecover_result_t secp256k1_ecrecover(const secp256k1_ctx_t *ctx, const uint256
     recovery_id = (int)(v - 27);
   } else if (chain_id > 0) {
     // EIP-155: v = chain_id * 2 + 35 + recovery_id
-    uint64_t expected_base = (chain_id * 2) + 35;
+    const uint64_t expected_base = (chain_id * 2) + 35;
     if (v != expected_base && v != expected_base + 1) {
       return result;
     }
@@ -128,13 +130,13 @@ ecrecover_result_t secp256k1_ecrecover(const secp256k1_ctx_t *ctx, const uint256
   memcpy(sig_bytes + 32, s_be, 32);
 
   // Recover public key
-  pubkey_result_t pk = secp256k1_recover_pubkey(ctx, hash_be, recovery_id, sig_bytes);
+  const pubkey_result_t pk = secp256k1_recover_pubkey(ctx, hash_be, recovery_id, sig_bytes);
   if (!pk.success) {
     return result;
   }
 
   // Address = last 20 bytes of keccak256(public_key)
-  hash_t pubkey_hash = keccak256(pk.pubkey, 64);
+  const hash_t pubkey_hash = keccak256(pk.pubkey, 64);
 
   // Extract last 20 bytes from the 32-byte hash (bytes 12-31)
   // NOLINTNEXTLINE(clang-analyzer-security.insecureAPI.DeprecatedOrUnsafeBufferHandling)

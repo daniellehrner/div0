@@ -12,3 +12,4 @@ exclude:
       - .qodana-build/
       - .qodana-cache/
       - .qodana-results/
+  - name: CppRedundantParentheses

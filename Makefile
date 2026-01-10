@@ -1,7 +1,7 @@
 # div0 - High-performance EVM implementation
 # Makefile wrapper for CMake builds
 
-.PHONY: all check debug release threadsan bare-metal-riscv test test-threadsan coverage bench clean distclean format clang-tidy semgrep help
+.PHONY: all check debug release threadsan bare-metal-riscv test test-threadsan coverage bench clean distclean format clang-tidy semgrep qodana help
 
 # Default compiler - must be Clang
 CC := clang
@@ -111,6 +111,10 @@ clang-tidy: debug
 semgrep:
 	semgrep --config .semgrep/c23.yaml --error --severity=ERROR
 
+# Run Qodana code inspection (requires Docker)
+qodana:
+	@bash .claude/skills/clion-qodana-inspector/scripts/run-qodana-inspection.sh .
+
 check: format-check clang-tidy semgrep
 
 # Help
@@ -130,5 +134,6 @@ help:
 	@echo "  format-check     - Check formatting without modifying"
 	@echo "  clang-tidy       - Run clang-tidy static analysis"
 	@echo "  semgrep          - Run semgrep C23 checks"
+	@echo "  qodana           - Run Qodana code inspection (requires Docker)"
 	@echo "  check            - Run all static analysis (format-check, clang-tidy, semgrep)"
 	@echo "  help             - Show this help message"

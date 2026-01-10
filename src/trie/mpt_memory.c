@@ -18,27 +18,29 @@ typedef struct {
 // Vtable Function Implementations
 // =============================================================================
 
-static mpt_node_t *memory_get_root(mpt_backend_t *backend) {
-  mpt_memory_backend_t *mem = (mpt_memory_backend_t *)backend;
+static mpt_node_t *memory_get_root(mpt_backend_t *const backend) {
+  const auto mem = (mpt_memory_backend_t *)backend;
   return mem->root;
 }
 
-static void memory_set_root(mpt_backend_t *backend, mpt_node_t *root) {
-  mpt_memory_backend_t *mem = (mpt_memory_backend_t *)backend;
+static void memory_set_root(mpt_backend_t *const backend, mpt_node_t *const root) {
+  const auto mem = (mpt_memory_backend_t *)backend;
   mem->root = root;
 }
 
-static mpt_node_t *memory_alloc_node(mpt_backend_t *backend) {
-  mpt_memory_backend_t *mem = (mpt_memory_backend_t *)backend;
+static mpt_node_t *memory_alloc_node(mpt_backend_t *const backend) {
+  const auto mem = (mpt_memory_backend_t *)backend;
   // mpt_node_t contains hash_t which requires 32-byte alignment
-  mpt_node_t *node = div0_arena_alloc_aligned(mem->arena, sizeof(mpt_node_t), alignof(mpt_node_t));
+  mpt_node_t *const node =
+      div0_arena_alloc_aligned(mem->arena, sizeof(mpt_node_t), alignof(mpt_node_t));
   if (node != nullptr) {
     *node = mpt_node_empty();
   }
   return node;
 }
 
-static mpt_node_t *memory_get_node_by_hash(mpt_backend_t *backend, const hash_t *hash) {
+static mpt_node_t *memory_get_node_by_hash(const mpt_backend_t *const backend,
+                                           const hash_t *const hash) {
   // In-memory backend doesn't support hash-based lookup
   // Nodes are accessed directly via pointers
   (void)backend;
@@ -46,38 +48,41 @@ static mpt_node_t *memory_get_node_by_hash(mpt_backend_t *backend, const hash_t 
   return nullptr;
 }
 
-static hash_t memory_store_node(mpt_backend_t *backend, mpt_node_t *node) {
+static hash_t memory_store_node(mpt_backend_t *const backend, mpt_node_t *const node) {
   // In-memory backend doesn't need explicit storage
   // Just compute and return the hash
-  mpt_memory_backend_t *mem = (mpt_memory_backend_t *)backend;
+  const auto mem = (mpt_memory_backend_t *)backend;
   return mpt_node_hash(node, mem->arena);
 }
 
-static void memory_begin_batch(mpt_backend_t *backend) {
+// NOLINTNEXTLINE(CppParameterMayBeConstPtrOrRef) - vtable semantic: begin_batch modifies state
+static void memory_begin_batch(mpt_backend_t *const backend) {
   // In-memory backend doesn't need batch operations
   (void)backend;
 }
 
-static void memory_commit_batch(mpt_backend_t *backend) {
+// NOLINTNEXTLINE(CppParameterMayBeConstPtrOrRef) - vtable semantic: commit_batch modifies state
+static void memory_commit_batch(mpt_backend_t *const backend) {
   // In-memory backend doesn't need batch operations
   (void)backend;
 }
 
-static void memory_rollback_batch(mpt_backend_t *backend) {
+// NOLINTNEXTLINE(CppParameterMayBeConstPtrOrRef) - vtable semantic: rollback_batch modifies state
+static void memory_rollback_batch(mpt_backend_t *const backend) {
   // In-memory backend doesn't support rollback
   // Would need to copy the entire trie structure
   (void)backend;
 }
 
-static void memory_clear(mpt_backend_t *backend) {
-  mpt_memory_backend_t *mem = (mpt_memory_backend_t *)backend;
+static void memory_clear(mpt_backend_t *const backend) {
+  const auto mem = (mpt_memory_backend_t *)backend;
   // Clear root only - don't reset arena since it may be shared.
   // Orphaned nodes will be reclaimed when arena is reset/destroyed.
   mem->root = nullptr;
 }
 
-static void memory_destroy(mpt_backend_t *backend) {
-  mpt_memory_backend_t *mem = (mpt_memory_backend_t *)backend;
+static void memory_destroy(mpt_backend_t *const backend) {
+  const auto mem = (mpt_memory_backend_t *)backend;
   // The backend itself is allocated in the arena, so just reset
   div0_arena_reset(mem->arena);
   // Note: The arena is not destroyed here - it's owned by the caller
@@ -104,12 +109,12 @@ static const mpt_backend_vtable_t MEMORY_VTABLE = {
 // Public API
 // =============================================================================
 
-mpt_backend_t *mpt_memory_backend_create(div0_arena_t *arena) {
+mpt_backend_t *mpt_memory_backend_create(div0_arena_t *const arena) {
   if (arena == nullptr) {
     return nullptr;
   }
 
-  mpt_memory_backend_t *backend = div0_arena_alloc(arena, sizeof(mpt_memory_backend_t));
+  mpt_memory_backend_t *const backend = div0_arena_alloc(arena, sizeof(mpt_memory_backend_t));
   if (backend == nullptr) {
     return nullptr;
   }

@@ -18,7 +18,7 @@ static constexpr int BITS_PER_BYTE = 8;
 
 typedef unsigned __int128 uint128_t;
 
-uint256_t uint256_mul(uint256_t a, uint256_t b) {
+uint256_t uint256_mul(const uint256_t a, const uint256_t b) {
   // Schoolbook multiplication using unsigned __int128 for 64x64->128 products.
   // Only compute products where i+j < 4 (result is mod 2^256).
   //
@@ -28,30 +28,31 @@ uint256_t uint256_mul(uint256_t a, uint256_t b) {
   //   p02 = a0*b2, p11 = a1*b1, p20 = a2*b0 (col 2)
   //   a0*b3, a1*b2, a2*b1, a3*b0 (col 3, only low 64 bits needed)
 
-  uint128_t p00 = (uint128_t)a.limbs[0] * b.limbs[0];
-  uint128_t p01 = (uint128_t)a.limbs[0] * b.limbs[1];
-  uint128_t p10 = (uint128_t)a.limbs[1] * b.limbs[0];
-  uint128_t p02 = (uint128_t)a.limbs[0] * b.limbs[2];
-  uint128_t p11 = (uint128_t)a.limbs[1] * b.limbs[1];
-  uint128_t p20 = (uint128_t)a.limbs[2] * b.limbs[0];
+  const uint128_t p00 = (uint128_t)a.limbs[0] * b.limbs[0];
+  const uint128_t p01 = (uint128_t)a.limbs[0] * b.limbs[1];
+  const uint128_t p10 = (uint128_t)a.limbs[1] * b.limbs[0];
+  const uint128_t p02 = (uint128_t)a.limbs[0] * b.limbs[2];
+  const uint128_t p11 = (uint128_t)a.limbs[1] * b.limbs[1];
+  const uint128_t p20 = (uint128_t)a.limbs[2] * b.limbs[0];
 
   // Column 0: just the low 64 bits of a0*b0
-  uint64_t r0 = (uint64_t)p00;
+  const uint64_t r0 = (uint64_t)p00;
 
   // Column 1: high(p00) + low(p01) + low(p10)
-  uint128_t col1 = (p00 >> 64) + (uint64_t)p01 + (uint64_t)p10;
-  uint64_t r1 = (uint64_t)col1;
+  const uint128_t col1 = (p00 >> 64) + (uint64_t)p01 + (uint64_t)p10;
+  const uint64_t r1 = (uint64_t)col1;
 
   // Column 2: carry from col1 + high(p01) + high(p10) + low(p02) + low(p11) + low(p20)
-  uint128_t col2 =
+  const uint128_t col2 =
       (col1 >> 64) + (p01 >> 64) + (p10 >> 64) + (uint64_t)p02 + (uint64_t)p11 + (uint64_t)p20;
-  uint64_t r2 = (uint64_t)col2;
+  const uint64_t r2 = (uint64_t)col2;
 
   // Column 3: carry from col2 + high(p02) + high(p11) + high(p20)
   //           + a0*b3 + a1*b2 + a2*b1 + a3*b0 (only low 64 bits needed)
-  uint64_t r3 = (uint64_t)(col2 >> 64) + (uint64_t)(p02 >> 64) + (uint64_t)(p11 >> 64) +
-                (uint64_t)(p20 >> 64) + (a.limbs[0] * b.limbs[3]) + (a.limbs[1] * b.limbs[2]) +
-                (a.limbs[2] * b.limbs[1]) + (a.limbs[3] * b.limbs[0]);
+  const uint64_t r3 = (uint64_t)(col2 >> 64) + (uint64_t)(p02 >> 64) + (uint64_t)(p11 >> 64) +
+                      (uint64_t)(p20 >> 64) + (a.limbs[0] * b.limbs[3]) +
+                      (a.limbs[1] * b.limbs[2]) + (a.limbs[2] * b.limbs[1]) +
+                      (a.limbs[3] * b.limbs[0]);
 
   return uint256_from_limbs(r0, r1, r2, r3);
 }
@@ -80,8 +81,8 @@ static const uint16_t RECIPROCAL_TABLE[256] = {
     1055, 1053, 1051, 1049, 1047, 1044, 1042, 1040, 1038, 1036, 1034, 1032, 1030, 1028, 1026, 1024};
 
 // 64x64 -> 128 multiplication, returning {lo, hi}
-static void umul128(uint64_t x, uint64_t y, uint64_t *lo, uint64_t *hi) {
-  uint128_t p = (uint128_t)x * y;
+static void umul128(const uint64_t x, const uint64_t y, uint64_t *lo, uint64_t *hi) {
+  const uint128_t p = (uint128_t)x * y;
   *lo = (uint64_t)p;
   *hi = (uint64_t)(p >> 64);
 }
@@ -89,41 +90,41 @@ static void umul128(uint64_t x, uint64_t y, uint64_t *lo, uint64_t *hi) {
 // Compute reciprocal for normalized 64-bit divisor
 // Returns v such that (2^128 - 1) / d = v + 2^64
 // Requires d to be normalized (high bit set)
-static uint64_t reciprocal_2by1(uint64_t d) {
-  uint64_t d9 = d >> 55;
-  uint64_t v0 = (uint64_t)RECIPROCAL_TABLE[d9 - 256];
+static uint64_t reciprocal_2by1(const uint64_t d) {
+  const uint64_t d9 = d >> 55;
+  const uint64_t v0 = RECIPROCAL_TABLE[d9 - 256];
 
-  uint64_t d40 = (d >> 24) + 1;
-  uint64_t v1 = (v0 << 11) - (uint32_t)((uint32_t)(v0 * v0) * d40 >> 40) - 1;
+  const uint64_t d40 = (d >> 24) + 1;
+  const uint64_t v1 = (v0 << 11) - (uint32_t)((uint32_t)(v0 * v0) * d40 >> 40) - 1;
 
-  uint64_t v2 = (v1 << 13) + (v1 * (0x1000000000000000ULL - v1 * d40) >> 47);
+  const uint64_t v2 = (v1 << 13) + (v1 * (0x1000000000000000ULL - v1 * d40) >> 47);
 
-  uint64_t d0 = d & 1;
-  uint64_t d63 = (d >> 1) + d0;
-  uint64_t e = ((v2 >> 1) & (0ULL - d0)) - (v2 * d63);
+  const uint64_t d0 = d & 1;
+  const uint64_t d63 = (d >> 1) + d0;
+  const uint64_t e = ((v2 >> 1) & (0ULL - d0)) - (v2 * d63);
   uint64_t e_lo;
   uint64_t e_hi;
   umul128(v2, e, &e_lo, &e_hi);
   (void)e_lo;
-  uint64_t v3 = (e_hi >> 1) + (v2 << 31);
+  const uint64_t v3 = (e_hi >> 1) + (v2 << 31);
 
   uint64_t p_lo;
   uint64_t p_hi;
   umul128(v3, d, &p_lo, &p_hi);
-  uint128_t p_plus_d = (uint128_t)p_lo + ((uint128_t)p_hi << 64) + d;
-  uint64_t v4 = v3 - (uint64_t)(p_plus_d >> 64) - d;
+  const uint128_t p_plus_d = (uint128_t)p_lo + ((uint128_t)p_hi << 64) + d;
+  const uint64_t v4 = v3 - (uint64_t)(p_plus_d >> 64) - d;
 
   return v4;
 }
 
 // 2-word by 1-word division with precomputed reciprocal
 // Returns {quotient, remainder}
-static void udivrem_2by1(uint64_t u_lo, uint64_t u_hi, uint64_t d, uint64_t v, uint64_t *q_out,
-                         uint64_t *r_out) {
+static void udivrem_2by1(const uint64_t u_lo, const uint64_t u_hi, const uint64_t d,
+                         const uint64_t v, uint64_t *q_out, uint64_t *r_out) {
   uint64_t q_lo;
   uint64_t q_hi;
   umul128(v, u_hi, &q_lo, &q_hi);
-  uint128_t q =
+  const uint128_t q =
       (uint128_t)q_lo + ((uint128_t)q_hi << 64) + (uint128_t)u_lo + ((uint128_t)u_hi << 64);
   q_lo = (uint64_t)q;
   q_hi = (uint64_t)(q >> 64);
@@ -164,11 +165,11 @@ static int top_limb_index(const uint64_t *limbs) {
 }
 
 // Fast path: divide by single limb using reciprocal-based division
-static void divmod_single_limb(const uint64_t *dividend, uint64_t divisor, uint256_t *quotient,
-                               uint256_t *remainder) {
+static void divmod_single_limb(const uint64_t *dividend, const uint64_t divisor,
+                               uint256_t *quotient, uint256_t *remainder) {
   // Normalize: shift divisor left until high bit is set
-  unsigned shift = (unsigned)__builtin_clzll(divisor);
-  uint64_t d_norm = divisor << shift;
+  const unsigned shift = (unsigned)__builtin_clzll(divisor);
+  const uint64_t d_norm = divisor << shift;
 
   // Shift dividend left by the same amount (5 limbs to handle overflow)
   uint64_t u[5] = {0};
@@ -179,7 +180,7 @@ static void divmod_single_limb(const uint64_t *dividend, uint64_t divisor, uint2
     u[3] = dividend[3];
     u[4] = 0;
   } else {
-    unsigned rshift = 64 - shift;
+    const unsigned rshift = 64 - shift;
     u[0] = dividend[0] << shift;
     u[1] = (dividend[1] << shift) | (dividend[0] >> rshift);
     u[2] = (dividend[2] << shift) | (dividend[1] >> rshift);
@@ -188,7 +189,7 @@ static void divmod_single_limb(const uint64_t *dividend, uint64_t divisor, uint2
   }
 
   // Compute reciprocal once for the normalized divisor
-  uint64_t reciprocal = reciprocal_2by1(d_norm);
+  const uint64_t reciprocal = reciprocal_2by1(d_norm);
 
   // Divide using reciprocal, processing from high to low
   uint64_t rem = u[4];
@@ -207,7 +208,7 @@ static void divmod_single_limb(const uint64_t *dividend, uint64_t divisor, uint2
 }
 
 // Internal divmod function - returns both quotient and remainder
-static void uint256_divmod(uint256_t dividend, uint256_t divisor, uint256_t *quotient,
+static void uint256_divmod(const uint256_t dividend, const uint256_t divisor, uint256_t *quotient,
                            uint256_t *remainder) {
   // D0: Handle special cases
 
@@ -228,15 +229,15 @@ static void uint256_divmod(uint256_t dividend, uint256_t divisor, uint256_t *quo
   // Fast path: both operands fit in 64 bits - use native hardware division
   if ((dividend.limbs[1] | dividend.limbs[2] | dividend.limbs[3]) == 0 &&
       (divisor.limbs[1] | divisor.limbs[2] | divisor.limbs[3]) == 0) {
-    uint64_t q = dividend.limbs[0] / divisor.limbs[0];
-    uint64_t r = dividend.limbs[0] % divisor.limbs[0];
+    const uint64_t q = dividend.limbs[0] / divisor.limbs[0];
+    const uint64_t r = dividend.limbs[0] % divisor.limbs[0];
     *quotient = uint256_from_u64(q);
     *remainder = uint256_from_u64(r);
     return;
   }
 
   // Find significant limbs
-  int div_top = top_limb_index(divisor.limbs);
+  const int div_top = top_limb_index(divisor.limbs);
 
   // Single limb divisor - use reciprocal-based fast path
   if (div_top == 0) {
@@ -247,8 +248,8 @@ static void uint256_divmod(uint256_t dividend, uint256_t divisor, uint256_t *quo
   // Full Knuth Algorithm D for multi-limb divisor
 
   // D1: Normalize - shift left so divisor's top bit is set
-  size_t div_top_u = (size_t)div_top;
-  int shift = __builtin_clzll(divisor.limbs[div_top_u]);
+  const size_t div_top_u = (size_t)div_top;
+  const int shift = __builtin_clzll(divisor.limbs[div_top_u]);
 
   // Extended dividend needs 5 limbs to hold shifted value
   uint64_t u[5] = {0};
@@ -281,8 +282,8 @@ static void uint256_divmod(uint256_t dividend, uint256_t divisor, uint256_t *quo
     u[4] = carry;
   }
 
-  size_t n = div_top_u + 1; // Number of divisor limbs
-  size_t m = 4 - n;         // quotient limbs = dividend limbs - divisor limbs
+  const size_t n = div_top_u + 1; // Number of divisor limbs
+  const size_t m = 4 - n;         // quotient limbs = dividend limbs - divisor limbs
 
   uint64_t q_limbs[4] = {0};
 
@@ -290,7 +291,7 @@ static void uint256_divmod(uint256_t dividend, uint256_t divisor, uint256_t *quo
   for (size_t j = m + 1; j-- > 0;) {
     // D3: Estimate quotient digit q̂ using top 2 dividend limbs / top divisor
     // limb
-    uint128_t tmp = ((uint128_t)u[j + n] << 64) | u[j + n - 1];
+    const uint128_t tmp = ((uint128_t)u[j + n] << 64) | u[j + n - 1];
     uint128_t q_hat = tmp / v[n - 1];
     uint128_t r_hat = tmp % v[n - 1];
 
@@ -307,20 +308,20 @@ static void uint256_divmod(uint256_t dividend, uint256_t divisor, uint256_t *quo
     uint128_t carry = 0;
     uint128_t borrow = 0;
     for (size_t i = 0; i < n; ++i) {
-      uint128_t prod = (q_hat * v[i]) + carry;
+      const uint128_t prod = (q_hat * v[i]) + carry;
       carry = prod >> 64;
 
-      uint128_t sub = (prod & (((uint128_t)1 << 64) - 1)) + borrow;
-      uint128_t diff = (uint128_t)u[j + i] + ((uint128_t)1 << 64) - sub;
+      const uint128_t sub = (prod & (((uint128_t)1 << 64) - 1)) + borrow;
+      const uint128_t diff = (uint128_t)u[j + i] + ((uint128_t)1 << 64) - sub;
       u[j + i] = (uint64_t)diff;
       borrow = 1 - (diff >> 64);
     }
 
     // Final position: subtract carry from u[j+n]
-    uint128_t sub_final = carry + borrow;
-    uint128_t diff_final = (uint128_t)u[j + n] + ((uint128_t)1 << 64) - sub_final;
+    const uint128_t sub_final = carry + borrow;
+    const uint128_t diff_final = (uint128_t)u[j + n] + ((uint128_t)1 << 64) - sub_final;
     u[j + n] = (uint64_t)diff_final;
-    uint64_t final_borrow = (uint64_t)(1 - (diff_final >> 64));
+    const uint64_t final_borrow = (uint64_t)(1 - (diff_final >> 64));
 
     // D5: Set quotient digit
     q_limbs[j] = (uint64_t)q_hat;
@@ -330,7 +331,7 @@ static void uint256_divmod(uint256_t dividend, uint256_t divisor, uint256_t *quo
       --q_limbs[j];
       uint64_t add_carry = 0;
       for (size_t i = 0; i < n; ++i) {
-        uint128_t sum = (uint128_t)u[j + i] + v[i] + add_carry;
+        const uint128_t sum = (uint128_t)u[j + i] + v[i] + add_carry;
         u[j + i] = (uint64_t)sum;
         add_carry = (uint64_t)(sum >> 64);
       }
@@ -355,14 +356,14 @@ static void uint256_divmod(uint256_t dividend, uint256_t divisor, uint256_t *quo
   *remainder = uint256_from_limbs(r_limbs[0], r_limbs[1], r_limbs[2], r_limbs[3]);
 }
 
-uint256_t uint256_div(uint256_t a, uint256_t b) {
+uint256_t uint256_div(const uint256_t a, const uint256_t b) {
   uint256_t quotient;
   uint256_t remainder;
   uint256_divmod(a, b, &quotient, &remainder);
   return quotient;
 }
 
-uint256_t uint256_mod(uint256_t a, uint256_t b) {
+uint256_t uint256_mod(const uint256_t a, const uint256_t b) {
   uint256_t quotient;
   uint256_t remainder;
   uint256_divmod(a, b, &quotient, &remainder);
@@ -393,7 +394,7 @@ uint256_t uint256_from_bytes_be(const uint8_t *data, size_t len) {
   // padded[24..31] goes to limbs[0] (LSB)
   for (int i = 0; i < UINT256_LIMBS; i++) {
     uint64_t limb = 0;
-    size_t offset = (size_t)((UINT256_LIMBS - 1) - i) * (size_t)BYTES_PER_LIMB;
+    const size_t offset = (size_t)((UINT256_LIMBS - 1) - i) * (size_t)BYTES_PER_LIMB;
     const uint8_t *p = padded + offset;
     for (int j = 0; j < BYTES_PER_LIMB; j++) {
       limb = (limb << BITS_PER_BYTE) | p[j];
@@ -404,7 +405,7 @@ uint256_t uint256_from_bytes_be(const uint8_t *data, size_t len) {
   return result;
 }
 
-void uint256_to_bytes_be(uint256_t value, uint8_t *out) {
+void uint256_to_bytes_be(const uint256_t value, uint8_t *const out) {
   // Convert little-endian limbs to big-endian bytes
   // limbs[3] (MSB) goes to out[0..7]
   // limbs[0] (LSB) goes to out[24..31]
@@ -438,7 +439,7 @@ bool uint256_from_hex(const char *hex, uint256_t *out) {
 // =============================================================================
 
 /// Negates a uint256 value (two's complement: -x = ~x + 1)
-static inline uint256_t uint256_negate(const uint256_t a) {
+static uint256_t uint256_negate(const uint256_t a) {
   // ~a + 1
   const uint256_t not_a = uint256_from_limbs(~a.limbs[0], ~a.limbs[1], ~a.limbs[2], ~a.limbs[3]);
   return uint256_add(not_a, uint256_from_u64(1));
@@ -489,6 +490,7 @@ uint256_t uint256_sdiv(const uint256_t a, const uint256_t b) {
   const uint256_t quotient = uint256_div(abs_a, abs_b);
 
   // Apply sign: negative if exactly one operand was negative
+  // NOLINTNEXTLINE(CppDFALocalValueEscapesFunction) - returns struct by value, not by reference
   return (a_neg != b_neg) ? uint256_negate(quotient) : quotient;
 }
 
@@ -521,6 +523,7 @@ uint256_t uint256_smod(const uint256_t a, const uint256_t b) {
   const uint256_t remainder = uint256_mod(abs_a, abs_b);
 
   // Result sign follows dividend sign (EVM semantics)
+  // NOLINTNEXTLINE(CppDFALocalValueEscapesFunction) - returns struct by value, not by reference
   return a_neg ? uint256_negate(remainder) : remainder;
 }
 
@@ -882,7 +885,7 @@ size_t uint256_byte_length(const uint256_t value) {
 // Shift Operations
 // =============================================================================
 
-uint256_t uint256_shl(uint256_t shift, uint256_t value) {
+uint256_t uint256_shl(const uint256_t shift, const uint256_t value) {
   // If shift >= 256, result is 0
   if (!uint256_fits_u64(shift) || shift.limbs[0] >= 256) {
     return uint256_zero();
@@ -918,7 +921,7 @@ uint256_t uint256_shl(uint256_t shift, uint256_t value) {
   return result;
 }
 
-uint256_t uint256_shr(uint256_t shift, uint256_t value) {
+uint256_t uint256_shr(const uint256_t shift, const uint256_t value) {
   // If shift >= 256, result is 0
   if (!uint256_fits_u64(shift) || shift.limbs[0] >= 256) {
     return uint256_zero();
@@ -954,7 +957,7 @@ uint256_t uint256_shr(uint256_t shift, uint256_t value) {
   return result;
 }
 
-uint256_t uint256_sar(uint256_t shift, uint256_t value) {
+uint256_t uint256_sar(const uint256_t shift, const uint256_t value) {
   const bool is_negative = uint256_is_negative(value);
 
   // If shift >= 256, result depends on sign
@@ -981,7 +984,7 @@ uint256_t uint256_sar(uint256_t shift, uint256_t value) {
     // e.g., if s=8, we want bits 248-255 to be 1
     if (s > 0 && s < 256) {
       // Calculate which limb and bit position
-      const uint64_t high_bit = 255;
+      constexpr uint64_t high_bit = 255;
       const uint64_t first_clear_bit = high_bit - s + 1; // First bit that should stay as-is
       const uint64_t first_limb = first_clear_bit / 64;
       const uint64_t bit_in_limb = first_clear_bit % 64;

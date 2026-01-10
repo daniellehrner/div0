@@ -9,7 +9,7 @@
 // Minimum capacity when growing
 static constexpr size_t MIN_CAPACITY = 32;
 
-bool bytes_reserve(bytes_t *b, size_t capacity) {
+bool bytes_reserve(bytes_t *const b, const size_t capacity) {
   if (capacity <= b->capacity) {
     return true; // Already have enough capacity
   }
@@ -34,7 +34,7 @@ bool bytes_reserve(bytes_t *b, size_t capacity) {
     new_capacity *= 2;
   }
 
-  uint8_t *new_data = (uint8_t *)realloc(b->data, new_capacity);
+  const auto new_data = (uint8_t *)realloc(b->data, new_capacity);
   if (new_data == nullptr) {
     return false;
   }
@@ -44,7 +44,7 @@ bool bytes_reserve(bytes_t *b, size_t capacity) {
   return true;
 }
 
-bool bytes_from_data(bytes_t *b, const uint8_t *data, size_t len) {
+bool bytes_from_data(bytes_t *const b, const uint8_t *const data, const size_t len) {
   if (data == nullptr || len == 0) {
     b->size = 0;
     return true;
@@ -60,12 +60,12 @@ bool bytes_from_data(bytes_t *b, const uint8_t *data, size_t len) {
   return true;
 }
 
-bool bytes_append(bytes_t *b, const uint8_t *data, size_t len) {
+bool bytes_append(bytes_t *const b, const uint8_t *const data, const size_t len) {
   if (data == nullptr || len == 0) {
     return true;
   }
 
-  size_t new_size = b->size + len;
+  const size_t new_size = b->size + len;
   if (new_size < b->size) {
     // Overflow
     return false;
@@ -81,7 +81,7 @@ bool bytes_append(bytes_t *b, const uint8_t *data, size_t len) {
   return true;
 }
 
-bool bytes_append_byte(bytes_t *b, uint8_t byte) {
+bool bytes_append_byte(bytes_t *const b, const uint8_t byte) {
   return bytes_append(b, &byte, 1);
 }
 

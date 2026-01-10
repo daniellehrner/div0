@@ -20,8 +20,8 @@ mpt_node_t mpt_node_empty(void) {
   return node;
 }
 
-mpt_node_t mpt_node_leaf(nibbles_t path, bytes_t value) {
-  mpt_node_t node = {
+mpt_node_t mpt_node_leaf(const nibbles_t path, const bytes_t value) {
+  const mpt_node_t node = {
       .type = MPT_NODE_LEAF,
       .leaf =
           {
@@ -33,8 +33,8 @@ mpt_node_t mpt_node_leaf(nibbles_t path, bytes_t value) {
   return node;
 }
 
-mpt_node_t mpt_node_extension(nibbles_t path, node_ref_t child) {
-  mpt_node_t node = {
+mpt_node_t mpt_node_extension(const nibbles_t path, const node_ref_t child) {
+  const mpt_node_t node = {
       .type = MPT_NODE_EXTENSION,
       .extension =
           {
@@ -62,7 +62,7 @@ mpt_node_t mpt_node_branch(void) {
 /// Helper: Encode a node reference for RLP.
 /// If hash: encode the 32-byte hash as bytes
 /// If embedded: return the already-encoded bytes directly (no re-encoding)
-static bytes_t encode_node_ref(const node_ref_t *ref, div0_arena_t *arena) {
+static bytes_t encode_node_ref(const node_ref_t *const ref, div0_arena_t *const arena) {
   if (node_ref_is_null(ref)) {
     // Empty reference: encode as empty string (0x80)
     return rlp_encode_bytes(arena, nullptr, 0);
@@ -80,7 +80,7 @@ static bytes_t encode_node_ref(const node_ref_t *ref, div0_arena_t *arena) {
   return result;
 }
 
-bytes_t mpt_node_encode(const mpt_node_t *node, div0_arena_t *arena) {
+bytes_t mpt_node_encode(const mpt_node_t *const node, div0_arena_t *const arena) {
   bytes_t result;
   bytes_init_arena(&result, arena);
 
@@ -94,12 +94,12 @@ bytes_t mpt_node_encode(const mpt_node_t *node, div0_arena_t *arena) {
 
   case MPT_NODE_LEAF: {
     // Leaf: [hex_prefix(path, is_leaf=true), value]
-    bytes_t hp_path = hex_prefix_encode(&node->leaf.path, true, arena);
-    bytes_t rlp_path = rlp_encode_bytes(arena, hp_path.data, hp_path.size);
-    bytes_t rlp_value = rlp_encode_bytes(arena, node->leaf.value.data, node->leaf.value.size);
+    const bytes_t hp_path = hex_prefix_encode(&node->leaf.path, true, arena);
+    const bytes_t rlp_path = rlp_encode_bytes(arena, hp_path.data, hp_path.size);
+    const bytes_t rlp_value = rlp_encode_bytes(arena, node->leaf.value.data, node->leaf.value.size);
 
     // Estimate size and build list
-    size_t est_size = 9 + rlp_path.size + rlp_value.size;
+    const size_t est_size = 9 + rlp_path.size + rlp_value.size;
     bytes_reserve(&result, est_size);
 
     rlp_list_builder_t builder;
@@ -112,11 +112,11 @@ bytes_t mpt_node_encode(const mpt_node_t *node, div0_arena_t *arena) {
 
   case MPT_NODE_EXTENSION: {
     // Extension: [hex_prefix(path, is_leaf=false), child_ref]
-    bytes_t hp_path = hex_prefix_encode(&node->extension.path, false, arena);
-    bytes_t rlp_path = rlp_encode_bytes(arena, hp_path.data, hp_path.size);
-    bytes_t rlp_child = encode_node_ref(&node->extension.child, arena);
+    const bytes_t hp_path = hex_prefix_encode(&node->extension.path, false, arena);
+    const bytes_t rlp_path = rlp_encode_bytes(arena, hp_path.data, hp_path.size);
+    const bytes_t rlp_child = encode_node_ref(&node->extension.child, arena);
 
-    size_t est_size = 9 + rlp_path.size + rlp_child.size;
+    const size_t est_size = 9 + rlp_path.size + rlp_child.size;
     bytes_reserve(&result, est_size);
 
     rlp_list_builder_t builder;
@@ -138,7 +138,8 @@ bytes_t mpt_node_encode(const mpt_node_t *node, div0_arena_t *arena) {
       total_size += child_encodings[i].size;
     }
 
-    bytes_t rlp_value = rlp_encode_bytes(arena, node->branch.value.data, node->branch.value.size);
+    const bytes_t rlp_value =
+        rlp_encode_bytes(arena, node->branch.value.data, node->branch.value.size);
     total_size += rlp_value.size;
 
     bytes_reserve(&result, total_size);
@@ -160,7 +161,7 @@ bytes_t mpt_node_encode(const mpt_node_t *node, div0_arena_t *arena) {
   return result;
 }
 
-hash_t mpt_node_hash(mpt_node_t *node, div0_arena_t *arena) {
+hash_t mpt_node_hash(mpt_node_t *const node, div0_arena_t *const arena) {
   // Return cached hash if valid
   if (node->hash_valid) {
     return node->cached_hash;
@@ -174,14 +175,14 @@ hash_t mpt_node_hash(mpt_node_t *node, div0_arena_t *arena) {
   }
 
   // Encode and hash
-  bytes_t encoded = mpt_node_encode(node, arena);
+  const bytes_t encoded = mpt_node_encode(node, arena);
   node->cached_hash = keccak256(encoded.data, encoded.size);
   node->hash_valid = true;
 
   return node->cached_hash;
 }
 
-node_ref_t mpt_node_ref(mpt_node_t *node, div0_arena_t *arena) {
+node_ref_t mpt_node_ref(mpt_node_t *const node, div0_arena_t *const arena) {
   node_ref_t ref;
 
   // Empty nodes produce empty reference
@@ -189,7 +190,7 @@ node_ref_t mpt_node_ref(mpt_node_t *node, div0_arena_t *arena) {
     return node_ref_null();
   }
 
-  bytes_t encoded = mpt_node_encode(node, arena);
+  const bytes_t encoded = mpt_node_encode(node, arena);
 
   if (encoded.size < 32) {
     // Small enough to embed directly
@@ -207,7 +208,7 @@ node_ref_t mpt_node_ref(mpt_node_t *node, div0_arena_t *arena) {
   return ref;
 }
 
-size_t mpt_branch_child_count(const mpt_branch_t *branch) {
+size_t mpt_branch_child_count(const mpt_branch_t *const branch) {
   size_t count = 0;
   for (int i = 0; i < 16; i++) {
     if (!node_ref_is_null(&branch->children[i])) {

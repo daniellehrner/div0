@@ -37,16 +37,16 @@ static const char *const DEFAULT_OUTPUT_BASEDIR = ".";
 static const char *const DEFAULT_OUTPUT_RESULT = "result.json";
 static const char *const DEFAULT_OUTPUT_ALLOC = "alloc.json";
 static const char *const DEFAULT_FORK = "Shanghai";
-static const int DEFAULT_CHAIN_ID = 1;
-static const long DEFAULT_REWARD = 0;
-static const int DEFAULT_VERBOSE = 1;
+static constexpr int DEFAULT_CHAIN_ID = 1;
+static constexpr long DEFAULT_REWARD = 0;
+static constexpr int DEFAULT_VERBOSE = 1;
 
 // Maximum path length for output files.
 // 4096 matches PATH_MAX on Linux and is a reasonable upper bound for other platforms.
-static const size_t MAX_PATH_LEN = 4096;
+static constexpr size_t MAX_PATH_LEN = 4096;
 
 // Initial buffer size for reading stdin
-static const size_t STDIN_INITIAL_BUFFER_SIZE = 65536;
+static constexpr size_t STDIN_INITIAL_BUFFER_SIZE = 65536;
 
 // ============================================================================
 // Stdin/Stdout Helpers
@@ -89,7 +89,7 @@ static char *read_stdin(size_t *out_len) {
       buffer = new_buffer;
       space = capacity - len;
     }
-    size_t bytes_read = fread(buffer + len, 1, space, stdin);
+    const size_t bytes_read = fread(buffer + len, 1, space, stdin);
     len += bytes_read;
     if (ferror(stdin)) {
       free(buffer);
@@ -175,8 +175,9 @@ typedef struct {
   size_t count;
 } block_hash_ctx_t;
 
-static bool get_block_hash_cb(uint64_t block_number, void *user_data, hash_t *out) {
-  block_hash_ctx_t *ctx = (block_hash_ctx_t *)user_data;
+static bool get_block_hash_cb(const uint64_t block_number, void *const user_data,
+                              hash_t *const out) {
+  const auto ctx = (block_hash_ctx_t *)user_data;
   for (size_t i = 0; i < ctx->count; i++) {
     if (ctx->hashes[i].number == block_number) {
       *out = ctx->hashes[i].hash;
@@ -223,19 +224,20 @@ static void build_state_from_snapshot(world_state_t *ws, const state_snapshot_t 
 // ============================================================================
 
 // Build a file path from basedir and filename with overflow check.
-// Returns false if the path would exceed max_len.
-static bool build_path(char *out, size_t max_len, const char *basedir, const char *filename) {
-  size_t basedir_len = strlen(basedir);
-  size_t filename_len = strlen(filename);
+// Returns false if the path would exceed MAX_PATH_LEN.
+static bool build_path(char *const out, const char *const basedir, const char *const filename) {
+  const size_t basedir_len = strlen(basedir);
+  const size_t filename_len = strlen(filename);
 
   // Need space for: basedir + "/" + filename + "\0"
-  if (basedir_len + 1 + filename_len + 1 > max_len) {
+  if (basedir_len + 1 + filename_len + 1 > MAX_PATH_LEN) {
     return false;
   }
 
-  __builtin___memcpy_chk(out, basedir, basedir_len, max_len);
+  __builtin___memcpy_chk(out, basedir, basedir_len, MAX_PATH_LEN);
   out[basedir_len] = '/';
-  __builtin___memcpy_chk(out + basedir_len + 1, filename, filename_len, max_len - basedir_len - 1);
+  __builtin___memcpy_chk(out + basedir_len + 1, filename, filename_len,
+                         MAX_PATH_LEN - basedir_len - 1);
   out[basedir_len + 1 + filename_len] = '\0';
   return true;
 }
@@ -255,8 +257,9 @@ static bool build_path(char *out, size_t max_len, const char *basedir, const cha
 /// @param writer JSON writer (caller must free)
 /// @param what Description for error messages (e.g., "result", "alloc")
 /// @return Exit code
-static int write_json_to_output(const char *basedir, const char *filename, yyjson_mut_val_t *root,
-                                json_writer_t *writer, const char *what) {
+static int write_json_to_output(const char *const basedir, const char *const filename,
+                                yyjson_mut_val_t *const root, const json_writer_t *const writer,
+                                const char *const what) {
   json_result_t write_result;
   if (is_stdout(filename)) {
     write_result = json_write_fp(writer, root, stdout, JSON_WRITE_PRETTY);
@@ -267,7 +270,7 @@ static int write_json_to_output(const char *basedir, const char *filename, yyjso
     }
   } else {
     char path[MAX_PATH_LEN];
-    if (!build_path(path, sizeof(path), basedir, filename)) {
+    if (!build_path(path, basedir, filename)) {
       fprintf(stderr, "t8n: output path too long: %s/%s\n", basedir, filename);
       return DIV0_EXIT_CONFIG_ERROR;
     }
@@ -296,7 +299,7 @@ static int write_result_output(const char *basedir, const char *filename,
     return DIV0_EXIT_JSON_ERROR;
   }
 
-  int exit_code = write_json_to_output(basedir, filename, root, &writer, "result");
+  const int exit_code = write_json_to_output(basedir, filename, root, &writer, "result");
   json_writer_free(&writer);
   return exit_code;
 }
@@ -322,7 +325,7 @@ static int write_alloc_output(const char *basedir, const char *filename, world_s
     return DIV0_EXIT_JSON_ERROR;
   }
 
-  int exit_code = write_json_to_output(basedir, filename, root, &writer, "alloc");
+  const int exit_code = write_json_to_output(basedir, filename, root, &writer, "alloc");
   json_writer_free(&writer);
   return exit_code;
 }
@@ -340,7 +343,7 @@ static int write_combined_stdout(const t8n_result_t *result, world_state_t *ws,
   }
 
   json_writer_t writer;
-  json_result_t init_result = json_writer_init(&writer);
+  const json_result_t init_result = json_writer_init(&writer);
   if (init_result.error != JSON_OK) {
     fprintf(stderr, "t8n: failed to init JSON writer\n");
     return DIV0_EXIT_JSON_ERROR;
@@ -377,7 +380,7 @@ static int write_combined_stdout(const t8n_result_t *result, world_state_t *ws,
   json_obj_add_str(&writer, root, "body", "0x");
 
   // Write to stdout
-  json_result_t write_result = json_write_fp(&writer, root, stdout, JSON_WRITE_PRETTY);
+  const json_result_t write_result = json_write_fp(&writer, root, stdout, JSON_WRITE_PRETTY);
   if (write_result.error != JSON_OK) {
     fprintf(stderr, "t8n: failed to write combined output to stdout: %s\n",
             write_result.detail ? write_result.detail : json_error_name(write_result.error));

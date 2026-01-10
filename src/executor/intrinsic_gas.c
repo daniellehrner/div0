@@ -19,7 +19,7 @@ uint64_t tx_intrinsic_gas(const transaction_t *tx) {
 
     // EIP-3860: initcode cost (2 gas per word)
     if (data && data->size > 0) {
-      uint64_t words = (data->size + 31) / 32;
+      const uint64_t words = (data->size + 31) / 32;
       gas += words * 2; // INITCODE_WORD_COST
     }
   }

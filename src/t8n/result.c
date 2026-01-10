@@ -14,8 +14,8 @@ void t8n_result_init(t8n_result_t *result) {
 // Serialization
 // ============================================================================
 
-yyjson_mut_val_t *t8n_write_log(const t8n_log_t *log, json_writer_t *w) {
-  yyjson_mut_val_t *obj = json_write_obj(w);
+yyjson_mut_val_t *t8n_write_log(const t8n_log_t *const log, const json_writer_t *const w) {
+  yyjson_mut_val_t *const obj = json_write_obj(w);
   if (obj == nullptr) {
     return nullptr;
   }
@@ -23,9 +23,9 @@ yyjson_mut_val_t *t8n_write_log(const t8n_log_t *log, json_writer_t *w) {
   json_obj_add_hex_address(w, obj, "address", &log->address);
 
   // Topics array
-  yyjson_mut_val_t *topics_arr = json_write_arr(w);
+  yyjson_mut_val_t *const topics_arr = json_write_arr(w);
   for (size_t i = 0; i < log->topic_count; i++) {
-    yyjson_mut_val_t *topic = json_write_hex_hash(w, &log->topics[i]);
+    yyjson_mut_val_t *const topic = json_write_hex_hash(w, &log->topics[i]);
     json_arr_append(w, topics_arr, topic);
   }
   json_obj_add(w, obj, "topics", topics_arr);
@@ -36,8 +36,9 @@ yyjson_mut_val_t *t8n_write_log(const t8n_log_t *log, json_writer_t *w) {
   return obj;
 }
 
-yyjson_mut_val_t *t8n_write_receipt(const t8n_receipt_t *receipt, json_writer_t *w) {
-  yyjson_mut_val_t *obj = json_write_obj(w);
+yyjson_mut_val_t *t8n_write_receipt(const t8n_receipt_t *const receipt,
+                                    const json_writer_t *const w) {
+  yyjson_mut_val_t *const obj = json_write_obj(w);
   if (obj == nullptr) {
     return nullptr;
   }
@@ -53,9 +54,9 @@ yyjson_mut_val_t *t8n_write_receipt(const t8n_receipt_t *receipt, json_writer_t 
   json_obj_add_hex_bytes(w, obj, "logsBloom", receipt->bloom, 256);
 
   // Logs array
-  yyjson_mut_val_t *logs_arr = json_write_arr(w);
+  yyjson_mut_val_t *const logs_arr = json_write_arr(w);
   for (size_t i = 0; i < receipt->log_count; i++) {
-    yyjson_mut_val_t *log_obj = t8n_write_log(&receipt->logs[i], w);
+    yyjson_mut_val_t *const log_obj = t8n_write_log(&receipt->logs[i], w);
     if (log_obj == nullptr) {
       return nullptr;
     }
@@ -71,8 +72,8 @@ yyjson_mut_val_t *t8n_write_receipt(const t8n_receipt_t *receipt, json_writer_t 
   return obj;
 }
 
-yyjson_mut_val_t *t8n_write_result(const t8n_result_t *result, json_writer_t *w) {
-  yyjson_mut_val_t *obj = json_write_obj(w);
+yyjson_mut_val_t *t8n_write_result(const t8n_result_t *const result, const json_writer_t *const w) {
+  yyjson_mut_val_t *const obj = json_write_obj(w);
   if (obj == nullptr) {
     return nullptr;
   }
@@ -93,9 +94,9 @@ yyjson_mut_val_t *t8n_write_result(const t8n_result_t *result, json_writer_t *w)
   }
 
   // Receipts array
-  yyjson_mut_val_t *receipts_arr = json_write_arr(w);
+  yyjson_mut_val_t *const receipts_arr = json_write_arr(w);
   for (size_t i = 0; i < result->receipt_count; i++) {
-    yyjson_mut_val_t *receipt_obj = t8n_write_receipt(&result->receipts[i], w);
+    yyjson_mut_val_t *const receipt_obj = t8n_write_receipt(&result->receipts[i], w);
     if (receipt_obj == nullptr) {
       return nullptr;
     }
@@ -105,9 +106,9 @@ yyjson_mut_val_t *t8n_write_result(const t8n_result_t *result, json_writer_t *w)
 
   // Rejected transactions
   if (result->rejected_count > 0) {
-    yyjson_mut_val_t *rejected_arr = json_write_arr(w);
+    yyjson_mut_val_t *const rejected_arr = json_write_arr(w);
     for (size_t i = 0; i < result->rejected_count; i++) {
-      yyjson_mut_val_t *rej_obj = json_write_obj(w);
+      yyjson_mut_val_t *const rej_obj = json_write_obj(w);
       json_obj_add_u64(w, rej_obj, "index", result->rejected[i].index);
       json_obj_add_str(w, rej_obj, "error", result->rejected[i].error);
       json_arr_append(w, rejected_arr, rej_obj);

@@ -2,13 +2,14 @@
 
 #include <string.h>
 
-nibbles_t nibbles_from_bytes(const uint8_t *bytes, size_t len, div0_arena_t *arena) {
+nibbles_t nibbles_from_bytes(const uint8_t *const bytes, const size_t len,
+                             div0_arena_t *const arena) {
   if (len == 0 || bytes == nullptr) {
     return NIBBLES_EMPTY;
   }
 
-  size_t nibble_len = len * 2;
-  uint8_t *data = (uint8_t *)div0_arena_alloc(arena, nibble_len);
+  const size_t nibble_len = len * 2;
+  uint8_t *const data = div0_arena_alloc(arena, nibble_len);
   if (data == nullptr) {
     return NIBBLES_EMPTY;
   }
@@ -21,24 +22,24 @@ nibbles_t nibbles_from_bytes(const uint8_t *bytes, size_t len, div0_arena_t *are
   return (nibbles_t){.data = data, .len = nibble_len};
 }
 
-void nibbles_to_bytes(const nibbles_t *nibbles, uint8_t *out) {
+void nibbles_to_bytes(const nibbles_t *const nibbles, uint8_t *const out) {
   if (nibbles->len == 0 || out == nullptr) {
     return;
   }
 
-  size_t byte_len = nibbles->len / 2;
+  const size_t byte_len = nibbles->len / 2;
   for (size_t i = 0; i < byte_len; i++) {
     out[i] = (uint8_t)((nibbles->data[i * 2] << 4) | nibbles->data[(i * 2) + 1]);
   }
 }
 
-uint8_t *nibbles_to_bytes_alloc(const nibbles_t *nibbles, div0_arena_t *arena) {
+uint8_t *nibbles_to_bytes_alloc(const nibbles_t *const nibbles, div0_arena_t *const arena) {
   if (nibbles->len == 0) {
     return nullptr;
   }
 
-  size_t byte_len = nibbles->len / 2;
-  uint8_t *out = (uint8_t *)div0_arena_alloc(arena, byte_len);
+  const size_t byte_len = nibbles->len / 2;
+  uint8_t *const out = div0_arena_alloc(arena, byte_len);
   if (out == nullptr) {
     return nullptr;
   }
@@ -47,8 +48,8 @@ uint8_t *nibbles_to_bytes_alloc(const nibbles_t *nibbles, div0_arena_t *arena) {
   return out;
 }
 
-size_t nibbles_common_prefix(const nibbles_t *a, const nibbles_t *b) {
-  size_t min_len = a->len < b->len ? a->len : b->len;
+size_t nibbles_common_prefix(const nibbles_t *const a, const nibbles_t *const b) {
+  const size_t min_len = a->len < b->len ? a->len : b->len;
   size_t i = 0;
 
   while (i < min_len && a->data[i] == b->data[i]) {
@@ -58,13 +59,14 @@ size_t nibbles_common_prefix(const nibbles_t *a, const nibbles_t *b) {
   return i;
 }
 
-nibbles_t nibbles_slice(const nibbles_t *src, size_t start, size_t len, div0_arena_t *arena) {
+nibbles_t nibbles_slice(const nibbles_t *const src, const size_t start, size_t len,
+                        div0_arena_t *const arena) {
   if (src->len == 0 || start >= src->len) {
     return NIBBLES_EMPTY;
   }
 
   // Clamp len to available nibbles
-  size_t remaining = src->len - start;
+  const size_t remaining = src->len - start;
   if (len == SIZE_MAX || len > remaining) {
     len = remaining;
   }
@@ -79,7 +81,7 @@ nibbles_t nibbles_slice(const nibbles_t *src, size_t start, size_t len, div0_are
   }
 
   // Allocate and copy
-  uint8_t *data = (uint8_t *)div0_arena_alloc(arena, len);
+  uint8_t *const data = div0_arena_alloc(arena, len);
   if (data == nullptr) {
     return NIBBLES_EMPTY;
   }
@@ -89,12 +91,12 @@ nibbles_t nibbles_slice(const nibbles_t *src, size_t start, size_t len, div0_are
   return (nibbles_t){.data = data, .len = len};
 }
 
-nibbles_t nibbles_copy(const nibbles_t *src, div0_arena_t *arena) {
+nibbles_t nibbles_copy(const nibbles_t *const src, div0_arena_t *const arena) {
   if (src->len == 0) {
     return NIBBLES_EMPTY;
   }
 
-  uint8_t *data = (uint8_t *)div0_arena_alloc(arena, src->len);
+  uint8_t *const data = div0_arena_alloc(arena, src->len);
   if (data == nullptr) {
     return NIBBLES_EMPTY;
   }
@@ -104,8 +106,8 @@ nibbles_t nibbles_copy(const nibbles_t *src, div0_arena_t *arena) {
   return (nibbles_t){.data = data, .len = src->len};
 }
 
-int nibbles_cmp(const nibbles_t *a, const nibbles_t *b) {
-  size_t min_len = a->len < b->len ? a->len : b->len;
+int nibbles_cmp(const nibbles_t *const a, const nibbles_t *const b) {
+  const size_t min_len = a->len < b->len ? a->len : b->len;
 
   for (size_t i = 0; i < min_len; i++) {
     if (a->data[i] < b->data[i]) {
@@ -127,15 +129,16 @@ int nibbles_cmp(const nibbles_t *a, const nibbles_t *b) {
   return 0;
 }
 
-nibbles_t nibbles_concat(const nibbles_t *a, const nibbles_t *b, div0_arena_t *arena) {
+nibbles_t nibbles_concat(const nibbles_t *const a, const nibbles_t *const b,
+                         div0_arena_t *const arena) {
   if (a->len == 0) {
     return nibbles_copy(b, arena);
   }
   if (b->len == 0) {
     return nibbles_copy(a, arena);
   }
-  size_t total = a->len + b->len;
-  uint8_t *data = (uint8_t *)div0_arena_alloc(arena, total);
+  const size_t total = a->len + b->len;
+  uint8_t *const data = div0_arena_alloc(arena, total);
   if (data == nullptr) {
     return NIBBLES_EMPTY;
   }
@@ -146,10 +149,10 @@ nibbles_t nibbles_concat(const nibbles_t *a, const nibbles_t *b, div0_arena_t *a
   return (nibbles_t){.data = data, .len = total};
 }
 
-nibbles_t nibbles_concat3(const nibbles_t *prefix, uint8_t middle, const nibbles_t *suffix,
-                          div0_arena_t *arena) {
-  size_t total = prefix->len + 1 + suffix->len;
-  uint8_t *data = (uint8_t *)div0_arena_alloc(arena, total);
+nibbles_t nibbles_concat3(const nibbles_t *const prefix, const uint8_t middle,
+                          const nibbles_t *const suffix, div0_arena_t *const arena) {
+  const size_t total = prefix->len + 1 + suffix->len;
+  uint8_t *const data = div0_arena_alloc(arena, total);
   if (data == nullptr) {
     return NIBBLES_EMPTY;
   }

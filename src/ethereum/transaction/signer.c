@@ -4,7 +4,7 @@
 #include "div0/ethereum/transaction/rlp.h"
 #include "div0/rlp/encode.h"
 
-hash_t legacy_tx_signing_hash(const legacy_tx_t *tx, div0_arena_t *arena) {
+hash_t legacy_tx_signing_hash(const legacy_tx_t *const tx, div0_arena_t *const arena) {
   bytes_t output;
   bytes_init_arena(&output, arena);
   bytes_reserve(&output, 512);
@@ -13,32 +13,32 @@ hash_t legacy_tx_signing_hash(const legacy_tx_t *tx, div0_arena_t *arena) {
   rlp_list_start(&builder, &output);
 
   // [nonce, gas_price, gas_limit, to, value, data]
-  bytes_t nonce_rlp = rlp_encode_u64(arena, tx->nonce);
+  const bytes_t nonce_rlp = rlp_encode_u64(arena, tx->nonce);
   rlp_list_append(&output, &nonce_rlp);
 
-  bytes_t gas_price_rlp = rlp_encode_uint256(arena, &tx->gas_price);
+  const bytes_t gas_price_rlp = rlp_encode_uint256(arena, &tx->gas_price);
   rlp_list_append(&output, &gas_price_rlp);
 
-  bytes_t gas_limit_rlp = rlp_encode_u64(arena, tx->gas_limit);
+  const bytes_t gas_limit_rlp = rlp_encode_u64(arena, tx->gas_limit);
   rlp_list_append(&output, &gas_limit_rlp);
 
-  bytes_t to_rlp = tx_encode_optional_address(arena, tx->to);
+  const bytes_t to_rlp = tx_encode_optional_address(arena, tx->to);
   rlp_list_append(&output, &to_rlp);
 
-  bytes_t value_rlp = rlp_encode_uint256(arena, &tx->value);
+  const bytes_t value_rlp = rlp_encode_uint256(arena, &tx->value);
   rlp_list_append(&output, &value_rlp);
 
-  bytes_t data_rlp = rlp_encode_bytes(arena, tx->data.data, tx->data.size);
+  const bytes_t data_rlp = rlp_encode_bytes(arena, tx->data.data, tx->data.size);
   rlp_list_append(&output, &data_rlp);
 
   // EIP-155: append [chain_id, 0, 0] if v > 28
   uint64_t chain_id = 0;
   if (legacy_tx_chain_id(tx, &chain_id)) {
-    bytes_t chain_id_rlp = rlp_encode_u64(arena, chain_id);
+    const bytes_t chain_id_rlp = rlp_encode_u64(arena, chain_id);
     rlp_list_append(&output, &chain_id_rlp);
 
-    uint256_t zero = uint256_zero();
-    bytes_t zero_rlp = rlp_encode_uint256(arena, &zero);
+    const uint256_t zero = uint256_zero();
+    const bytes_t zero_rlp = rlp_encode_uint256(arena, &zero);
     rlp_list_append(&output, &zero_rlp);
     rlp_list_append(&output, &zero_rlp);
   }
@@ -48,7 +48,7 @@ hash_t legacy_tx_signing_hash(const legacy_tx_t *tx, div0_arena_t *arena) {
   return keccak256(output.data, output.size);
 }
 
-hash_t eip2930_tx_signing_hash(const eip2930_tx_t *tx, div0_arena_t *arena) {
+hash_t eip2930_tx_signing_hash(const eip2930_tx_t *const tx, div0_arena_t *const arena) {
   bytes_t output;
   bytes_init_arena(&output, arena);
   bytes_reserve(&output, 512);
@@ -60,25 +60,25 @@ hash_t eip2930_tx_signing_hash(const eip2930_tx_t *tx, div0_arena_t *arena) {
   rlp_list_start(&builder, &output);
 
   // [chain_id, nonce, gas_price, gas_limit, to, value, data, access_list]
-  bytes_t chain_id_rlp = rlp_encode_u64(arena, tx->chain_id);
+  const bytes_t chain_id_rlp = rlp_encode_u64(arena, tx->chain_id);
   rlp_list_append(&output, &chain_id_rlp);
 
-  bytes_t nonce_rlp = rlp_encode_u64(arena, tx->nonce);
+  const bytes_t nonce_rlp = rlp_encode_u64(arena, tx->nonce);
   rlp_list_append(&output, &nonce_rlp);
 
-  bytes_t gas_price_rlp = rlp_encode_uint256(arena, &tx->gas_price);
+  const bytes_t gas_price_rlp = rlp_encode_uint256(arena, &tx->gas_price);
   rlp_list_append(&output, &gas_price_rlp);
 
-  bytes_t gas_limit_rlp = rlp_encode_u64(arena, tx->gas_limit);
+  const bytes_t gas_limit_rlp = rlp_encode_u64(arena, tx->gas_limit);
   rlp_list_append(&output, &gas_limit_rlp);
 
-  bytes_t to_rlp = tx_encode_optional_address(arena, tx->to);
+  const bytes_t to_rlp = tx_encode_optional_address(arena, tx->to);
   rlp_list_append(&output, &to_rlp);
 
-  bytes_t value_rlp = rlp_encode_uint256(arena, &tx->value);
+  const bytes_t value_rlp = rlp_encode_uint256(arena, &tx->value);
   rlp_list_append(&output, &value_rlp);
 
-  bytes_t data_rlp = rlp_encode_bytes(arena, tx->data.data, tx->data.size);
+  const bytes_t data_rlp = rlp_encode_bytes(arena, tx->data.data, tx->data.size);
   rlp_list_append(&output, &data_rlp);
 
   tx_encode_access_list(&output, &tx->access_list, arena);
@@ -88,7 +88,7 @@ hash_t eip2930_tx_signing_hash(const eip2930_tx_t *tx, div0_arena_t *arena) {
   return keccak256(output.data, output.size);
 }
 
-hash_t eip1559_tx_signing_hash(const eip1559_tx_t *tx, div0_arena_t *arena) {
+hash_t eip1559_tx_signing_hash(const eip1559_tx_t *const tx, div0_arena_t *const arena) {
   bytes_t output;
   bytes_init_arena(&output, arena);
   bytes_reserve(&output, 512);
@@ -100,28 +100,28 @@ hash_t eip1559_tx_signing_hash(const eip1559_tx_t *tx, div0_arena_t *arena) {
   rlp_list_start(&builder, &output);
 
   // [chain_id, nonce, max_priority_fee, max_fee, gas_limit, to, value, data, access_list]
-  bytes_t chain_id_rlp = rlp_encode_u64(arena, tx->chain_id);
+  const bytes_t chain_id_rlp = rlp_encode_u64(arena, tx->chain_id);
   rlp_list_append(&output, &chain_id_rlp);
 
-  bytes_t nonce_rlp = rlp_encode_u64(arena, tx->nonce);
+  const bytes_t nonce_rlp = rlp_encode_u64(arena, tx->nonce);
   rlp_list_append(&output, &nonce_rlp);
 
-  bytes_t max_priority_rlp = rlp_encode_uint256(arena, &tx->max_priority_fee_per_gas);
+  const bytes_t max_priority_rlp = rlp_encode_uint256(arena, &tx->max_priority_fee_per_gas);
   rlp_list_append(&output, &max_priority_rlp);
 
-  bytes_t max_fee_rlp = rlp_encode_uint256(arena, &tx->max_fee_per_gas);
+  const bytes_t max_fee_rlp = rlp_encode_uint256(arena, &tx->max_fee_per_gas);
   rlp_list_append(&output, &max_fee_rlp);
 
-  bytes_t gas_limit_rlp = rlp_encode_u64(arena, tx->gas_limit);
+  const bytes_t gas_limit_rlp = rlp_encode_u64(arena, tx->gas_limit);
   rlp_list_append(&output, &gas_limit_rlp);
 
-  bytes_t to_rlp = tx_encode_optional_address(arena, tx->to);
+  const bytes_t to_rlp = tx_encode_optional_address(arena, tx->to);
   rlp_list_append(&output, &to_rlp);
 
-  bytes_t value_rlp = rlp_encode_uint256(arena, &tx->value);
+  const bytes_t value_rlp = rlp_encode_uint256(arena, &tx->value);
   rlp_list_append(&output, &value_rlp);
 
-  bytes_t data_rlp = rlp_encode_bytes(arena, tx->data.data, tx->data.size);
+  const bytes_t data_rlp = rlp_encode_bytes(arena, tx->data.data, tx->data.size);
   rlp_list_append(&output, &data_rlp);
 
   tx_encode_access_list(&output, &tx->access_list, arena);
@@ -131,7 +131,7 @@ hash_t eip1559_tx_signing_hash(const eip1559_tx_t *tx, div0_arena_t *arena) {
   return keccak256(output.data, output.size);
 }
 
-hash_t eip4844_tx_signing_hash(const eip4844_tx_t *tx, div0_arena_t *arena) {
+hash_t eip4844_tx_signing_hash(const eip4844_tx_t *const tx, div0_arena_t *const arena) {
   bytes_t output;
   bytes_init_arena(&output, arena);
   bytes_reserve(&output, 1024);
@@ -144,40 +144,40 @@ hash_t eip4844_tx_signing_hash(const eip4844_tx_t *tx, div0_arena_t *arena) {
 
   // [chain_id, nonce, max_priority_fee, max_fee, gas_limit, to, value, data,
   //  access_list, max_fee_per_blob_gas, blob_versioned_hashes]
-  bytes_t chain_id_rlp = rlp_encode_u64(arena, tx->chain_id);
+  const bytes_t chain_id_rlp = rlp_encode_u64(arena, tx->chain_id);
   rlp_list_append(&output, &chain_id_rlp);
 
-  bytes_t nonce_rlp = rlp_encode_u64(arena, tx->nonce);
+  const bytes_t nonce_rlp = rlp_encode_u64(arena, tx->nonce);
   rlp_list_append(&output, &nonce_rlp);
 
-  bytes_t max_priority_rlp = rlp_encode_uint256(arena, &tx->max_priority_fee_per_gas);
+  const bytes_t max_priority_rlp = rlp_encode_uint256(arena, &tx->max_priority_fee_per_gas);
   rlp_list_append(&output, &max_priority_rlp);
 
-  bytes_t max_fee_rlp = rlp_encode_uint256(arena, &tx->max_fee_per_gas);
+  const bytes_t max_fee_rlp = rlp_encode_uint256(arena, &tx->max_fee_per_gas);
   rlp_list_append(&output, &max_fee_rlp);
 
-  bytes_t gas_limit_rlp = rlp_encode_u64(arena, tx->gas_limit);
+  const bytes_t gas_limit_rlp = rlp_encode_u64(arena, tx->gas_limit);
   rlp_list_append(&output, &gas_limit_rlp);
 
-  bytes_t to_rlp = rlp_encode_address(arena, &tx->to);
+  const bytes_t to_rlp = rlp_encode_address(arena, &tx->to);
   rlp_list_append(&output, &to_rlp);
 
-  bytes_t value_rlp = rlp_encode_uint256(arena, &tx->value);
+  const bytes_t value_rlp = rlp_encode_uint256(arena, &tx->value);
   rlp_list_append(&output, &value_rlp);
 
-  bytes_t data_rlp = rlp_encode_bytes(arena, tx->data.data, tx->data.size);
+  const bytes_t data_rlp = rlp_encode_bytes(arena, tx->data.data, tx->data.size);
   rlp_list_append(&output, &data_rlp);
 
   tx_encode_access_list(&output, &tx->access_list, arena);
 
-  bytes_t max_blob_fee_rlp = rlp_encode_uint256(arena, &tx->max_fee_per_blob_gas);
+  const bytes_t max_blob_fee_rlp = rlp_encode_uint256(arena, &tx->max_fee_per_blob_gas);
   rlp_list_append(&output, &max_blob_fee_rlp);
 
   // Blob versioned hashes list
   rlp_list_builder_t hashes_builder;
   rlp_list_start(&hashes_builder, &output);
   for (size_t i = 0; i < tx->blob_hashes_count; i++) {
-    bytes_t hash_rlp = rlp_encode_bytes(arena, tx->blob_versioned_hashes[i].bytes, HASH_SIZE);
+    const bytes_t hash_rlp = rlp_encode_bytes(arena, tx->blob_versioned_hashes[i].bytes, HASH_SIZE);
     rlp_list_append(&output, &hash_rlp);
   }
   rlp_list_end(&hashes_builder);
@@ -187,7 +187,7 @@ hash_t eip4844_tx_signing_hash(const eip4844_tx_t *tx, div0_arena_t *arena) {
   return keccak256(output.data, output.size);
 }
 
-hash_t eip7702_tx_signing_hash(const eip7702_tx_t *tx, div0_arena_t *arena) {
+hash_t eip7702_tx_signing_hash(const eip7702_tx_t *const tx, div0_arena_t *const arena) {
   bytes_t output;
   bytes_init_arena(&output, arena);
   bytes_reserve(&output, 1024);
@@ -200,28 +200,28 @@ hash_t eip7702_tx_signing_hash(const eip7702_tx_t *tx, div0_arena_t *arena) {
 
   // [chain_id, nonce, max_priority_fee, max_fee, gas_limit, to, value, data,
   //  access_list, authorization_list]
-  bytes_t chain_id_rlp = rlp_encode_u64(arena, tx->chain_id);
+  const bytes_t chain_id_rlp = rlp_encode_u64(arena, tx->chain_id);
   rlp_list_append(&output, &chain_id_rlp);
 
-  bytes_t nonce_rlp = rlp_encode_u64(arena, tx->nonce);
+  const bytes_t nonce_rlp = rlp_encode_u64(arena, tx->nonce);
   rlp_list_append(&output, &nonce_rlp);
 
-  bytes_t max_priority_rlp = rlp_encode_uint256(arena, &tx->max_priority_fee_per_gas);
+  const bytes_t max_priority_rlp = rlp_encode_uint256(arena, &tx->max_priority_fee_per_gas);
   rlp_list_append(&output, &max_priority_rlp);
 
-  bytes_t max_fee_rlp = rlp_encode_uint256(arena, &tx->max_fee_per_gas);
+  const bytes_t max_fee_rlp = rlp_encode_uint256(arena, &tx->max_fee_per_gas);
   rlp_list_append(&output, &max_fee_rlp);
 
-  bytes_t gas_limit_rlp = rlp_encode_u64(arena, tx->gas_limit);
+  const bytes_t gas_limit_rlp = rlp_encode_u64(arena, tx->gas_limit);
   rlp_list_append(&output, &gas_limit_rlp);
 
-  bytes_t to_rlp = rlp_encode_address(arena, &tx->to);
+  const bytes_t to_rlp = rlp_encode_address(arena, &tx->to);
   rlp_list_append(&output, &to_rlp);
 
-  bytes_t value_rlp = rlp_encode_uint256(arena, &tx->value);
+  const bytes_t value_rlp = rlp_encode_uint256(arena, &tx->value);
   rlp_list_append(&output, &value_rlp);
 
-  bytes_t data_rlp = rlp_encode_bytes(arena, tx->data.data, tx->data.size);
+  const bytes_t data_rlp = rlp_encode_bytes(arena, tx->data.data, tx->data.size);
   rlp_list_append(&output, &data_rlp);
 
   tx_encode_access_list(&output, &tx->access_list, arena);
@@ -232,7 +232,7 @@ hash_t eip7702_tx_signing_hash(const eip7702_tx_t *tx, div0_arena_t *arena) {
   return keccak256(output.data, output.size);
 }
 
-hash_t transaction_signing_hash(const transaction_t *tx, div0_arena_t *arena) {
+hash_t transaction_signing_hash(const transaction_t *const tx, div0_arena_t *const arena) {
   switch (tx->type) {
   case TX_TYPE_LEGACY:
     return legacy_tx_signing_hash(&tx->legacy, arena);
@@ -249,7 +249,7 @@ hash_t transaction_signing_hash(const transaction_t *tx, div0_arena_t *arena) {
   }
 }
 
-hash_t authorization_signing_hash(const authorization_t *auth, div0_arena_t *arena) {
+hash_t authorization_signing_hash(const authorization_t *const auth, div0_arena_t *const arena) {
   bytes_t output;
   bytes_init_arena(&output, arena);
   bytes_reserve(&output, 64);
@@ -261,13 +261,13 @@ hash_t authorization_signing_hash(const authorization_t *auth, div0_arena_t *are
   rlp_list_start(&builder, &output);
 
   // [chain_id, address, nonce]
-  bytes_t chain_id_rlp = rlp_encode_u64(arena, auth->chain_id);
+  const bytes_t chain_id_rlp = rlp_encode_u64(arena, auth->chain_id);
   rlp_list_append(&output, &chain_id_rlp);
 
-  bytes_t addr_rlp = rlp_encode_address(arena, &auth->address);
+  const bytes_t addr_rlp = rlp_encode_address(arena, &auth->address);
   rlp_list_append(&output, &addr_rlp);
 
-  bytes_t nonce_rlp = rlp_encode_u64(arena, auth->nonce);
+  const bytes_t nonce_rlp = rlp_encode_u64(arena, auth->nonce);
   rlp_list_append(&output, &nonce_rlp);
 
   rlp_list_end(&builder);
@@ -275,10 +275,11 @@ hash_t authorization_signing_hash(const authorization_t *auth, div0_arena_t *are
   return keccak256(output.data, output.size);
 }
 
-ecrecover_result_t transaction_recover_sender(const secp256k1_ctx_t *ctx, const transaction_t *tx,
-                                              div0_arena_t *arena) {
-  hash_t signing_hash = transaction_signing_hash(tx, arena);
-  uint256_t msg_hash = hash_to_uint256(&signing_hash);
+ecrecover_result_t transaction_recover_sender(const secp256k1_ctx_t *const ctx,
+                                              const transaction_t *const tx,
+                                              div0_arena_t *const arena) {
+  const hash_t signing_hash = transaction_signing_hash(tx, arena);
+  const uint256_t msg_hash = hash_to_uint256(&signing_hash);
 
   uint64_t v = 0;
   uint256_t r = uint256_zero();
@@ -318,7 +319,7 @@ ecrecover_result_t transaction_recover_sender(const secp256k1_ctx_t *ctx, const 
     chain_id = tx->eip7702.chain_id;
     break;
   default: {
-    ecrecover_result_t failed = {.success = false};
+    const ecrecover_result_t failed = {.success = false};
     return failed;
   }
   }
@@ -326,11 +327,11 @@ ecrecover_result_t transaction_recover_sender(const secp256k1_ctx_t *ctx, const 
   return secp256k1_ecrecover(ctx, &msg_hash, v, &r, &s, chain_id);
 }
 
-ecrecover_result_t authorization_recover_authority(const secp256k1_ctx_t *ctx,
-                                                   const authorization_t *auth,
-                                                   div0_arena_t *arena) {
-  hash_t signing_hash = authorization_signing_hash(auth, arena);
-  uint256_t msg_hash = hash_to_uint256(&signing_hash);
+ecrecover_result_t authorization_recover_authority(const secp256k1_ctx_t *const ctx,
+                                                   const authorization_t *const auth,
+                                                   div0_arena_t *const arena) {
+  const hash_t signing_hash = authorization_signing_hash(auth, arena);
+  const uint256_t msg_hash = hash_to_uint256(&signing_hash);
 
   // Authorization uses y_parity directly as v
   return secp256k1_ecrecover(ctx, &msg_hash, auth->y_parity, &auth->r, &auth->s, auth->chain_id);

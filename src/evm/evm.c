@@ -22,7 +22,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
-void evm_init(evm_t *evm, div0_arena_t *arena, const fork_t fork) {
+void evm_init(evm_t *const evm, div0_arena_t *const arena, const fork_t fork) {
   __builtin___memset_chk(evm, 0, sizeof(evm_t), __builtin_object_size(evm, 0));
   evm->arena = arena;
   evm->fork = fork;
@@ -50,7 +50,7 @@ void evm_init(evm_t *evm, div0_arena_t *arena, const fork_t fork) {
   evm_memory_pool_init(&evm->memory_pool, arena);
 }
 
-void evm_reset(evm_t *evm) {
+void evm_reset(evm_t *const evm) {
   // Reset pools that support depth tracking to their initial logical state.
   // This function only resets per-execution state; it does NOT reclaim memory
   // from evm->arena. The arena is expected to have a lifetime that encompasses
@@ -75,7 +75,8 @@ void evm_reset(evm_t *evm) {
 }
 
 /// Initializes the root frame from execution environment.
-static void init_root_frame(evm_t *evm, call_frame_t *frame, const execution_env_t *env) {
+static void init_root_frame(evm_t *const evm, call_frame_t *const frame,
+                            const execution_env_t *const env) {
   frame->pc = 0;
   frame->gas = env->call.gas;
   frame->stack = evm_stack_pool_borrow(&evm->stack_pool);
@@ -99,7 +100,7 @@ static frame_result_t execute_frame(evm_t *evm, call_frame_t *frame);
 
 /// Copies return data from frame memory to EVM's stable buffer.
 /// Must be called before releasing the frame's memory.
-static void copy_return_data(evm_t *evm, const evm_memory_t *mem, const uint64_t offset,
+static void copy_return_data(evm_t *const evm, const evm_memory_t *const mem, const uint64_t offset,
                              const uint64_t size) {
   if (size == 0) {
     evm->return_data_size = 0;
@@ -127,14 +128,14 @@ static void copy_return_data(evm_t *evm, const evm_memory_t *mem, const uint64_t
   evm->return_data_size = size;
 }
 
-evm_execution_result_t evm_execute_env(evm_t *evm, const execution_env_t *env) {
+evm_execution_result_t evm_execute_env(evm_t *const evm, const execution_env_t *const env) {
   // Set context references
   evm->block = env->block;
   evm->tx = &env->tx;
 
   // Initialize root frame
-  call_frame_t *frame = call_frame_pool_rent(&evm->frame_pool);
-  if (frame == nullptr) {
+  call_frame_t *const initial_frame = call_frame_pool_rent(&evm->frame_pool);
+  if (initial_frame == nullptr) {
     return (evm_execution_result_t){
         .result = EVM_RESULT_ERROR,
         .error = EVM_CALL_DEPTH_EXCEEDED,
@@ -144,8 +145,9 @@ evm_execution_result_t evm_execute_env(evm_t *evm, const execution_env_t *env) {
         .output_size = 0,
     };
   }
-  init_root_frame(evm, frame, env);
-  evm->current_frame = frame;
+  init_root_frame(evm, initial_frame, env);
+  evm->current_frame = initial_frame;
+  call_frame_t *frame = initial_frame;
 
   // Frame stack for parent tracking during nested calls
   call_frame_t *frame_stack[EVM_MAX_CALL_DEPTH];
@@ -476,14 +478,14 @@ op_add:
     return frame_result_error(EVM_STACK_UNDERFLOW);
   }
   {
-    uint256_t a = evm_stack_pop_unsafe(frame->stack);
-    uint256_t b = evm_stack_pop_unsafe(frame->stack);
+    const uint256_t a = evm_stack_pop_unsafe(frame->stack);
+    const uint256_t b = evm_stack_pop_unsafe(frame->stack);
     evm_stack_push_unsafe(frame->stack, uint256_add(a, b));
   }
   DISPATCH();
 
 op_mul: {
-  evm_status_t status = op_mul(frame, evm->gas_table[OP_MUL]);
+  const evm_status_t status = op_mul(frame, evm->gas_table[OP_MUL]);
   if (status != EVM_OK) {
     return frame_result_error(status);
   }
@@ -491,7 +493,7 @@ op_mul: {
 }
 
 op_sub: {
-  evm_status_t status = op_sub(frame, evm->gas_table[OP_SUB]);
+  const evm_status_t status = op_sub(frame, evm->gas_table[OP_SUB]);
   if (status != EVM_OK) {
     return frame_result_error(status);
   }
@@ -499,7 +501,7 @@ op_sub: {
 }
 
 op_div: {
-  evm_status_t status = op_div(frame, evm->gas_table[OP_DIV]);
+  const evm_status_t status = op_div(frame, evm->gas_table[OP_DIV]);
   if (status != EVM_OK) {
     return frame_result_error(status);
   }
@@ -507,7 +509,7 @@ op_div: {
 }
 
 op_sdiv: {
-  evm_status_t status = op_sdiv(frame, evm->gas_table[OP_SDIV]);
+  const evm_status_t status = op_sdiv(frame, evm->gas_table[OP_SDIV]);
   if (status != EVM_OK) {
     return frame_result_error(status);
   }
@@ -515,7 +517,7 @@ op_sdiv: {
 }
 
 op_mod: {
-  evm_status_t status = op_mod(frame, evm->gas_table[OP_MOD]);
+  const evm_status_t status = op_mod(frame, evm->gas_table[OP_MOD]);
   if (status != EVM_OK) {
     return frame_result_error(status);
   }
@@ -523,7 +525,7 @@ op_mod: {
 }
 
 op_smod: {
-  evm_status_t status = op_smod(frame, evm->gas_table[OP_SMOD]);
+  const evm_status_t status = op_smod(frame, evm->gas_table[OP_SMOD]);
   if (status != EVM_OK) {
     return frame_result_error(status);
   }
@@ -531,7 +533,7 @@ op_smod: {
 }
 
 op_addmod: {
-  evm_status_t status = op_addmod(frame, evm->gas_table[OP_ADDMOD]);
+  const evm_status_t status = op_addmod(frame, evm->gas_table[OP_ADDMOD]);
   if (status != EVM_OK) {
     return frame_result_error(status);
   }
@@ -539,7 +541,7 @@ op_addmod: {
 }
 
 op_mulmod: {
-  evm_status_t status = op_mulmod(frame, evm->gas_table[OP_MULMOD]);
+  const evm_status_t status = op_mulmod(frame, evm->gas_table[OP_MULMOD]);
   if (status != EVM_OK) {
     return frame_result_error(status);
   }
@@ -547,7 +549,7 @@ op_mulmod: {
 }
 
 op_exp: {
-  evm_status_t status = op_exp(frame);
+  const evm_status_t status = op_exp(frame);
   if (status != EVM_OK) {
     return frame_result_error(status);
   }
@@ -555,7 +557,7 @@ op_exp: {
 }
 
 op_signextend: {
-  evm_status_t status = op_signextend(frame, evm->gas_table[OP_SIGNEXTEND]);
+  const evm_status_t status = op_signextend(frame, evm->gas_table[OP_SIGNEXTEND]);
   if (status != EVM_OK) {
     return frame_result_error(status);
   }
@@ -567,7 +569,7 @@ op_signextend: {
   // =========================================================================
 
 op_lt: {
-  evm_status_t status = op_lt(frame, evm->gas_table[OP_LT]);
+  const evm_status_t status = op_lt(frame, evm->gas_table[OP_LT]);
   if (status != EVM_OK) {
     return frame_result_error(status);
   }
@@ -575,7 +577,7 @@ op_lt: {
 }
 
 op_gt: {
-  evm_status_t status = op_gt(frame, evm->gas_table[OP_GT]);
+  const evm_status_t status = op_gt(frame, evm->gas_table[OP_GT]);
   if (status != EVM_OK) {
     return frame_result_error(status);
   }
@@ -583,7 +585,7 @@ op_gt: {
 }
 
 op_slt: {
-  evm_status_t status = op_slt(frame, evm->gas_table[OP_SLT]);
+  const evm_status_t status = op_slt(frame, evm->gas_table[OP_SLT]);
   if (status != EVM_OK) {
     return frame_result_error(status);
   }
@@ -591,7 +593,7 @@ op_slt: {
 }
 
 op_sgt: {
-  evm_status_t status = op_sgt(frame, evm->gas_table[OP_SGT]);
+  const evm_status_t status = op_sgt(frame, evm->gas_table[OP_SGT]);
   if (status != EVM_OK) {
     return frame_result_error(status);
   }
@@ -599,7 +601,7 @@ op_sgt: {
 }
 
 op_eq: {
-  evm_status_t status = op_eq(frame, evm->gas_table[OP_EQ]);
+  const evm_status_t status = op_eq(frame, evm->gas_table[OP_EQ]);
   if (status != EVM_OK) {
     return frame_result_error(status);
   }
@@ -607,7 +609,7 @@ op_eq: {
 }
 
 op_iszero: {
-  evm_status_t status = op_iszero(frame, evm->gas_table[OP_ISZERO]);
+  const evm_status_t status = op_iszero(frame, evm->gas_table[OP_ISZERO]);
   if (status != EVM_OK) {
     return frame_result_error(status);
   }
@@ -619,7 +621,7 @@ op_iszero: {
   // =========================================================================
 
 op_and: {
-  evm_status_t status = op_and(frame, evm->gas_table[OP_AND]);
+  const evm_status_t status = op_and(frame, evm->gas_table[OP_AND]);
   if (status != EVM_OK) {
     return frame_result_error(status);
   }
@@ -627,7 +629,7 @@ op_and: {
 }
 
 op_or: {
-  evm_status_t status = op_or(frame, evm->gas_table[OP_OR]);
+  const evm_status_t status = op_or(frame, evm->gas_table[OP_OR]);
   if (status != EVM_OK) {
     return frame_result_error(status);
   }
@@ -635,7 +637,7 @@ op_or: {
 }
 
 op_xor: {
-  evm_status_t status = op_xor(frame, evm->gas_table[OP_XOR]);
+  const evm_status_t status = op_xor(frame, evm->gas_table[OP_XOR]);
   if (status != EVM_OK) {
     return frame_result_error(status);
   }
@@ -643,7 +645,7 @@ op_xor: {
 }
 
 op_not: {
-  evm_status_t status = op_not(frame, evm->gas_table[OP_NOT]);
+  const evm_status_t status = op_not(frame, evm->gas_table[OP_NOT]);
   if (status != EVM_OK) {
     return frame_result_error(status);
   }
@@ -651,7 +653,7 @@ op_not: {
 }
 
 op_byte: {
-  evm_status_t status = op_byte(frame, evm->gas_table[OP_BYTE]);
+  const evm_status_t status = op_byte(frame, evm->gas_table[OP_BYTE]);
   if (status != EVM_OK) {
     return frame_result_error(status);
   }
@@ -659,7 +661,7 @@ op_byte: {
 }
 
 op_shl: {
-  evm_status_t status = op_shl(frame, evm->gas_table[OP_SHL]);
+  const evm_status_t status = op_shl(frame, evm->gas_table[OP_SHL]);
   if (status != EVM_OK) {
     return frame_result_error(status);
   }
@@ -667,7 +669,7 @@ op_shl: {
 }
 
 op_shr: {
-  evm_status_t status = op_shr(frame, evm->gas_table[OP_SHR]);
+  const evm_status_t status = op_shr(frame, evm->gas_table[OP_SHR]);
   if (status != EVM_OK) {
     return frame_result_error(status);
   }
@@ -675,7 +677,7 @@ op_shr: {
 }
 
 op_sar: {
-  evm_status_t status = op_sar(frame, evm->gas_table[OP_SAR]);
+  const evm_status_t status = op_sar(frame, evm->gas_table[OP_SAR]);
   if (status != EVM_OK) {
     return frame_result_error(status);
   }
@@ -683,7 +685,7 @@ op_sar: {
 }
 
 op_push0: {
-  evm_status_t status = op_push0(frame, evm->gas_table[OP_PUSH0]);
+  const evm_status_t status = op_push0(frame, evm->gas_table[OP_PUSH0]);
   if (status != EVM_OK) {
     return frame_result_error(status);
   }
@@ -815,8 +817,8 @@ op_returndatasize: {
 }
 
 op_returndatacopy: {
-  evm_status_t status = op_returndatacopy(frame, evm->gas_table[OP_RETURNDATACOPY],
-                                          evm->return_data, evm->return_data_size);
+  const evm_status_t status = op_returndatacopy(frame, evm->gas_table[OP_RETURNDATACOPY],
+                                                evm->return_data, evm->return_data_size);
   if (status != EVM_OK) {
     return frame_result_error(status);
   }
@@ -858,7 +860,7 @@ op_selfbalance: {
   if (evm->state == nullptr) {
     return frame_result_error(EVM_STATE_UNAVAILABLE);
   }
-  evm_status_t status = op_selfbalance(frame, evm->state, evm->gas_table[OP_SELFBALANCE]);
+  const evm_status_t status = op_selfbalance(frame, evm->state, evm->gas_table[OP_SELFBALANCE]);
   if (status != EVM_OK) {
     return frame_result_error(status);
   }
@@ -866,7 +868,7 @@ op_selfbalance: {
 }
 
 op_blobhash: {
-  evm_status_t status = op_blobhash(frame, evm->tx, evm->gas_table[OP_BLOBHASH]);
+  const evm_status_t status = op_blobhash(frame, evm->tx, evm->gas_table[OP_BLOBHASH]);
   if (status != EVM_OK) {
     return frame_result_error(status);
   }
@@ -878,7 +880,7 @@ op_blobhash: {
   // =============================================================================
 
 op_pop: {
-  evm_status_t status = op_pop(frame, evm->gas_table[OP_POP]);
+  const evm_status_t status = op_pop(frame, evm->gas_table[OP_POP]);
   if (status != EVM_OK) {
     return frame_result_error(status);
   }
@@ -942,7 +944,7 @@ op_pop: {
 #undef SWAP_N_HANDLER
 
 op_mload: {
-  evm_status_t status = op_mload(frame, evm->gas_table[OP_MLOAD]);
+  const evm_status_t status = op_mload(frame, evm->gas_table[OP_MLOAD]);
   if (status != EVM_OK) {
     return frame_result_error(status);
   }
@@ -950,7 +952,7 @@ op_mload: {
 }
 
 op_mstore: {
-  evm_status_t status = op_mstore(frame, evm->gas_table[OP_MSTORE]);
+  const evm_status_t status = op_mstore(frame, evm->gas_table[OP_MSTORE]);
   if (status != EVM_OK) {
     return frame_result_error(status);
   }
@@ -958,7 +960,7 @@ op_mstore: {
 }
 
 op_mstore8: {
-  evm_status_t status = op_mstore8(frame, evm->gas_table[OP_MSTORE8]);
+  const evm_status_t status = op_mstore8(frame, evm->gas_table[OP_MSTORE8]);
   if (status != EVM_OK) {
     return frame_result_error(status);
   }
@@ -966,7 +968,7 @@ op_mstore8: {
 }
 
 op_keccak256: {
-  evm_status_t status = op_keccak256(frame, evm->gas_table[OP_KECCAK256]);
+  const evm_status_t status = op_keccak256(frame, evm->gas_table[OP_KECCAK256]);
   if (status != EVM_OK) {
     return frame_result_error(status);
   }
@@ -977,7 +979,7 @@ op_sload: {
   if (evm->state == nullptr) {
     return frame_result_error(EVM_INVALID_OPCODE);
   }
-  evm_status_t status = op_sload(frame, evm->state, &evm->gas_schedule);
+  const evm_status_t status = op_sload(frame, evm->state, &evm->gas_schedule);
   if (status != EVM_OK) {
     return frame_result_error(status);
   }
@@ -988,7 +990,7 @@ op_sstore: {
   if (evm->state == nullptr) {
     return frame_result_error(EVM_INVALID_OPCODE);
   }
-  evm_status_t status = op_sstore(frame, evm->state, &evm->gas_schedule, &evm->gas_refund);
+  const evm_status_t status = op_sstore(frame, evm->state, &evm->gas_schedule, &evm->gas_refund);
   if (status != EVM_OK) {
     return frame_result_error(status);
   }
@@ -996,7 +998,7 @@ op_sstore: {
 }
 
 op_call: {
-  call_op_result_t result = op_call(evm, frame);
+  const call_op_result_t result = op_call(evm, frame);
   if (result.has_error) {
     return frame_result_error(result.error);
   }
@@ -1007,7 +1009,7 @@ op_call: {
 }
 
 op_staticcall: {
-  call_op_result_t result = op_staticcall(evm, frame);
+  const call_op_result_t result = op_staticcall(evm, frame);
   if (result.has_error) {
     return frame_result_error(result.error);
   }
@@ -1018,7 +1020,7 @@ op_staticcall: {
 }
 
 op_delegatecall: {
-  call_op_result_t result = op_delegatecall(evm, frame);
+  const call_op_result_t result = op_delegatecall(evm, frame);
   if (result.has_error) {
     return frame_result_error(result.error);
   }
@@ -1029,7 +1031,7 @@ op_delegatecall: {
 }
 
 op_callcode: {
-  call_op_result_t result = op_callcode(evm, frame);
+  const call_op_result_t result = op_callcode(evm, frame);
   if (result.has_error) {
     return frame_result_error(result.error);
   }
@@ -1044,15 +1046,15 @@ op_return: {
   if (!evm_stack_has_items(frame->stack, 2)) {
     return frame_result_error(EVM_STACK_UNDERFLOW);
   }
-  uint256_t offset_u256 = evm_stack_pop_unsafe(frame->stack);
-  uint256_t size_u256 = evm_stack_pop_unsafe(frame->stack);
+  const uint256_t offset_u256 = evm_stack_pop_unsafe(frame->stack);
+  const uint256_t size_u256 = evm_stack_pop_unsafe(frame->stack);
 
   // Validate offset and size fit in uint64
   if (!uint256_fits_u64(offset_u256) || !uint256_fits_u64(size_u256)) {
     return frame_result_error(EVM_OUT_OF_GAS);
   }
-  uint64_t offset = uint256_to_u64_unsafe(offset_u256);
-  uint64_t size = uint256_to_u64_unsafe(size_u256);
+  const uint64_t offset = uint256_to_u64_unsafe(offset_u256);
+  const uint64_t size = uint256_to_u64_unsafe(size_u256);
 
   // Expand memory if needed
   if (size > 0) {
@@ -1074,15 +1076,15 @@ op_revert: {
   if (!evm_stack_has_items(frame->stack, 2)) {
     return frame_result_error(EVM_STACK_UNDERFLOW);
   }
-  uint256_t offset_u256 = evm_stack_pop_unsafe(frame->stack);
-  uint256_t size_u256 = evm_stack_pop_unsafe(frame->stack);
+  const uint256_t offset_u256 = evm_stack_pop_unsafe(frame->stack);
+  const uint256_t size_u256 = evm_stack_pop_unsafe(frame->stack);
 
   // Validate offset and size fit in uint64
   if (!uint256_fits_u64(offset_u256) || !uint256_fits_u64(size_u256)) {
     return frame_result_error(EVM_OUT_OF_GAS);
   }
-  uint64_t offset = uint256_to_u64_unsafe(offset_u256);
-  uint64_t size = uint256_to_u64_unsafe(size_u256);
+  const uint64_t offset = uint256_to_u64_unsafe(offset_u256);
+  const uint64_t size = uint256_to_u64_unsafe(size_u256);
 
   // Expand memory if needed
   if (size > 0) {

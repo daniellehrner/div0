@@ -8,14 +8,14 @@
 // Parsing Implementation
 // ============================================================================
 
-json_result_t t8n_parse_alloc_value(yyjson_val_t *root, div0_arena_t *arena,
-                                    state_snapshot_t *out) {
+json_result_t t8n_parse_alloc_value(yyjson_val_t *const root, div0_arena_t *const arena,
+                                    state_snapshot_t *const out) {
   if (root == nullptr || !json_is_obj(root)) {
     return json_err(JSON_ERR_INVALID_TYPE, "alloc must be an object");
   }
 
   // Count accounts
-  size_t count = json_obj_size(root);
+  const size_t count = json_obj_size(root);
   if (count == 0) {
     out->accounts = nullptr;
     out->account_count = 0;
@@ -36,7 +36,7 @@ json_result_t t8n_parse_alloc_value(yyjson_val_t *root, div0_arena_t *arena,
   size_t idx = 0;
 
   while (json_obj_iter_next(&iter, &addr_hex, &account_val)) {
-    account_snapshot_t *account = &out->accounts[idx];
+    account_snapshot_t *const account = &out->accounts[idx];
     __builtin___memset_chk(account, 0, sizeof(*account), __builtin_object_size(account, 0));
 
     // Parse address from key
@@ -60,9 +60,9 @@ json_result_t t8n_parse_alloc_value(yyjson_val_t *root, div0_arena_t *arena,
     json_get_hex_bytes(account_val, "code", arena, &account->code);
 
     // Parse storage (optional)
-    yyjson_val_t *storage_val = json_obj_get(account_val, "storage");
+    yyjson_val_t *const storage_val = json_obj_get(account_val, "storage");
     if (storage_val != nullptr && json_is_obj(storage_val)) {
-      size_t storage_count = json_obj_size(storage_val);
+      const size_t storage_count = json_obj_size(storage_val);
       if (storage_count > 0) {
         account->storage = div0_arena_alloc(arena, storage_count * sizeof(storage_entry_t));
         if (account->storage == nullptr) {
@@ -75,7 +75,7 @@ json_result_t t8n_parse_alloc_value(yyjson_val_t *root, div0_arena_t *arena,
         size_t storage_idx = 0;
 
         while (json_obj_iter_next(&storage_iter, &slot_hex, &value_val)) {
-          storage_entry_t *entry = &account->storage[storage_idx];
+          storage_entry_t *const entry = &account->storage[storage_idx];
 
           if (!hex_decode_uint256(slot_hex, &entry->slot)) {
             return json_err(JSON_ERR_INVALID_HEX, "invalid storage slot key");
@@ -100,29 +100,30 @@ json_result_t t8n_parse_alloc_value(yyjson_val_t *root, div0_arena_t *arena,
   return json_ok();
 }
 
-json_result_t t8n_parse_alloc(const char *json, size_t len, div0_arena_t *arena,
-                              state_snapshot_t *out) {
+json_result_t t8n_parse_alloc(const char *const json, const size_t len, div0_arena_t *const arena,
+                              state_snapshot_t *const out) {
   json_doc_t doc = {.doc = nullptr};
   json_result_t result = json_parse(json, len, &doc);
   if (json_is_err(result)) {
     return result;
   }
 
-  yyjson_val_t *root = json_doc_root(&doc);
+  yyjson_val_t *const root = json_doc_root(&doc);
   result = t8n_parse_alloc_value(root, arena, out);
 
   json_doc_free(&doc);
   return result;
 }
 
-json_result_t t8n_parse_alloc_file(const char *path, div0_arena_t *arena, state_snapshot_t *out) {
+json_result_t t8n_parse_alloc_file(const char *const path, div0_arena_t *const arena,
+                                   state_snapshot_t *const out) {
   json_doc_t doc = {.doc = nullptr};
   json_result_t result = json_parse_file(path, &doc);
   if (json_is_err(result)) {
     return result;
   }
 
-  yyjson_val_t *root = json_doc_root(&doc);
+  yyjson_val_t *const root = json_doc_root(&doc);
   result = t8n_parse_alloc_value(root, arena, out);
 
   json_doc_free(&doc);
@@ -133,8 +134,9 @@ json_result_t t8n_parse_alloc_file(const char *path, div0_arena_t *arena, state_
 // Serialization Implementation
 // ============================================================================
 
-yyjson_mut_val_t *t8n_write_alloc_account(const account_snapshot_t *account, json_writer_t *w) {
-  yyjson_mut_val_t *obj = json_write_obj(w);
+yyjson_mut_val_t *t8n_write_alloc_account(const account_snapshot_t *const account,
+                                          const json_writer_t *const w) {
+  yyjson_mut_val_t *const obj = json_write_obj(w);
   if (obj == nullptr) {
     return nullptr;
   }
@@ -154,9 +156,9 @@ yyjson_mut_val_t *t8n_write_alloc_account(const account_snapshot_t *account, jso
 
   // Storage (only if non-empty)
   if (account->storage_count > 0) {
-    yyjson_mut_val_t *storage = json_write_obj(w);
+    yyjson_mut_val_t *const storage = json_write_obj(w);
     for (size_t i = 0; i < account->storage_count; i++) {
-      const storage_entry_t *entry = &account->storage[i];
+      const storage_entry_t *const entry = &account->storage[i];
 
       // Skip zero values
       if (uint256_is_zero(entry->value)) {
@@ -166,7 +168,7 @@ yyjson_mut_val_t *t8n_write_alloc_account(const account_snapshot_t *account, jso
       char slot_hex[67];
       hex_encode_uint256_padded(&entry->slot, slot_hex);
 
-      yyjson_mut_val_t *value = json_write_hex_uint256_padded(w, &entry->value);
+      yyjson_mut_val_t *const value = json_write_hex_uint256_padded(w, &entry->value);
       json_obj_add(w, storage, slot_hex, value);
     }
     json_obj_add(w, obj, "storage", storage);
@@ -175,19 +177,20 @@ yyjson_mut_val_t *t8n_write_alloc_account(const account_snapshot_t *account, jso
   return obj;
 }
 
-yyjson_mut_val_t *t8n_write_alloc(const state_snapshot_t *snapshot, json_writer_t *w) {
-  yyjson_mut_val_t *root = json_write_obj(w);
+yyjson_mut_val_t *t8n_write_alloc(const state_snapshot_t *const snapshot,
+                                  const json_writer_t *const w) {
+  yyjson_mut_val_t *const root = json_write_obj(w);
   if (root == nullptr) {
     return nullptr;
   }
 
   for (size_t i = 0; i < snapshot->account_count; i++) {
-    const account_snapshot_t *account = &snapshot->accounts[i];
+    const account_snapshot_t *const account = &snapshot->accounts[i];
 
     char addr_hex[43];
     hex_encode(account->address.bytes, ADDRESS_SIZE, addr_hex);
 
-    yyjson_mut_val_t *account_obj = t8n_write_alloc_account(account, w);
+    yyjson_mut_val_t *const account_obj = t8n_write_alloc_account(account, w);
     if (account_obj == nullptr) {
       return nullptr;
     }

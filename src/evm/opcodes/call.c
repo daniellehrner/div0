@@ -31,9 +31,10 @@ typedef struct {
 /// @param code Target contract code
 /// @param params Opcode-specific parameters
 /// @return Initialized child frame, or nullptr if pool exhausted
-static call_frame_t *init_child_frame(evm_t *evm, call_frame_t *parent, const call_setup_t *setup,
-                                      const bytes_t *code, const child_frame_params_t *params) {
-  call_frame_t *child = call_frame_pool_rent(&evm->frame_pool);
+static call_frame_t *init_child_frame(evm_t *const evm, call_frame_t *const parent,
+                                      const call_setup_t *const setup, const bytes_t *const code,
+                                      const child_frame_params_t *const params) {
+  call_frame_t *const child = call_frame_pool_rent(&evm->frame_pool);
   if (child == nullptr) {
     return nullptr;
   }
@@ -70,13 +71,13 @@ static call_frame_t *init_child_frame(evm_t *evm, call_frame_t *parent, const ca
 // CALL Opcode Implementations
 // =============================================================================
 
-call_op_result_t op_call(evm_t *evm, call_frame_t *frame) {
-  state_access_t *state = evm->state;
+call_op_result_t op_call(evm_t *const evm, call_frame_t *const frame) {
+  state_access_t *const state = evm->state;
   if (state == nullptr) {
     return call_op_error(EVM_INVALID_OPCODE);
   }
 
-  call_setup_t setup =
+  const call_setup_t setup =
       prepare_call(frame->stack, &frame->gas, frame->memory, state, frame->is_static, frame->depth);
 
   if (setup.status == EVM_CALL_DEPTH_EXCEEDED) {
@@ -89,7 +90,7 @@ call_op_result_t op_call(evm_t *evm, call_frame_t *frame) {
 
   // Check caller balance for value transfer
   if (!uint256_is_zero(setup.value)) {
-    uint256_t balance = state_get_balance(state, &frame->address);
+    const uint256_t balance = state_get_balance(state, &frame->address);
     if (uint256_lt(balance, setup.value)) {
       evm_stack_push_unsafe(frame->stack, uint256_zero());
       return call_op_continue();
@@ -99,8 +100,8 @@ call_op_result_t op_call(evm_t *evm, call_frame_t *frame) {
     (void)state_add_balance(state, &setup.target, setup.value);
   }
 
-  bytes_t code = state_get_code(state, &setup.target);
-  child_frame_params_t params = {
+  const bytes_t code = state_get_code(state, &setup.target);
+  const child_frame_params_t params = {
       .exec_type = EXEC_CALL,
       .is_static = frame->is_static,
       .caller = frame->address,
@@ -108,7 +109,7 @@ call_op_result_t op_call(evm_t *evm, call_frame_t *frame) {
       .value = setup.value,
   };
 
-  call_frame_t *child = init_child_frame(evm, frame, &setup, &code, &params);
+  call_frame_t *const child = init_child_frame(evm, frame, &setup, &code, &params);
   if (child == nullptr) {
     evm_stack_push_unsafe(frame->stack, uint256_zero());
     return call_op_continue();
@@ -118,13 +119,13 @@ call_op_result_t op_call(evm_t *evm, call_frame_t *frame) {
   return call_op_call();
 }
 
-call_op_result_t op_staticcall(evm_t *evm, call_frame_t *frame) {
-  state_access_t *state = evm->state;
+call_op_result_t op_staticcall(evm_t *const evm, call_frame_t *const frame) {
+  state_access_t *const state = evm->state;
   if (state == nullptr) {
     return call_op_error(EVM_INVALID_OPCODE);
   }
 
-  call_setup_t setup =
+  const call_setup_t setup =
       prepare_staticcall(frame->stack, &frame->gas, frame->memory, state, frame->depth);
 
   if (setup.status == EVM_CALL_DEPTH_EXCEEDED) {
@@ -135,8 +136,8 @@ call_op_result_t op_staticcall(evm_t *evm, call_frame_t *frame) {
     return call_op_error(setup.status);
   }
 
-  bytes_t code = state_get_code(state, &setup.target);
-  child_frame_params_t params = {
+  const bytes_t code = state_get_code(state, &setup.target);
+  const child_frame_params_t params = {
       .exec_type = EXEC_STATICCALL,
       .is_static = true, // STATICCALL always sets static context
       .caller = frame->address,
@@ -144,7 +145,7 @@ call_op_result_t op_staticcall(evm_t *evm, call_frame_t *frame) {
       .value = uint256_zero(),
   };
 
-  call_frame_t *child = init_child_frame(evm, frame, &setup, &code, &params);
+  call_frame_t *const child = init_child_frame(evm, frame, &setup, &code, &params);
   if (child == nullptr) {
     evm_stack_push_unsafe(frame->stack, uint256_zero());
     return call_op_continue();
@@ -154,13 +155,13 @@ call_op_result_t op_staticcall(evm_t *evm, call_frame_t *frame) {
   return call_op_call();
 }
 
-call_op_result_t op_delegatecall(evm_t *evm, call_frame_t *frame) {
-  state_access_t *state = evm->state;
+call_op_result_t op_delegatecall(evm_t *const evm, call_frame_t *const frame) {
+  state_access_t *const state = evm->state;
   if (state == nullptr) {
     return call_op_error(EVM_INVALID_OPCODE);
   }
 
-  call_setup_t setup =
+  const call_setup_t setup =
       prepare_delegatecall(frame->stack, &frame->gas, frame->memory, state, frame->depth);
 
   if (setup.status == EVM_CALL_DEPTH_EXCEEDED) {
@@ -172,8 +173,8 @@ call_op_result_t op_delegatecall(evm_t *evm, call_frame_t *frame) {
   }
 
   // DELEGATECALL: get code from target, but run in current context
-  bytes_t code = state_get_code(state, &setup.target);
-  child_frame_params_t params = {
+  const bytes_t code = state_get_code(state, &setup.target);
+  const child_frame_params_t params = {
       .exec_type = EXEC_DELEGATECALL,
       .is_static = frame->is_static, // Inherit static context
       .caller = frame->caller,       // Keep original caller
@@ -181,7 +182,7 @@ call_op_result_t op_delegatecall(evm_t *evm, call_frame_t *frame) {
       .value = frame->value,         // Inherit value
   };
 
-  call_frame_t *child = init_child_frame(evm, frame, &setup, &code, &params);
+  call_frame_t *const child = init_child_frame(evm, frame, &setup, &code, &params);
   if (child == nullptr) {
     evm_stack_push_unsafe(frame->stack, uint256_zero());
     return call_op_continue();
@@ -191,14 +192,14 @@ call_op_result_t op_delegatecall(evm_t *evm, call_frame_t *frame) {
   return call_op_call();
 }
 
-call_op_result_t op_callcode(evm_t *evm, call_frame_t *frame) {
-  state_access_t *state = evm->state;
+call_op_result_t op_callcode(evm_t *const evm, call_frame_t *const frame) {
+  state_access_t *const state = evm->state;
   if (state == nullptr) {
     return call_op_error(EVM_INVALID_OPCODE);
   }
 
-  call_setup_t setup = prepare_callcode(frame->stack, &frame->gas, frame->memory, state,
-                                        frame->is_static, frame->depth);
+  const call_setup_t setup = prepare_callcode(frame->stack, &frame->gas, frame->memory, state,
+                                              frame->is_static, frame->depth);
 
   if (setup.status == EVM_CALL_DEPTH_EXCEEDED) {
     evm_stack_push_unsafe(frame->stack, uint256_zero());
@@ -210,7 +211,7 @@ call_op_result_t op_callcode(evm_t *evm, call_frame_t *frame) {
 
   // Check caller balance for value transfer (CALLCODE can transfer value)
   if (!uint256_is_zero(setup.value)) {
-    uint256_t balance = state_get_balance(state, &frame->address);
+    const uint256_t balance = state_get_balance(state, &frame->address);
     if (uint256_lt(balance, setup.value)) {
       evm_stack_push_unsafe(frame->stack, uint256_zero());
       return call_op_continue();
@@ -219,8 +220,8 @@ call_op_result_t op_callcode(evm_t *evm, call_frame_t *frame) {
   }
 
   // CALLCODE: get code from target, but run at current address
-  bytes_t code = state_get_code(state, &setup.target);
-  child_frame_params_t params = {
+  const bytes_t code = state_get_code(state, &setup.target);
+  const child_frame_params_t params = {
       .exec_type = EXEC_CALLCODE,
       .is_static = frame->is_static,
       .caller = frame->address,  // Caller is current address
@@ -228,7 +229,7 @@ call_op_result_t op_callcode(evm_t *evm, call_frame_t *frame) {
       .value = setup.value,
   };
 
-  call_frame_t *child = init_child_frame(evm, frame, &setup, &code, &params);
+  call_frame_t *const child = init_child_frame(evm, frame, &setup, &code, &params);
   if (child == nullptr) {
     evm_stack_push_unsafe(frame->stack, uint256_zero());
     return call_op_continue();

@@ -77,14 +77,14 @@ json_result_t t8n_parse_tx(yyjson_val_t *obj, div0_arena_t *arena, transaction_t
 /// @param txs Transactions to serialize
 /// @param w JSON writer
 /// @return JSON array value, or nullptr on error
-yyjson_mut_val_t *t8n_write_txs(const t8n_txs_t *txs, json_writer_t *w);
+yyjson_mut_val_t *t8n_write_txs(const t8n_txs_t *txs, const json_writer_t *w);
 
 /// Serialize a single transaction to JSON object.
 ///
 /// @param tx Transaction to serialize
 /// @param w JSON writer
 /// @return JSON object value, or nullptr on error
-yyjson_mut_val_t *t8n_write_tx(const transaction_t *tx, json_writer_t *w);
+yyjson_mut_val_t *t8n_write_tx(const transaction_t *tx, const json_writer_t *w);
 
 #endif // DIV0_FREESTANDING
 #endif // DIV0_T8N_TXS_H

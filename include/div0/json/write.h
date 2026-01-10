@@ -46,28 +46,28 @@ void json_writer_free(json_writer_t *w);
 // ============================================================================
 
 /// Create a null value.
-yyjson_mut_val_t *json_write_null(json_writer_t *w);
+yyjson_mut_val_t *json_write_null(const json_writer_t *w);
 
 /// Create a boolean value.
-yyjson_mut_val_t *json_write_bool(json_writer_t *w, bool val);
+yyjson_mut_val_t *json_write_bool(const json_writer_t *w, bool val);
 
 /// Create a uint64 value.
-yyjson_mut_val_t *json_write_u64(json_writer_t *w, uint64_t val);
+yyjson_mut_val_t *json_write_u64(const json_writer_t *w, uint64_t val);
 
 /// Create an int64 value.
-yyjson_mut_val_t *json_write_i64(json_writer_t *w, int64_t val);
+yyjson_mut_val_t *json_write_i64(const json_writer_t *w, int64_t val);
 
 /// Create a string value (copies the string).
-yyjson_mut_val_t *json_write_str(json_writer_t *w, const char *str);
+yyjson_mut_val_t *json_write_str(const json_writer_t *w, const char *str);
 
 /// Create a string value with length (copies the string).
-yyjson_mut_val_t *json_write_strn(json_writer_t *w, const char *str, size_t len);
+yyjson_mut_val_t *json_write_strn(const json_writer_t *w, const char *str, size_t len);
 
 /// Create an empty object.
-yyjson_mut_val_t *json_write_obj(json_writer_t *w);
+yyjson_mut_val_t *json_write_obj(const json_writer_t *w);
 
 /// Create an empty array.
-yyjson_mut_val_t *json_write_arr(json_writer_t *w);
+yyjson_mut_val_t *json_write_arr(const json_writer_t *w);
 
 // ============================================================================
 // Object Operations
@@ -80,19 +80,21 @@ yyjson_mut_val_t *json_write_arr(json_writer_t *w);
 /// @param key Field name (copied)
 /// @param val Value to add
 /// @return true on success
-bool json_obj_add(json_writer_t *w, yyjson_mut_val_t *obj, const char *key, yyjson_mut_val_t *val);
+bool json_obj_add(const json_writer_t *w, yyjson_mut_val_t *obj, const char *key,
+                  yyjson_mut_val_t *val);
 
 /// Add a null field to an object.
-bool json_obj_add_null(json_writer_t *w, yyjson_mut_val_t *obj, const char *key);
+bool json_obj_add_null(const json_writer_t *w, yyjson_mut_val_t *obj, const char *key);
 
 /// Add a boolean field to an object.
-bool json_obj_add_bool(json_writer_t *w, yyjson_mut_val_t *obj, const char *key, bool val);
+bool json_obj_add_bool(const json_writer_t *w, yyjson_mut_val_t *obj, const char *key, bool val);
 
 /// Add a uint64 field to an object.
-bool json_obj_add_u64(json_writer_t *w, yyjson_mut_val_t *obj, const char *key, uint64_t val);
+bool json_obj_add_u64(const json_writer_t *w, yyjson_mut_val_t *obj, const char *key, uint64_t val);
 
 /// Add a string field to an object.
-bool json_obj_add_str(json_writer_t *w, yyjson_mut_val_t *obj, const char *key, const char *val);
+bool json_obj_add_str(const json_writer_t *w, yyjson_mut_val_t *obj, const char *key,
+                      const char *val);
 
 // ============================================================================
 // Array Operations
@@ -104,7 +106,7 @@ bool json_obj_add_str(json_writer_t *w, yyjson_mut_val_t *obj, const char *key, 
 /// @param arr Array to modify
 /// @param val Value to append
 /// @return true on success
-bool json_arr_append(json_writer_t *w, yyjson_mut_val_t *arr, yyjson_mut_val_t *val);
+bool json_arr_append(const json_writer_t *w, yyjson_mut_val_t *arr, yyjson_mut_val_t *val);
 
 // ============================================================================
 // Hex-Encoded Value Creation
@@ -113,50 +115,51 @@ bool json_arr_append(json_writer_t *w, yyjson_mut_val_t *arr, yyjson_mut_val_t *
 /// Create hex-encoded uint64 string ("0x...").
 ///
 /// Uses minimal encoding (no leading zeros).
-yyjson_mut_val_t *json_write_hex_u64(json_writer_t *w, uint64_t val);
+yyjson_mut_val_t *json_write_hex_u64(const json_writer_t *w, uint64_t val);
 
 /// Create hex-encoded uint256 string ("0x...").
 ///
 /// Uses minimal encoding (no leading zeros).
-yyjson_mut_val_t *json_write_hex_uint256(json_writer_t *w, const uint256_t *val);
+yyjson_mut_val_t *json_write_hex_uint256(const json_writer_t *w, const uint256_t *val);
 
 /// Create zero-padded hex uint256 (64 chars, "0x...").
-yyjson_mut_val_t *json_write_hex_uint256_padded(json_writer_t *w, const uint256_t *val);
+yyjson_mut_val_t *json_write_hex_uint256_padded(const json_writer_t *w, const uint256_t *val);
 
 /// Create hex-encoded address string ("0x...").
-yyjson_mut_val_t *json_write_hex_address(json_writer_t *w, const address_t *addr);
+yyjson_mut_val_t *json_write_hex_address(const json_writer_t *w, const address_t *addr);
 
 /// Create hex-encoded hash string ("0x...").
-yyjson_mut_val_t *json_write_hex_hash(json_writer_t *w, const hash_t *hash);
+yyjson_mut_val_t *json_write_hex_hash(const json_writer_t *w, const hash_t *hash);
 
 /// Create hex-encoded bytes string ("0x...").
-yyjson_mut_val_t *json_write_hex_bytes(json_writer_t *w, const uint8_t *data, size_t len);
+yyjson_mut_val_t *json_write_hex_bytes(const json_writer_t *w, const uint8_t *data, size_t len);
 
 // ============================================================================
 // Object Helpers for Hex Values
 // ============================================================================
 
 /// Add a hex-encoded uint64 field to an object.
-bool json_obj_add_hex_u64(json_writer_t *w, yyjson_mut_val_t *obj, const char *key, uint64_t val);
+bool json_obj_add_hex_u64(const json_writer_t *w, yyjson_mut_val_t *obj, const char *key,
+                          uint64_t val);
 
 /// Add a hex-encoded uint256 field to an object.
-bool json_obj_add_hex_uint256(json_writer_t *w, yyjson_mut_val_t *obj, const char *key,
+bool json_obj_add_hex_uint256(const json_writer_t *w, yyjson_mut_val_t *obj, const char *key,
                               const uint256_t *val);
 
 /// Add a zero-padded hex uint256 field to an object.
-bool json_obj_add_hex_uint256_padded(json_writer_t *w, yyjson_mut_val_t *obj, const char *key,
+bool json_obj_add_hex_uint256_padded(const json_writer_t *w, yyjson_mut_val_t *obj, const char *key,
                                      const uint256_t *val);
 
 /// Add a hex-encoded address field to an object.
-bool json_obj_add_hex_address(json_writer_t *w, yyjson_mut_val_t *obj, const char *key,
+bool json_obj_add_hex_address(const json_writer_t *w, yyjson_mut_val_t *obj, const char *key,
                               const address_t *addr);
 
 /// Add a hex-encoded hash field to an object.
-bool json_obj_add_hex_hash(json_writer_t *w, yyjson_mut_val_t *obj, const char *key,
+bool json_obj_add_hex_hash(const json_writer_t *w, yyjson_mut_val_t *obj, const char *key,
                            const hash_t *hash);
 
 /// Add a hex-encoded bytes field to an object.
-bool json_obj_add_hex_bytes(json_writer_t *w, yyjson_mut_val_t *obj, const char *key,
+bool json_obj_add_hex_bytes(const json_writer_t *w, yyjson_mut_val_t *obj, const char *key,
                             const uint8_t *data, size_t len);
 
 // ============================================================================
@@ -176,7 +179,7 @@ typedef enum {
 /// @param flags Output formatting flags
 /// @param out_len Output string length (optional, may be nullptr)
 /// @return Allocated string (caller must free with free()), or nullptr on error
-char *json_write_string(json_writer_t *w, yyjson_mut_val_t *root, json_write_flags_t flags,
+char *json_write_string(const json_writer_t *w, yyjson_mut_val_t *root, json_write_flags_t flags,
                         size_t *out_len);
 
 /// Write JSON to file.
@@ -186,7 +189,7 @@ char *json_write_string(json_writer_t *w, yyjson_mut_val_t *root, json_write_fla
 /// @param path File path
 /// @param flags Output formatting flags
 /// @return Result
-json_result_t json_write_file(json_writer_t *w, yyjson_mut_val_t *root, const char *path,
+json_result_t json_write_file(const json_writer_t *w, yyjson_mut_val_t *root, const char *path,
                               json_write_flags_t flags);
 
 /// Write JSON to FILE stream.
@@ -196,7 +199,7 @@ json_result_t json_write_file(json_writer_t *w, yyjson_mut_val_t *root, const ch
 /// @param fp File pointer
 /// @param flags Output formatting flags
 /// @return Result
-json_result_t json_write_fp(json_writer_t *w, yyjson_mut_val_t *root, FILE *fp,
+json_result_t json_write_fp(const json_writer_t *w, yyjson_mut_val_t *root, FILE *fp,
                             json_write_flags_t flags);
 
 #endif // DIV0_FREESTANDING

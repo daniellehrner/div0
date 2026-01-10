@@ -3,25 +3,25 @@
 #include <string.h>
 
 /// Rounds up to the nearest multiple of 32.
-static size_t round_up_32(size_t n) {
+static size_t round_up_32(const size_t n) {
   return (n + 31) & ~((size_t)31);
 }
 
-void evm_memory_init(evm_memory_t *mem, div0_arena_t *arena) {
+void evm_memory_init(evm_memory_t *const mem, div0_arena_t *const arena) {
   mem->data = nullptr;
   mem->size = 0;
   mem->capacity = 0;
   mem->arena = arena;
 }
 
-void evm_memory_reset(evm_memory_t *mem) {
+void evm_memory_reset(evm_memory_t *const mem) {
   // Don't free - arena handles deallocation
   mem->data = nullptr;
   mem->size = 0;
   mem->capacity = 0;
 }
 
-uint64_t evm_memory_expansion_cost(size_t current_words, size_t new_words) {
+uint64_t evm_memory_expansion_cost(const size_t current_words, const size_t new_words) {
   if (new_words <= current_words) {
     return 0;
   }
@@ -31,14 +31,15 @@ uint64_t evm_memory_expansion_cost(size_t current_words, size_t new_words) {
   // where a = number of 32-byte words
   // G_memory = 3
 
-  const uint64_t g_memory = 3;
-  uint64_t new_cost = (g_memory * new_words) + ((new_words * new_words) / 512);
-  uint64_t old_cost = (g_memory * current_words) + ((current_words * current_words) / 512);
+  constexpr uint64_t g_memory = 3;
+  const uint64_t new_cost = (g_memory * new_words) + ((new_words * new_words) / 512);
+  const uint64_t old_cost = (g_memory * current_words) + ((current_words * current_words) / 512);
 
   return new_cost - old_cost;
 }
 
-bool evm_memory_expand(evm_memory_t *mem, size_t offset, size_t size, uint64_t *gas_cost) {
+bool evm_memory_expand(evm_memory_t *const mem, const size_t offset, const size_t size,
+                       uint64_t *const gas_cost) {
   if (size == 0) {
     *gas_cost = 0;
     return true;
@@ -49,12 +50,12 @@ bool evm_memory_expand(evm_memory_t *mem, size_t offset, size_t size, uint64_t *
     return false;
   }
 
-  size_t required = offset + size;
-  size_t new_size = round_up_32(required);
+  const size_t required = offset + size;
+  const size_t new_size = round_up_32(required);
 
   // Calculate gas cost
-  size_t current_words = mem->size / 32;
-  size_t new_words = new_size / 32;
+  const size_t current_words = mem->size / 32;
+  const size_t new_words = new_size / 32;
   *gas_cost = evm_memory_expansion_cost(current_words, new_words);
 
   // No expansion needed
@@ -72,7 +73,7 @@ bool evm_memory_expand(evm_memory_t *mem, size_t offset, size_t size, uint64_t *
       new_capacity *= 2;
     }
 
-    uint8_t *new_data = div0_arena_alloc(mem->arena, new_capacity);
+    uint8_t *const new_data = div0_arena_alloc(mem->arena, new_capacity);
     if (new_data == nullptr) {
       return false;
     }
@@ -95,13 +96,15 @@ bool evm_memory_expand(evm_memory_t *mem, size_t offset, size_t size, uint64_t *
   return true;
 }
 
-void evm_memory_store32_unsafe(evm_memory_t *mem, size_t offset, uint256_t value) {
+// NOLINTNEXTLINE(CppParameterMayBeConstPtrOrRef) - writes to mem->data through memcpy
+void evm_memory_store32_unsafe(evm_memory_t *const mem, const size_t offset,
+                               const uint256_t value) {
   uint8_t bytes[32];
   uint256_to_bytes_be(value, bytes);
   // NOLINTNEXTLINE(clang-analyzer-security.insecureAPI.DeprecatedOrUnsafeBufferHandling)
   memcpy(mem->data + offset, bytes, 32);
 }
 
-uint256_t evm_memory_load32_unsafe(const evm_memory_t *mem, size_t offset) {
+uint256_t evm_memory_load32_unsafe(const evm_memory_t *const mem, const size_t offset) {
   return uint256_from_bytes_be(mem->data + offset, 32);
 }

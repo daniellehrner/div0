@@ -140,7 +140,7 @@ void block_executor_init(block_executor_t *exec, state_access_t *state,
 /// @param tx_count Number of transactions
 /// @param result Output result (arena-allocated)
 /// @return true on success, false on fatal error
-[[nodiscard]] bool block_executor_run(block_executor_t *exec, const block_tx_t *txs,
+[[nodiscard]] bool block_executor_run(const block_executor_t *exec, const block_tx_t *txs,
                                       size_t tx_count, block_exec_result_t *result);
 
 /// Validate a transaction before execution.

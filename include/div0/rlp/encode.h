@@ -51,7 +51,7 @@ void rlp_list_start(rlp_list_builder_t *builder, bytes_t *output);
 /// Finish building an RLP list.
 /// Calculates payload size, writes actual header, compacts if needed.
 /// @param builder Builder to finalize
-void rlp_list_end(rlp_list_builder_t *builder);
+void rlp_list_end(const rlp_list_builder_t *builder);
 
 /// Append an already-encoded item to a list being built.
 /// @param output The bytes_t being built

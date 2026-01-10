@@ -127,21 +127,21 @@ void t8n_result_init(t8n_result_t *result);
 /// @param result Result to serialize
 /// @param w JSON writer
 /// @return JSON object value, or nullptr on error
-yyjson_mut_val_t *t8n_write_result(const t8n_result_t *result, json_writer_t *w);
+yyjson_mut_val_t *t8n_write_result(const t8n_result_t *result, const json_writer_t *w);
 
 /// Serialize a receipt to JSON object.
 ///
 /// @param receipt Receipt to serialize
 /// @param w JSON writer
 /// @return JSON object value, or nullptr on error
-yyjson_mut_val_t *t8n_write_receipt(const t8n_receipt_t *receipt, json_writer_t *w);
+yyjson_mut_val_t *t8n_write_receipt(const t8n_receipt_t *receipt, const json_writer_t *w);
 
 /// Serialize a log to JSON object.
 ///
 /// @param log Log to serialize
 /// @param w JSON writer
 /// @return JSON object value, or nullptr on error
-yyjson_mut_val_t *t8n_write_log(const t8n_log_t *log, json_writer_t *w);
+yyjson_mut_val_t *t8n_write_log(const t8n_log_t *log, const json_writer_t *w);
 
 #endif // DIV0_FREESTANDING
 #endif // DIV0_T8N_RESULT_H

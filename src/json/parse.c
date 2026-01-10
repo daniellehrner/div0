@@ -10,7 +10,7 @@
 // Document Handling
 // ============================================================================
 
-json_result_t json_parse(const char *json, size_t len, json_doc_t *doc) {
+json_result_t json_parse(const char *const json, const size_t len, json_doc_t *const doc) {
   if (json == nullptr || doc == nullptr) {
     return json_err(JSON_ERR_PARSE, "null input");
   }
@@ -93,7 +93,7 @@ yyjson_val_t *json_obj_get(yyjson_val_t *obj, const char *key) {
   return yyjson_obj_get(obj, key);
 }
 
-yyjson_val_t *json_arr_get(yyjson_val_t *arr, size_t idx) {
+yyjson_val_t *json_arr_get(yyjson_val_t *const arr, const size_t idx) {
   return yyjson_arr_get(arr, idx);
 }
 
@@ -130,48 +130,48 @@ int64_t json_get_i64(yyjson_val_t *val) {
 // ============================================================================
 
 bool json_get_hex_u64(yyjson_val_t *obj, const char *key, uint64_t *out) {
-  yyjson_val_t *val = yyjson_obj_get(obj, key);
+  yyjson_val_t *const val = yyjson_obj_get(obj, key);
   if (val == nullptr || !yyjson_is_str(val)) {
     return false;
   }
-  const char *str = yyjson_get_str(val);
+  const char *const str = yyjson_get_str(val);
   return hex_decode_u64(str, out);
 }
 
 bool json_get_hex_uint256(yyjson_val_t *obj, const char *key, uint256_t *out) {
-  yyjson_val_t *val = yyjson_obj_get(obj, key);
+  yyjson_val_t *const val = yyjson_obj_get(obj, key);
   if (val == nullptr || !yyjson_is_str(val)) {
     return false;
   }
-  const char *str = yyjson_get_str(val);
+  const char *const str = yyjson_get_str(val);
   return hex_decode_uint256(str, out);
 }
 
 bool json_get_hex_address(yyjson_val_t *obj, const char *key, address_t *out) {
-  yyjson_val_t *val = yyjson_obj_get(obj, key);
+  yyjson_val_t *const val = yyjson_obj_get(obj, key);
   if (val == nullptr || !yyjson_is_str(val)) {
     return false;
   }
-  const char *str = yyjson_get_str(val);
+  const char *const str = yyjson_get_str(val);
   return hex_decode(str, out->bytes, ADDRESS_SIZE);
 }
 
 bool json_get_hex_hash(yyjson_val_t *obj, const char *key, hash_t *out) {
-  yyjson_val_t *val = yyjson_obj_get(obj, key);
+  yyjson_val_t *const val = yyjson_obj_get(obj, key);
   if (val == nullptr || !yyjson_is_str(val)) {
     return false;
   }
-  const char *str = yyjson_get_str(val);
+  const char *const str = yyjson_get_str(val);
   return hex_decode(str, out->bytes, HASH_SIZE);
 }
 
 bool json_get_hex_bytes(yyjson_val_t *obj, const char *key, div0_arena_t *arena, bytes_t *out) {
-  yyjson_val_t *val = yyjson_obj_get(obj, key);
+  yyjson_val_t *const val = yyjson_obj_get(obj, key);
   if (val == nullptr || !yyjson_is_str(val)) {
     return false;
   }
-  const char *str = yyjson_get_str(val);
-  size_t hex_len = hex_strlen(str);
+  const char *const str = yyjson_get_str(val);
+  const size_t hex_len = hex_strlen(str);
 
   // Empty bytes
   if (hex_len == 0) {
@@ -185,8 +185,8 @@ bool json_get_hex_bytes(yyjson_val_t *obj, const char *key, div0_arena_t *arena,
     return false;
   }
 
-  size_t byte_len = hex_len / 2;
-  uint8_t *data = div0_arena_alloc(arena, byte_len);
+  const size_t byte_len = hex_len / 2;
+  uint8_t *const data = div0_arena_alloc(arena, byte_len);
   if (data == nullptr) {
     return false;
   }
@@ -240,8 +240,8 @@ bool json_val_hex_bytes(yyjson_val_t *val, div0_arena_t *arena, bytes_t *out) {
   if (val == nullptr || !yyjson_is_str(val)) {
     return false;
   }
-  const char *str = yyjson_get_str(val);
-  size_t hex_len = hex_strlen(str);
+  const char *const str = yyjson_get_str(val);
+  const size_t hex_len = hex_strlen(str);
 
   // Empty bytes
   if (hex_len == 0) {
@@ -255,8 +255,8 @@ bool json_val_hex_bytes(yyjson_val_t *val, div0_arena_t *arena, bytes_t *out) {
     return false;
   }
 
-  size_t byte_len = hex_len / 2;
-  uint8_t *data = div0_arena_alloc(arena, byte_len);
+  const size_t byte_len = hex_len / 2;
+  uint8_t *const data = div0_arena_alloc(arena, byte_len);
   if (data == nullptr) {
     return false;
   }

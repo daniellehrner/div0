@@ -16,16 +16,16 @@ void t8n_env_init(t8n_env_t *env) {
 // Parsing Helpers
 // ============================================================================
 
-static json_result_t parse_block_hashes(yyjson_val_t *obj, div0_arena_t *arena,
-                                        t8n_block_hash_t **out, size_t *out_count) {
-  yyjson_val_t *hashes = json_obj_get(obj, "blockHashes");
+static json_result_t parse_block_hashes(yyjson_val_t *const obj, div0_arena_t *const arena,
+                                        t8n_block_hash_t **const out, size_t *const out_count) {
+  yyjson_val_t *const hashes = json_obj_get(obj, "blockHashes");
   if (hashes == nullptr || !json_is_obj(hashes)) {
     *out = nullptr;
     *out_count = 0;
     return json_ok();
   }
 
-  size_t count = json_obj_size(hashes);
+  const size_t count = json_obj_size(hashes);
   if (count == 0) {
     *out = nullptr;
     *out_count = 0;
@@ -43,7 +43,7 @@ static json_result_t parse_block_hashes(yyjson_val_t *obj, div0_arena_t *arena,
   size_t idx = 0;
 
   while (json_obj_iter_next(&iter, &num_str, &hash_val)) {
-    t8n_block_hash_t *entry = &(*out)[idx];
+    t8n_block_hash_t *const entry = &(*out)[idx];
 
     // Parse block number from key (can be decimal or hex)
     if (!hex_decode_u64(num_str, &entry->number)) {
@@ -66,16 +66,16 @@ static json_result_t parse_block_hashes(yyjson_val_t *obj, div0_arena_t *arena,
   return json_ok();
 }
 
-static json_result_t parse_withdrawals(yyjson_val_t *obj, div0_arena_t *arena,
-                                       t8n_withdrawal_t **out, size_t *out_count) {
-  yyjson_val_t *withdrawals = json_obj_get(obj, "withdrawals");
+static json_result_t parse_withdrawals(yyjson_val_t *const obj, div0_arena_t *const arena,
+                                       t8n_withdrawal_t **const out, size_t *const out_count) {
+  yyjson_val_t *const withdrawals = json_obj_get(obj, "withdrawals");
   if (withdrawals == nullptr || !json_is_arr(withdrawals)) {
     *out = nullptr;
     *out_count = 0;
     return json_ok();
   }
 
-  size_t count = json_arr_len(withdrawals);
+  const size_t count = json_arr_len(withdrawals);
   if (count == 0) {
     *out = nullptr;
     *out_count = 0;
@@ -96,7 +96,7 @@ static json_result_t parse_withdrawals(yyjson_val_t *obj, div0_arena_t *arena,
       return json_err(JSON_ERR_INVALID_TYPE, "withdrawal must be an object");
     }
 
-    t8n_withdrawal_t *w = &(*out)[idx];
+    t8n_withdrawal_t *const w = &(*out)[idx];
 
     if (!json_get_hex_u64(w_val, "index", &w->index)) {
       return json_err(JSON_ERR_MISSING_FIELD, "missing withdrawal index");
@@ -118,16 +118,16 @@ static json_result_t parse_withdrawals(yyjson_val_t *obj, div0_arena_t *arena,
   return json_ok();
 }
 
-static json_result_t parse_ommers(yyjson_val_t *obj, div0_arena_t *arena, t8n_ommer_t **out,
-                                  size_t *out_count) {
-  yyjson_val_t *ommers = json_obj_get(obj, "ommers");
+static json_result_t parse_ommers(yyjson_val_t *const obj, div0_arena_t *const arena,
+                                  t8n_ommer_t **const out, size_t *const out_count) {
+  yyjson_val_t *const ommers = json_obj_get(obj, "ommers");
   if (ommers == nullptr || !json_is_arr(ommers)) {
     *out = nullptr;
     *out_count = 0;
     return json_ok();
   }
 
-  size_t count = json_arr_len(ommers);
+  const size_t count = json_arr_len(ommers);
   if (count == 0) {
     *out = nullptr;
     *out_count = 0;
@@ -148,7 +148,7 @@ static json_result_t parse_ommers(yyjson_val_t *obj, div0_arena_t *arena, t8n_om
       return json_err(JSON_ERR_INVALID_TYPE, "ommer must be an object");
     }
 
-    t8n_ommer_t *o = &(*out)[idx];
+    t8n_ommer_t *const o = &(*out)[idx];
 
     if (!json_get_hex_address(o_val, "address", &o->coinbase)) {
       return json_err(JSON_ERR_MISSING_FIELD, "missing ommer address");
@@ -168,7 +168,8 @@ static json_result_t parse_ommers(yyjson_val_t *obj, div0_arena_t *arena, t8n_om
 // Parsing Implementation
 // ============================================================================
 
-json_result_t t8n_parse_env_value(yyjson_val_t *root, div0_arena_t *arena, t8n_env_t *out) {
+json_result_t t8n_parse_env_value(yyjson_val_t *const root, div0_arena_t *const arena,
+                                  t8n_env_t *const out) {
   if (root == nullptr || !json_is_obj(root)) {
     return json_err(JSON_ERR_INVALID_TYPE, "env must be an object");
   }
@@ -217,9 +218,8 @@ json_result_t t8n_parse_env_value(yyjson_val_t *root, div0_arena_t *arena, t8n_e
       json_get_hex_u64(root, "parentBlobGasUsed", &out->parent_blob_gas_used);
 
   // Arrays
-  json_result_t result;
-
-  result = parse_block_hashes(root, arena, &out->block_hashes, &out->block_hash_count);
+  json_result_t result =
+      parse_block_hashes(root, arena, &out->block_hashes, &out->block_hash_count);
   if (json_is_err(result)) {
     return result;
   }
@@ -237,28 +237,30 @@ json_result_t t8n_parse_env_value(yyjson_val_t *root, div0_arena_t *arena, t8n_e
   return json_ok();
 }
 
-json_result_t t8n_parse_env(const char *json, size_t len, div0_arena_t *arena, t8n_env_t *out) {
+json_result_t t8n_parse_env(const char *const json, const size_t len, div0_arena_t *const arena,
+                            t8n_env_t *const out) {
   json_doc_t doc = {.doc = nullptr};
   json_result_t result = json_parse(json, len, &doc);
   if (json_is_err(result)) {
     return result;
   }
 
-  yyjson_val_t *root = json_doc_root(&doc);
+  yyjson_val_t *const root = json_doc_root(&doc);
   result = t8n_parse_env_value(root, arena, out);
 
   json_doc_free(&doc);
   return result;
 }
 
-json_result_t t8n_parse_env_file(const char *path, div0_arena_t *arena, t8n_env_t *out) {
+json_result_t t8n_parse_env_file(const char *const path, div0_arena_t *const arena,
+                                 t8n_env_t *const out) {
   json_doc_t doc = {.doc = nullptr};
   json_result_t result = json_parse_file(path, &doc);
   if (json_is_err(result)) {
     return result;
   }
 
-  yyjson_val_t *root = json_doc_root(&doc);
+  yyjson_val_t *const root = json_doc_root(&doc);
   result = t8n_parse_env_value(root, arena, out);
 
   json_doc_free(&doc);

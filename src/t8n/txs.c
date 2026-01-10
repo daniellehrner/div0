@@ -6,14 +6,15 @@
 // Access List Parsing
 // ============================================================================
 
-static json_result_t parse_access_list(yyjson_val_t *arr, div0_arena_t *arena, access_list_t *out) {
+static json_result_t parse_access_list(yyjson_val_t *const arr, div0_arena_t *const arena,
+                                       access_list_t *const out) {
   access_list_init(out);
 
   if (arr == nullptr || !json_is_arr(arr)) {
     return json_ok();
   }
 
-  size_t count = json_arr_len(arr);
+  const size_t count = json_arr_len(arr);
   if (count == 0) {
     return json_ok();
   }
@@ -31,15 +32,15 @@ static json_result_t parse_access_list(yyjson_val_t *arr, div0_arena_t *arena, a
       return json_err(JSON_ERR_INVALID_TYPE, "access list entry must be an object");
     }
 
-    access_list_entry_t *entry = &out->entries[idx];
+    access_list_entry_t *const entry = &out->entries[idx];
 
     if (!json_get_hex_address(entry_val, "address", &entry->address)) {
       return json_err(JSON_ERR_MISSING_FIELD, "missing access list entry address");
     }
 
-    yyjson_val_t *keys_val = json_obj_get(entry_val, "storageKeys");
+    yyjson_val_t *const keys_val = json_obj_get(entry_val, "storageKeys");
     if (keys_val != nullptr && json_is_arr(keys_val)) {
-      size_t key_count = json_arr_len(keys_val);
+      const size_t key_count = json_arr_len(keys_val);
       if (!access_list_entry_alloc_keys(entry, key_count, arena)) {
         return json_err(JSON_ERR_ALLOC, "failed to allocate storage keys");
       }
@@ -69,15 +70,15 @@ static json_result_t parse_access_list(yyjson_val_t *arr, div0_arena_t *arena, a
 // Authorization List Parsing (EIP-7702)
 // ============================================================================
 
-static json_result_t parse_authorization_list(yyjson_val_t *arr, div0_arena_t *arena,
-                                              authorization_list_t *out) {
+static json_result_t parse_authorization_list(yyjson_val_t *const arr, div0_arena_t *const arena,
+                                              authorization_list_t *const out) {
   authorization_list_init(out);
 
   if (arr == nullptr || !json_is_arr(arr)) {
     return json_ok();
   }
 
-  size_t count = json_arr_len(arr);
+  const size_t count = json_arr_len(arr);
   if (count == 0) {
     return json_ok();
   }
@@ -95,7 +96,7 @@ static json_result_t parse_authorization_list(yyjson_val_t *arr, div0_arena_t *a
       return json_err(JSON_ERR_INVALID_TYPE, "authorization must be an object");
     }
 
-    authorization_t *auth = &out->entries[idx];
+    authorization_t *const auth = &out->entries[idx];
 
     if (!json_get_hex_u64(auth_val, "chainId", &auth->chain_id)) {
       auth->chain_id = 0; // 0 = valid on any chain
@@ -134,8 +135,8 @@ static json_result_t parse_authorization_list(yyjson_val_t *arr, div0_arena_t *a
 // Blob Hash Parsing (EIP-4844)
 // ============================================================================
 
-static json_result_t parse_blob_hashes(yyjson_val_t *arr, div0_arena_t *arena, hash_t **out,
-                                       size_t *out_count) {
+static json_result_t parse_blob_hashes(yyjson_val_t *const arr, div0_arena_t *const arena,
+                                       hash_t **const out, size_t *const out_count) {
   *out = nullptr;
   *out_count = 0;
 
@@ -143,7 +144,7 @@ static json_result_t parse_blob_hashes(yyjson_val_t *arr, div0_arena_t *arena, h
     return json_ok();
   }
 
-  size_t count = json_arr_len(arr);
+  const size_t count = json_arr_len(arr);
   if (count == 0) {
     return json_ok();
   }
@@ -172,7 +173,8 @@ static json_result_t parse_blob_hashes(yyjson_val_t *arr, div0_arena_t *arena, h
 // Transaction Parsing
 // ============================================================================
 
-json_result_t t8n_parse_tx(yyjson_val_t *obj, div0_arena_t *arena, transaction_t *out) {
+json_result_t t8n_parse_tx(yyjson_val_t *const obj, div0_arena_t *const arena,
+                           transaction_t *const out) {
   if (obj == nullptr || !json_is_obj(obj)) {
     return json_err(JSON_ERR_INVALID_TYPE, "transaction must be an object");
   }
@@ -182,8 +184,8 @@ json_result_t t8n_parse_tx(yyjson_val_t *obj, div0_arena_t *arena, transaction_t
   json_get_hex_u64(obj, "type", &tx_type);
 
   // Check for protected field (only for type detection)
-  yyjson_val_t *protected_val = json_obj_get(obj, "protected");
-  bool is_protected = (protected_val != nullptr && json_get_bool(protected_val));
+  yyjson_val_t *const protected_val = json_obj_get(obj, "protected");
+  const bool is_protected = (protected_val != nullptr && json_get_bool(protected_val));
 
   json_result_t result;
 
@@ -191,7 +193,7 @@ json_result_t t8n_parse_tx(yyjson_val_t *obj, div0_arena_t *arena, transaction_t
   case 0: {
     // Legacy transaction
     out->type = TX_TYPE_LEGACY;
-    legacy_tx_t *tx = &out->legacy;
+    legacy_tx_t *const tx = &out->legacy;
     legacy_tx_init(tx);
 
     json_get_hex_u64(obj, "nonce", &tx->nonce);
@@ -207,7 +209,7 @@ json_result_t t8n_parse_tx(yyjson_val_t *obj, div0_arena_t *arena, transaction_t
     }
 
     // To address (optional for contract creation)
-    yyjson_val_t *to_val = json_obj_get(obj, "to");
+    yyjson_val_t *const to_val = json_obj_get(obj, "to");
     if (to_val != nullptr && !json_is_null(to_val)) {
       tx->to = div0_arena_alloc(arena, sizeof(address_t));
       if (tx->to == nullptr) {
@@ -229,7 +231,7 @@ json_result_t t8n_parse_tx(yyjson_val_t *obj, div0_arena_t *arena, transaction_t
   case 1: {
     // EIP-2930 transaction
     out->type = TX_TYPE_EIP2930;
-    eip2930_tx_t *tx = &out->eip2930;
+    eip2930_tx_t *const tx = &out->eip2930;
     eip2930_tx_init(tx);
 
     json_get_hex_u64(obj, "chainId", &tx->chain_id);
@@ -246,7 +248,7 @@ json_result_t t8n_parse_tx(yyjson_val_t *obj, div0_arena_t *arena, transaction_t
     }
 
     // To address
-    yyjson_val_t *to_val = json_obj_get(obj, "to");
+    yyjson_val_t *const to_val = json_obj_get(obj, "to");
     if (to_val != nullptr && !json_is_null(to_val)) {
       tx->to = div0_arena_alloc(arena, sizeof(address_t));
       if (tx->to == nullptr) {
@@ -279,7 +281,7 @@ json_result_t t8n_parse_tx(yyjson_val_t *obj, div0_arena_t *arena, transaction_t
   case 2: {
     // EIP-1559 transaction
     out->type = TX_TYPE_EIP1559;
-    eip1559_tx_t *tx = &out->eip1559;
+    eip1559_tx_t *const tx = &out->eip1559;
     eip1559_tx_init(tx);
 
     json_get_hex_u64(obj, "chainId", &tx->chain_id);
@@ -297,7 +299,7 @@ json_result_t t8n_parse_tx(yyjson_val_t *obj, div0_arena_t *arena, transaction_t
     }
 
     // To address
-    yyjson_val_t *to_val = json_obj_get(obj, "to");
+    yyjson_val_t *const to_val = json_obj_get(obj, "to");
     if (to_val != nullptr && !json_is_null(to_val)) {
       tx->to = div0_arena_alloc(arena, sizeof(address_t));
       if (tx->to == nullptr) {
@@ -330,7 +332,7 @@ json_result_t t8n_parse_tx(yyjson_val_t *obj, div0_arena_t *arena, transaction_t
   case 3: {
     // EIP-4844 blob transaction
     out->type = TX_TYPE_EIP4844;
-    eip4844_tx_t *tx = &out->eip4844;
+    eip4844_tx_t *const tx = &out->eip4844;
     eip4844_tx_init(tx);
 
     json_get_hex_u64(obj, "chainId", &tx->chain_id);
@@ -383,7 +385,7 @@ json_result_t t8n_parse_tx(yyjson_val_t *obj, div0_arena_t *arena, transaction_t
   case 4: {
     // EIP-7702 SetCode transaction
     out->type = TX_TYPE_EIP7702;
-    eip7702_tx_t *tx = &out->eip7702;
+    eip7702_tx_t *const tx = &out->eip7702;
     eip7702_tx_init(tx);
 
     json_get_hex_u64(obj, "chainId", &tx->chain_id);
@@ -439,12 +441,13 @@ json_result_t t8n_parse_tx(yyjson_val_t *obj, div0_arena_t *arena, transaction_t
   return json_ok();
 }
 
-json_result_t t8n_parse_txs_value(yyjson_val_t *arr, div0_arena_t *arena, t8n_txs_t *out) {
+json_result_t t8n_parse_txs_value(yyjson_val_t *const arr, div0_arena_t *const arena,
+                                  t8n_txs_t *const out) {
   if (arr == nullptr || !json_is_arr(arr)) {
     return json_err(JSON_ERR_INVALID_TYPE, "txs must be an array");
   }
 
-  size_t count = json_arr_len(arr);
+  const size_t count = json_arr_len(arr);
   if (count == 0) {
     out->txs = nullptr;
     out->tx_count = 0;
@@ -462,7 +465,7 @@ json_result_t t8n_parse_txs_value(yyjson_val_t *arr, div0_arena_t *arena, t8n_tx
   size_t idx = 0;
 
   while (json_arr_iter_next(&iter, &tx_val)) {
-    json_result_t result = t8n_parse_tx(tx_val, arena, &out->txs[idx]);
+    const json_result_t result = t8n_parse_tx(tx_val, arena, &out->txs[idx]);
     if (json_is_err(result)) {
       return result;
     }
@@ -472,28 +475,30 @@ json_result_t t8n_parse_txs_value(yyjson_val_t *arr, div0_arena_t *arena, t8n_tx
   return json_ok();
 }
 
-json_result_t t8n_parse_txs(const char *json, size_t len, div0_arena_t *arena, t8n_txs_t *out) {
+json_result_t t8n_parse_txs(const char *const json, const size_t len, div0_arena_t *const arena,
+                            t8n_txs_t *const out) {
   json_doc_t doc = {.doc = nullptr};
   json_result_t result = json_parse(json, len, &doc);
   if (json_is_err(result)) {
     return result;
   }
 
-  yyjson_val_t *root = json_doc_root(&doc);
+  yyjson_val_t *const root = json_doc_root(&doc);
   result = t8n_parse_txs_value(root, arena, out);
 
   json_doc_free(&doc);
   return result;
 }
 
-json_result_t t8n_parse_txs_file(const char *path, div0_arena_t *arena, t8n_txs_t *out) {
+json_result_t t8n_parse_txs_file(const char *const path, div0_arena_t *const arena,
+                                 t8n_txs_t *const out) {
   json_doc_t doc = {.doc = nullptr};
   json_result_t result = json_parse_file(path, &doc);
   if (json_is_err(result)) {
     return result;
   }
 
-  yyjson_val_t *root = json_doc_root(&doc);
+  yyjson_val_t *const root = json_doc_root(&doc);
   result = t8n_parse_txs_value(root, arena, out);
 
   json_doc_free(&doc);
@@ -505,16 +510,17 @@ json_result_t t8n_parse_txs_file(const char *path, div0_arena_t *arena, t8n_txs_
 // ============================================================================
 
 /// Serialize an access list to JSON array.
-static yyjson_mut_val_t *write_access_list(const access_list_t *list, json_writer_t *w) {
-  yyjson_mut_val_t *arr = json_write_arr(w);
+static yyjson_mut_val_t *write_access_list(const access_list_t *const list,
+                                           const json_writer_t *const w) {
+  yyjson_mut_val_t *const arr = json_write_arr(w);
   if (arr == nullptr) {
     return nullptr;
   }
 
   for (size_t i = 0; i < list->count; i++) {
-    const access_list_entry_t *entry = &list->entries[i];
+    const access_list_entry_t *const entry = &list->entries[i];
 
-    yyjson_mut_val_t *entry_obj = json_write_obj(w);
+    yyjson_mut_val_t *const entry_obj = json_write_obj(w);
     if (entry_obj == nullptr) {
       return nullptr;
     }
@@ -522,13 +528,13 @@ static yyjson_mut_val_t *write_access_list(const access_list_t *list, json_write
     json_obj_add_hex_address(w, entry_obj, "address", &entry->address);
 
     // Storage keys array
-    yyjson_mut_val_t *keys_arr = json_write_arr(w);
+    yyjson_mut_val_t *const keys_arr = json_write_arr(w);
     if (keys_arr == nullptr) {
       return nullptr;
     }
 
     for (size_t j = 0; j < entry->storage_keys_count; j++) {
-      yyjson_mut_val_t *key = json_write_hex_uint256_padded(w, &entry->storage_keys[j]);
+      yyjson_mut_val_t *const key = json_write_hex_uint256_padded(w, &entry->storage_keys[j]);
       if (key == nullptr) {
         return nullptr;
       }
@@ -543,14 +549,15 @@ static yyjson_mut_val_t *write_access_list(const access_list_t *list, json_write
 }
 
 /// Serialize blob versioned hashes to JSON array.
-static yyjson_mut_val_t *write_blob_hashes(const hash_t *hashes, size_t count, json_writer_t *w) {
-  yyjson_mut_val_t *arr = json_write_arr(w);
+static yyjson_mut_val_t *write_blob_hashes(const hash_t *const hashes, const size_t count,
+                                           const json_writer_t *const w) {
+  yyjson_mut_val_t *const arr = json_write_arr(w);
   if (arr == nullptr) {
     return nullptr;
   }
 
   for (size_t i = 0; i < count; i++) {
-    yyjson_mut_val_t *hash = json_write_hex_hash(w, &hashes[i]);
+    yyjson_mut_val_t *const hash = json_write_hex_hash(w, &hashes[i]);
     if (hash == nullptr) {
       return nullptr;
     }
@@ -561,17 +568,17 @@ static yyjson_mut_val_t *write_blob_hashes(const hash_t *hashes, size_t count, j
 }
 
 /// Serialize an authorization list to JSON array.
-static yyjson_mut_val_t *write_authorization_list(const authorization_list_t *list,
-                                                  json_writer_t *w) {
-  yyjson_mut_val_t *arr = json_write_arr(w);
+static yyjson_mut_val_t *write_authorization_list(const authorization_list_t *const list,
+                                                  const json_writer_t *const w) {
+  yyjson_mut_val_t *const arr = json_write_arr(w);
   if (arr == nullptr) {
     return nullptr;
   }
 
   for (size_t i = 0; i < list->count; i++) {
-    const authorization_t *auth = &list->entries[i];
+    const authorization_t *const auth = &list->entries[i];
 
-    yyjson_mut_val_t *auth_obj = json_write_obj(w);
+    yyjson_mut_val_t *const auth_obj = json_write_obj(w);
     if (auth_obj == nullptr) {
       return nullptr;
     }
@@ -593,8 +600,8 @@ static yyjson_mut_val_t *write_authorization_list(const authorization_list_t *li
 // Serialization
 // ============================================================================
 
-yyjson_mut_val_t *t8n_write_tx(const transaction_t *tx, json_writer_t *w) {
-  yyjson_mut_val_t *obj = json_write_obj(w);
+yyjson_mut_val_t *t8n_write_tx(const transaction_t *const tx, const json_writer_t *const w) {
+  yyjson_mut_val_t *const obj = json_write_obj(w);
   if (obj == nullptr) {
     return nullptr;
   }
@@ -604,7 +611,7 @@ yyjson_mut_val_t *t8n_write_tx(const transaction_t *tx, json_writer_t *w) {
 
   switch (tx->type) {
   case TX_TYPE_LEGACY: {
-    const legacy_tx_t *ltx = &tx->legacy;
+    const legacy_tx_t *const ltx = &tx->legacy;
     json_obj_add_hex_u64(w, obj, "nonce", ltx->nonce);
     json_obj_add_hex_uint256(w, obj, "gasPrice", &ltx->gas_price);
     json_obj_add_hex_u64(w, obj, "gas", ltx->gas_limit);
@@ -622,7 +629,7 @@ yyjson_mut_val_t *t8n_write_tx(const transaction_t *tx, json_writer_t *w) {
   }
 
   case TX_TYPE_EIP2930: {
-    const eip2930_tx_t *etx = &tx->eip2930;
+    const eip2930_tx_t *const etx = &tx->eip2930;
     json_obj_add_hex_u64(w, obj, "chainId", etx->chain_id);
     json_obj_add_hex_u64(w, obj, "nonce", etx->nonce);
     json_obj_add_hex_uint256(w, obj, "gasPrice", &etx->gas_price);
@@ -642,7 +649,7 @@ yyjson_mut_val_t *t8n_write_tx(const transaction_t *tx, json_writer_t *w) {
   }
 
   case TX_TYPE_EIP1559: {
-    const eip1559_tx_t *etx = &tx->eip1559;
+    const eip1559_tx_t *const etx = &tx->eip1559;
     json_obj_add_hex_u64(w, obj, "chainId", etx->chain_id);
     json_obj_add_hex_u64(w, obj, "nonce", etx->nonce);
     json_obj_add_hex_uint256(w, obj, "maxPriorityFeePerGas", &etx->max_priority_fee_per_gas);
@@ -663,7 +670,7 @@ yyjson_mut_val_t *t8n_write_tx(const transaction_t *tx, json_writer_t *w) {
   }
 
   case TX_TYPE_EIP4844: {
-    const eip4844_tx_t *btx = &tx->eip4844;
+    const eip4844_tx_t *const btx = &tx->eip4844;
     json_obj_add_hex_u64(w, obj, "chainId", btx->chain_id);
     json_obj_add_hex_u64(w, obj, "nonce", btx->nonce);
     json_obj_add_hex_uint256(w, obj, "maxPriorityFeePerGas", &btx->max_priority_fee_per_gas);
@@ -683,7 +690,7 @@ yyjson_mut_val_t *t8n_write_tx(const transaction_t *tx, json_writer_t *w) {
   }
 
   case TX_TYPE_EIP7702: {
-    const eip7702_tx_t *stx = &tx->eip7702;
+    const eip7702_tx_t *const stx = &tx->eip7702;
     json_obj_add_hex_u64(w, obj, "chainId", stx->chain_id);
     json_obj_add_hex_u64(w, obj, "nonce", stx->nonce);
     json_obj_add_hex_uint256(w, obj, "maxPriorityFeePerGas", &stx->max_priority_fee_per_gas);
@@ -705,14 +712,14 @@ yyjson_mut_val_t *t8n_write_tx(const transaction_t *tx, json_writer_t *w) {
   return obj;
 }
 
-yyjson_mut_val_t *t8n_write_txs(const t8n_txs_t *txs, json_writer_t *w) {
-  yyjson_mut_val_t *arr = json_write_arr(w);
+yyjson_mut_val_t *t8n_write_txs(const t8n_txs_t *const txs, const json_writer_t *const w) {
+  yyjson_mut_val_t *const arr = json_write_arr(w);
   if (arr == nullptr) {
     return nullptr;
   }
 
   for (size_t i = 0; i < txs->tx_count; i++) {
-    yyjson_mut_val_t *tx_obj = t8n_write_tx(&txs->txs[i], w);
+    yyjson_mut_val_t *const tx_obj = t8n_write_tx(&txs->txs[i], w);
     if (tx_obj == nullptr) {
       return nullptr;
     }

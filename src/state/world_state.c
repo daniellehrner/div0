@@ -16,7 +16,7 @@
 // NOLINTBEGIN(CppDFAUnreachableFunctionCall) - Functions used via STC container macros
 
 /// FNV-1a hash over arbitrary bytes
-static uint64_t fnv1a_hash(const uint8_t *data, size_t len) {
+static uint64_t fnv1a_hash(const uint8_t *const data, const size_t len) {
   uint64_t hash = FNV1A_OFFSET_BASIS;
   for (size_t i = 0; i < len; i++) {
     hash ^= data[i];
@@ -26,7 +26,7 @@ static uint64_t fnv1a_hash(const uint8_t *data, size_t len) {
 }
 
 /// Continue FNV-1a hash with more data
-static uint64_t fnv1a_hash_append(uint64_t hash, const uint8_t *data, size_t len) {
+static uint64_t fnv1a_hash_append(uint64_t hash, const uint8_t *const data, const size_t len) {
   for (size_t i = 0; i < len; i++) {
     hash ^= data[i];
     hash *= FNV1A_PRIME;
@@ -37,7 +37,7 @@ static uint64_t fnv1a_hash_append(uint64_t hash, const uint8_t *data, size_t len
 // NOLINTEND(CppDFAUnreachableFunctionCall)
 
 // Hash function for address_t
-static uint64_t address_hash(const address_t *addr) {
+static uint64_t address_hash(const address_t *const addr) {
   return fnv1a_hash(addr->bytes, ADDRESS_SIZE);
 }
 
@@ -77,9 +77,9 @@ typedef struct {
   uint256_t slot;
 } warm_slot_key_t;
 
-static uint64_t warm_slot_key_hash(const warm_slot_key_t *key) {
+static uint64_t warm_slot_key_hash(const warm_slot_key_t *const key) {
   // FNV-1a hash over address + slot bytes
-  uint64_t hash = fnv1a_hash(key->addr.bytes, ADDRESS_SIZE);
+  const uint64_t hash = fnv1a_hash(key->addr.bytes, ADDRESS_SIZE);
 
   // Hash slot as 32 big-endian bytes for consistency
   uint8_t slot_bytes[32];
@@ -87,7 +87,7 @@ static uint64_t warm_slot_key_hash(const warm_slot_key_t *key) {
   return fnv1a_hash_append(hash, slot_bytes, 32);
 }
 
-static bool warm_slot_key_eq(const warm_slot_key_t *a, const warm_slot_key_t *b) {
+static bool warm_slot_key_eq(const warm_slot_key_t *const a, const warm_slot_key_t *const b) {
   if (!address_equal(&a->addr, &b->addr)) {
     return false;
   }
@@ -123,12 +123,12 @@ static void erase_slots_for_address(all_slots_set *all_slots, const address_t *a
 // =============================================================================
 
 /// Compute the state trie key for an address (keccak256 of address).
-static hash_t address_to_key(const address_t *addr) {
+static hash_t address_to_key(const address_t *const addr) {
   return keccak256(addr->bytes, ADDRESS_SIZE);
 }
 
 /// Compute the storage trie key for a slot (keccak256 of slot as 32-byte BE).
-static hash_t slot_to_key(uint256_t slot) {
+static hash_t slot_to_key(const uint256_t slot) { // NOLINT(performance-unnecessary-value-param)
   uint8_t slot_bytes[32];
   uint256_to_bytes_be(slot, slot_bytes);
   return keccak256(slot_bytes, 32);
@@ -139,14 +139,14 @@ static hash_t slot_to_key(uint256_t slot) {
 // =============================================================================
 
 static bool ws_account_exists(state_access_t *state, const address_t *addr) {
-  world_state_t *ws = (world_state_t *)state;
-  hash_t key = address_to_key(addr);
-  bytes_t value = mpt_get(&ws->state_trie, key.bytes, HASH_SIZE);
+  const auto ws = (world_state_t *)state;
+  const hash_t key = address_to_key(addr);
+  const bytes_t value = mpt_get(&ws->state_trie, key.bytes, HASH_SIZE);
   return value.data != nullptr;
 }
 
 static bool ws_account_is_empty(state_access_t *state, const address_t *addr) {
-  world_state_t *ws = (world_state_t *)state;
+  const auto ws = (world_state_t *)state;
   account_t acc;
   if (!world_state_get_account(ws, addr, &acc)) {
     return true; // Non-existent is empty
@@ -154,32 +154,32 @@ static bool ws_account_is_empty(state_access_t *state, const address_t *addr) {
   return account_is_empty(&acc);
 }
 
-static void ws_create_contract(state_access_t *state, const address_t *addr) {
-  world_state_t *ws = (world_state_t *)state;
+static void ws_create_contract(state_access_t *const state, const address_t *const addr) {
+  const auto ws = (world_state_t *)state;
   if (ws_account_exists(state, addr)) {
     return; // Already exists
   }
   // Create with nonce=1 per EIP-161 (ensures non-empty account)
-  account_t acc = account_empty();
+  account_t acc = account_empty(); // Modified below
   acc.nonce = 1;
   world_state_set_account(ws, addr, &acc);
 }
 
 static void ws_delete_account(state_access_t *state, const address_t *addr) {
-  world_state_t *ws = (world_state_t *)state;
-  hash_t key = address_to_key(addr);
+  const auto ws = (world_state_t *)state;
+  const hash_t key = address_to_key(addr);
   mpt_delete(&ws->state_trie, key.bytes, HASH_SIZE);
 
   // Also remove from code store and storage tries
-  storage_trie_map *st_map = (storage_trie_map *)ws->storage_tries;
+  const auto st_map = (storage_trie_map *)ws->storage_tries;
   storage_trie_map_erase(st_map, *addr);
 
-  code_map *c_map = (code_map *)ws->code_store;
+  const auto c_map = (code_map *)ws->code_store;
   code_map_erase(c_map, *addr);
 }
 
 static uint256_t ws_get_balance(state_access_t *state, const address_t *addr) {
-  world_state_t *ws = (world_state_t *)state;
+  const auto ws = (world_state_t *)state;
   account_t acc;
   if (!world_state_get_account(ws, addr, &acc)) {
     return uint256_zero();
@@ -187,8 +187,8 @@ static uint256_t ws_get_balance(state_access_t *state, const address_t *addr) {
   return acc.balance;
 }
 
-static void ws_set_balance(state_access_t *state, const address_t *addr, uint256_t balance) {
-  world_state_t *ws = (world_state_t *)state;
+static void ws_set_balance(state_access_t *state, const address_t *addr, const uint256_t balance) {
+  const auto ws = (world_state_t *)state;
   account_t acc;
   if (!world_state_get_account(ws, addr, &acc)) {
     acc = account_empty();
@@ -197,15 +197,15 @@ static void ws_set_balance(state_access_t *state, const address_t *addr, uint256
   world_state_set_account(ws, addr, &acc);
 }
 
-static bool ws_add_balance(state_access_t *state, const address_t *addr, uint256_t amount) {
-  world_state_t *ws = (world_state_t *)state;
+static bool ws_add_balance(state_access_t *state, const address_t *addr, const uint256_t amount) {
+  const auto ws = (world_state_t *)state;
   account_t acc;
   if (!world_state_get_account(ws, addr, &acc)) {
     acc = account_empty();
   }
 
   // Check for overflow
-  uint256_t new_balance = uint256_add(acc.balance, amount);
+  const uint256_t new_balance = uint256_add(acc.balance, amount);
   if (uint256_lt(new_balance, acc.balance)) {
     return false; // Overflow
   }
@@ -215,8 +215,8 @@ static bool ws_add_balance(state_access_t *state, const address_t *addr, uint256
   return true;
 }
 
-static bool ws_sub_balance(state_access_t *state, const address_t *addr, uint256_t amount) {
-  world_state_t *ws = (world_state_t *)state;
+static bool ws_sub_balance(state_access_t *state, const address_t *addr, const uint256_t amount) {
+  const auto ws = (world_state_t *)state;
   account_t acc;
   if (!world_state_get_account(ws, addr, &acc)) {
     return uint256_is_zero(amount); // Can only subtract 0 from non-existent
@@ -233,7 +233,7 @@ static bool ws_sub_balance(state_access_t *state, const address_t *addr, uint256
 }
 
 static uint64_t ws_get_nonce(state_access_t *state, const address_t *addr) {
-  world_state_t *ws = (world_state_t *)state;
+  const auto ws = (world_state_t *)state;
   account_t acc;
   if (!world_state_get_account(ws, addr, &acc)) {
     return 0;
@@ -241,8 +241,8 @@ static uint64_t ws_get_nonce(state_access_t *state, const address_t *addr) {
   return acc.nonce;
 }
 
-static void ws_set_nonce(state_access_t *state, const address_t *addr, uint64_t nonce) {
-  world_state_t *ws = (world_state_t *)state;
+static void ws_set_nonce(state_access_t *state, const address_t *addr, const uint64_t nonce) {
+  const auto ws = (world_state_t *)state;
   account_t acc;
   if (!world_state_get_account(ws, addr, &acc)) {
     acc = account_empty();
@@ -252,12 +252,12 @@ static void ws_set_nonce(state_access_t *state, const address_t *addr, uint64_t 
 }
 
 static uint64_t ws_increment_nonce(state_access_t *state, const address_t *addr) {
-  world_state_t *ws = (world_state_t *)state;
+  const auto ws = (world_state_t *)state;
   account_t acc;
   if (!world_state_get_account(ws, addr, &acc)) {
     acc = account_empty();
   }
-  uint64_t old_nonce = acc.nonce;
+  const uint64_t old_nonce = acc.nonce;
 
   // Check for nonce overflow (EIP-2681 limits nonce to 2^64-2)
   if (acc.nonce >= UINT64_MAX - 1) {
@@ -269,11 +269,11 @@ static uint64_t ws_increment_nonce(state_access_t *state, const address_t *addr)
   return old_nonce;
 }
 
-static bytes_t ws_get_code(state_access_t *state, const address_t *addr) {
-  world_state_t *ws = (world_state_t *)state;
-  code_map *c_map = (code_map *)ws->code_store;
+static bytes_t ws_get_code(state_access_t *const state, const address_t *const addr) {
+  const auto ws = (world_state_t *)state;
+  const auto c_map = (code_map *)ws->code_store;
 
-  const code_map_value *entry = code_map_get(c_map, *addr);
+  const code_map_value *const entry = code_map_get(c_map, *addr);
   if (entry != nullptr) {
     return entry->second;
   }
@@ -283,13 +283,13 @@ static bytes_t ws_get_code(state_access_t *state, const address_t *addr) {
   return empty;
 }
 
-static size_t ws_get_code_size(state_access_t *state, const address_t *addr) {
-  bytes_t code = ws_get_code(state, addr);
+static size_t ws_get_code_size(state_access_t *const state, const address_t *const addr) {
+  const bytes_t code = ws_get_code(state, addr);
   return code.size;
 }
 
 static hash_t ws_get_code_hash(state_access_t *state, const address_t *addr) {
-  world_state_t *ws = (world_state_t *)state;
+  const auto ws = (world_state_t *)state;
   account_t acc;
   if (!world_state_get_account(ws, addr, &acc)) {
     return EMPTY_CODE_HASH;
@@ -298,11 +298,11 @@ static hash_t ws_get_code_hash(state_access_t *state, const address_t *addr) {
 }
 
 static void ws_set_code(state_access_t *state, const address_t *addr, const uint8_t *code,
-                        size_t code_len) {
-  world_state_t *ws = (world_state_t *)state;
+                        const size_t code_len) {
+  const auto ws = (world_state_t *)state;
 
   // Store code in code map
-  code_map *c_map = (code_map *)ws->code_store;
+  const auto c_map = (code_map *)ws->code_store;
   bytes_t code_bytes;
   bytes_init_arena(&code_bytes, ws->arena);
   if (code_len > 0) {
@@ -325,18 +325,19 @@ static void ws_set_code(state_access_t *state, const address_t *addr, const uint
   world_state_set_account(ws, addr, &acc);
 }
 
-static uint256_t ws_get_storage(state_access_t *state, const address_t *addr, uint256_t slot) {
-  world_state_t *ws = (world_state_t *)state;
+static uint256_t ws_get_storage(state_access_t *const state, const address_t *const addr,
+                                const uint256_t slot) {
+  const auto ws = (world_state_t *)state;
 
-  storage_trie_map *st_map = (storage_trie_map *)ws->storage_tries;
-  const storage_trie_map_value *entry = storage_trie_map_get(st_map, *addr);
+  const auto st_map = (storage_trie_map *)ws->storage_tries;
+  const storage_trie_map_value *const entry = storage_trie_map_get(st_map, *addr);
   if (entry == nullptr) {
     return uint256_zero();
   }
 
-  mpt_t *storage = entry->second;
-  hash_t key = slot_to_key(slot);
-  bytes_t value = mpt_get(storage, key.bytes, HASH_SIZE);
+  const mpt_t *const storage = entry->second;
+  const hash_t key = slot_to_key(slot);
+  const bytes_t value = mpt_get(storage, key.bytes, HASH_SIZE);
   if (value.data == nullptr || value.size == 0) {
     return uint256_zero();
   }
@@ -345,13 +346,13 @@ static uint256_t ws_get_storage(state_access_t *state, const address_t *addr, ui
   return uint256_from_bytes_be(value.data, value.size);
 }
 
-static uint256_t ws_get_original_storage(state_access_t *state, const address_t *addr,
-                                         uint256_t slot) {
-  world_state_t *ws = (world_state_t *)state;
-  original_storage_map *orig_map = (original_storage_map *)ws->original_storage;
+static uint256_t ws_get_original_storage(state_access_t *const state, const address_t *const addr,
+                                         const uint256_t slot) {
+  const auto ws = (world_state_t *)state;
+  const auto orig_map = (original_storage_map *)ws->original_storage;
 
-  warm_slot_key_t key = {.addr = *addr, .slot = slot};
-  const original_storage_map_value *entry = original_storage_map_get(orig_map, key);
+  const warm_slot_key_t key = {.addr = *addr, .slot = slot};
+  const original_storage_map_value *const entry = original_storage_map_get(orig_map, key);
 
   if (entry != nullptr) {
     return entry->second;
@@ -361,24 +362,24 @@ static uint256_t ws_get_original_storage(state_access_t *state, const address_t 
   return ws_get_storage(state, addr, slot);
 }
 
-static void ws_set_storage(state_access_t *state, const address_t *addr, uint256_t slot,
-                           uint256_t value) {
-  world_state_t *ws = (world_state_t *)state;
+static void ws_set_storage(state_access_t *const state, const address_t *const addr,
+                           const uint256_t slot, const uint256_t value) {
+  const auto ws = (world_state_t *)state;
 
   // Record original value on first write (for EIP-2200 gas calculation)
-  original_storage_map *orig_map = (original_storage_map *)ws->original_storage;
-  warm_slot_key_t slot_key = {.addr = *addr, .slot = slot};
+  const auto orig_map = (original_storage_map *)ws->original_storage;
+  const warm_slot_key_t slot_key = {.addr = *addr, .slot = slot};
   if (!original_storage_map_contains(orig_map, slot_key)) {
-    uint256_t original = ws_get_storage(state, addr, slot);
+    const uint256_t original = ws_get_storage(state, addr, slot);
     original_storage_map_insert(orig_map, slot_key, original);
   }
 
   // Mark address as having dirty storage for efficient state root computation
-  dirty_addr_set *dirty = (dirty_addr_set *)ws->dirty_storage;
+  const auto dirty = (dirty_addr_set *)ws->dirty_storage;
   dirty_addr_set_insert(dirty, *addr);
 
   // Track slot for post-state export
-  all_slots_set *all_slots = (all_slots_set *)ws->all_storage_slots;
+  const auto all_slots = (all_slots_set *)ws->all_storage_slots;
   if (uint256_is_zero(value)) {
     // Remove slot from tracking on deletion
     all_slots_set_erase(all_slots, slot_key);
@@ -387,8 +388,8 @@ static void ws_set_storage(state_access_t *state, const address_t *addr, uint256
     all_slots_set_insert(all_slots, slot_key);
   }
 
-  mpt_t *storage = world_state_get_storage_trie(ws, addr);
-  hash_t key = slot_to_key(slot);
+  mpt_t *const storage = world_state_get_storage_trie(ws, addr);
+  const hash_t key = slot_to_key(slot);
 
   if (uint256_is_zero(value)) {
     // Delete the slot
@@ -408,14 +409,14 @@ static void ws_set_storage(state_access_t *state, const address_t *addr, uint256
 }
 
 static bool ws_is_address_warm(state_access_t *state, const address_t *addr) {
-  world_state_t *ws = (world_state_t *)state;
-  warm_addr_set *set = (warm_addr_set *)ws->warm_addresses;
+  const auto ws = (world_state_t *)state;
+  const auto set = (warm_addr_set *)ws->warm_addresses;
   return warm_addr_set_contains(set, *addr);
 }
 
 static bool ws_warm_address(state_access_t *state, const address_t *addr) {
-  world_state_t *ws = (world_state_t *)state;
-  warm_addr_set *set = (warm_addr_set *)ws->warm_addresses;
+  const auto ws = (world_state_t *)state;
+  const auto set = (warm_addr_set *)ws->warm_addresses;
 
   if (warm_addr_set_contains(set, *addr)) {
     return false; // Already warm, not cold
@@ -425,17 +426,19 @@ static bool ws_warm_address(state_access_t *state, const address_t *addr) {
   return true; // Was cold (first access)
 }
 
-static bool ws_is_slot_warm(state_access_t *state, const address_t *addr, uint256_t slot) {
-  world_state_t *ws = (world_state_t *)state;
-  warm_slot_set *set = (warm_slot_set *)ws->warm_slots;
-  warm_slot_key_t key = {.addr = *addr, .slot = slot};
+static bool ws_is_slot_warm(state_access_t *const state, const address_t *const addr,
+                            const uint256_t slot) {
+  const auto ws = (world_state_t *)state;
+  const auto set = (warm_slot_set *)ws->warm_slots;
+  const warm_slot_key_t key = {.addr = *addr, .slot = slot};
   return warm_slot_set_contains(set, key);
 }
 
-static bool ws_warm_slot(state_access_t *state, const address_t *addr, uint256_t slot) {
-  world_state_t *ws = (world_state_t *)state;
-  warm_slot_set *set = (warm_slot_set *)ws->warm_slots;
-  warm_slot_key_t key = {.addr = *addr, .slot = slot};
+static bool ws_warm_slot(state_access_t *const state, const address_t *const addr,
+                         const uint256_t slot) {
+  const auto ws = (world_state_t *)state;
+  const auto set = (warm_slot_set *)ws->warm_slots;
+  const warm_slot_key_t key = {.addr = *addr, .slot = slot};
 
   if (warm_slot_set_contains(set, key)) {
     return false; // Already warm, not cold
@@ -446,17 +449,17 @@ static bool ws_warm_slot(state_access_t *state, const address_t *addr, uint256_t
 }
 
 static void ws_begin_transaction(state_access_t *state) {
-  world_state_t *ws = (world_state_t *)state;
+  const auto ws = (world_state_t *)state;
 
   // Clear warm sets
-  warm_addr_set *addr_set = (warm_addr_set *)ws->warm_addresses;
+  const auto addr_set = (warm_addr_set *)ws->warm_addresses;
   warm_addr_set_clear(addr_set);
 
-  warm_slot_set *slot_set = (warm_slot_set *)ws->warm_slots;
+  const auto slot_set = (warm_slot_set *)ws->warm_slots;
   warm_slot_set_clear(slot_set);
 
   // Clear original storage tracking
-  original_storage_map *orig_map = (original_storage_map *)ws->original_storage;
+  const auto orig_map = (original_storage_map *)ws->original_storage;
   original_storage_map_clear(orig_map);
 }
 
@@ -466,30 +469,32 @@ static void ws_begin_transaction(state_access_t *state) {
 // See: https://github.com/daniellehrner/div0/issues/XX
 
 static uint64_t ws_snapshot(state_access_t *state) {
-  world_state_t *ws = (world_state_t *)state;
+  const auto ws = (world_state_t *)state;
   // Returns incrementing ID for API compatibility, but no journaling occurs
   return ++ws->snapshot_counter;
 }
 
-static void ws_revert_to_snapshot(state_access_t *state, uint64_t snapshot_id) {
+// NOLINTNEXTLINE(CppParameterMayBeConstPtrOrRef) - vtable semantic contract: revert modifies state
+static void ws_revert_to_snapshot(state_access_t *const state, const uint64_t snapshot_id) {
   (void)state;
   (void)snapshot_id;
   // FIXME: No-op - requires journaling all state changes since snapshot
 }
 
-static void ws_commit_snapshot(state_access_t *state, uint64_t snapshot_id) {
+// NOLINTNEXTLINE(CppParameterMayBeConstPtrOrRef) - vtable semantic contract: commit modifies state
+static void ws_commit_snapshot(state_access_t *const state, const uint64_t snapshot_id) {
   (void)state;
   (void)snapshot_id;
   // FIXME: No-op - would discard journal entries for the snapshot
 }
 
 static hash_t ws_state_root(state_access_t *state) {
-  world_state_t *ws = (world_state_t *)state;
+  const auto ws = (world_state_t *)state;
   return world_state_root(ws);
 }
 
 static void ws_destroy(state_access_t *state) {
-  world_state_t *ws = (world_state_t *)state;
+  const auto ws = (world_state_t *)state;
   world_state_destroy(ws);
 }
 
@@ -541,7 +546,7 @@ static const state_access_vtable_t WORLD_STATE_VTABLE = {
 // Public API Implementation
 // =============================================================================
 
-world_state_t *world_state_create(div0_arena_t *arena) {
+world_state_t *world_state_create(div0_arena_t *const arena) {
   if (arena == nullptr) {
     return nullptr;
   }
@@ -549,7 +554,7 @@ world_state_t *world_state_create(div0_arena_t *arena) {
   // Set thread-local arena for STC containers
   div0_stc_arena = arena;
 
-  world_state_t *ws = div0_arena_alloc(arena, sizeof(world_state_t));
+  world_state_t *const ws = div0_arena_alloc(arena, sizeof(world_state_t));
   if (ws == nullptr) {
     return nullptr;
   }
@@ -636,36 +641,37 @@ fail:
   // On failure, clean up any initialized STC containers
   // Note: STC _drop is safe to call on zero-initialized containers
   if (ws->storage_tries != nullptr) {
-    storage_trie_map_drop((storage_trie_map *)ws->storage_tries);
+    storage_trie_map_drop(ws->storage_tries);
   }
   if (ws->code_store != nullptr) {
-    code_map_drop((code_map *)ws->code_store);
+    code_map_drop(ws->code_store);
   }
   if (ws->warm_addresses != nullptr) {
-    warm_addr_set_drop((warm_addr_set *)ws->warm_addresses);
+    warm_addr_set_drop(ws->warm_addresses);
   }
   if (ws->warm_slots != nullptr) {
-    warm_slot_set_drop((warm_slot_set *)ws->warm_slots);
+    warm_slot_set_drop(ws->warm_slots);
   }
   if (ws->original_storage != nullptr) {
-    original_storage_map_drop((original_storage_map *)ws->original_storage);
+    original_storage_map_drop(ws->original_storage);
   }
   if (ws->dirty_storage != nullptr) {
-    dirty_addr_set_drop((dirty_addr_set *)ws->dirty_storage);
+    dirty_addr_set_drop(ws->dirty_storage);
   }
   if (ws->all_accounts != nullptr) {
-    all_accounts_set_drop((all_accounts_set *)ws->all_accounts);
+    all_accounts_set_drop(ws->all_accounts);
   }
   if (ws->all_storage_slots != nullptr) {
-    all_slots_set_drop((all_slots_set *)ws->all_storage_slots);
+    all_slots_set_drop(ws->all_storage_slots);
   }
   // Arena memory is not freed (owned by caller)
   return nullptr;
 }
 
-bool world_state_get_account(world_state_t *ws, const address_t *addr, account_t *out) {
-  hash_t key = address_to_key(addr);
-  bytes_t value = mpt_get(&ws->state_trie, key.bytes, HASH_SIZE);
+bool world_state_get_account(const world_state_t *const ws, const address_t *const addr,
+                             account_t *const out) {
+  const hash_t key = address_to_key(addr);
+  const bytes_t value = mpt_get(&ws->state_trie, key.bytes, HASH_SIZE);
 
   if (value.data == nullptr) {
     *out = account_empty();
@@ -680,27 +686,28 @@ bool world_state_get_account(world_state_t *ws, const address_t *addr, account_t
   return true;
 }
 
-bool world_state_set_account(world_state_t *ws, const address_t *addr, const account_t *acc) {
-  hash_t key = address_to_key(addr);
+bool world_state_set_account(world_state_t *const ws, const address_t *const addr,
+                             const account_t *const acc) {
+  const hash_t key = address_to_key(addr);
 
   // EIP-161: Don't store empty accounts
   if (account_is_empty(acc)) {
     mpt_delete(&ws->state_trie, key.bytes, HASH_SIZE);
     // Remove from all_accounts set when account becomes empty
-    all_accounts_set *all_accts = (all_accounts_set *)ws->all_accounts;
+    const auto all_accts = (all_accounts_set *)ws->all_accounts;
     all_accounts_set_erase(all_accts, *addr);
     // Also remove all storage slots for this account
-    all_slots_set *all_slots = (all_slots_set *)ws->all_storage_slots;
+    const auto all_slots = (all_slots_set *)ws->all_storage_slots;
     erase_slots_for_address(all_slots, addr);
     return true;
   }
 
   // Track this address in all_accounts set for post-state export
-  all_accounts_set *all_accts = (all_accounts_set *)ws->all_accounts;
+  const auto all_accts = (all_accounts_set *)ws->all_accounts;
   all_accounts_set_insert(all_accts, *addr);
 
   // RLP-encode account
-  bytes_t encoded = account_rlp_encode(acc, ws->arena);
+  const bytes_t encoded = account_rlp_encode(acc, ws->arena);
   if (encoded.data == nullptr) {
     return false;
   }
@@ -709,22 +716,23 @@ bool world_state_set_account(world_state_t *ws, const address_t *addr, const acc
   return true;
 }
 
-mpt_t *world_state_get_storage_trie(world_state_t *ws, const address_t *addr) {
-  storage_trie_map *st_map = (storage_trie_map *)ws->storage_tries;
+// NOLINTNEXTLINE(CppParameterMayBeConstPtrOrRef) - modifies ws->storage_tries through cast
+mpt_t *world_state_get_storage_trie(world_state_t *const ws, const address_t *addr) {
+  const auto st_map = (storage_trie_map *)ws->storage_tries;
 
   // Check if storage trie exists
-  const storage_trie_map_value *entry = storage_trie_map_get(st_map, *addr);
+  const storage_trie_map_value *const entry = storage_trie_map_get(st_map, *addr);
   if (entry != nullptr) {
     return entry->second;
   }
 
   // Create new storage trie
-  mpt_backend_t *backend = mpt_memory_backend_create(ws->arena);
+  mpt_backend_t *const backend = mpt_memory_backend_create(ws->arena);
   if (backend == nullptr) {
     return nullptr;
   }
 
-  mpt_t *storage = div0_arena_alloc(ws->arena, sizeof(mpt_t));
+  mpt_t *const storage = div0_arena_alloc(ws->arena, sizeof(mpt_t));
   if (storage == nullptr) {
     return nullptr;
   }
@@ -735,22 +743,22 @@ mpt_t *world_state_get_storage_trie(world_state_t *ws, const address_t *addr) {
   return storage;
 }
 
-hash_t world_state_root(world_state_t *ws) {
+hash_t world_state_root(world_state_t *const ws) {
   // Only update storage roots for accounts with dirty storage
-  dirty_addr_set *dirty = (dirty_addr_set *)ws->dirty_storage;
-  storage_trie_map *st_map = (storage_trie_map *)ws->storage_tries;
+  const auto dirty = (dirty_addr_set *)ws->dirty_storage;
+  const auto st_map = (storage_trie_map *)ws->storage_tries;
 
   for (dirty_addr_set_iter it = dirty_addr_set_begin(dirty);
        it.ref != dirty_addr_set_end(dirty).ref; dirty_addr_set_next(&it)) {
 
-    address_t addr = *it.ref;
+    const address_t addr = *it.ref;
 
     // Get storage trie for this address
-    const storage_trie_map_value *entry = storage_trie_map_get(st_map, addr);
+    const storage_trie_map_value *const entry = storage_trie_map_get(st_map, addr);
     if (entry == nullptr) {
       continue; // No storage trie (shouldn't happen if dirty)
     }
-    mpt_t *storage = entry->second;
+    const mpt_t *const storage = entry->second;
 
     // Get current account
     account_t acc;
@@ -772,58 +780,59 @@ hash_t world_state_root(world_state_t *ws) {
   return mpt_root_hash(&ws->state_trie);
 }
 
-void world_state_clear(world_state_t *ws) {
+void world_state_clear(world_state_t *const ws) {
   mpt_clear(&ws->state_trie);
 
-  storage_trie_map *st_map = (storage_trie_map *)ws->storage_tries;
+  const auto st_map = (storage_trie_map *)ws->storage_tries;
   storage_trie_map_clear(st_map);
 
-  code_map *c_map = (code_map *)ws->code_store;
+  const auto c_map = (code_map *)ws->code_store;
   code_map_clear(c_map);
 
-  warm_addr_set *wa_set = (warm_addr_set *)ws->warm_addresses;
+  const auto wa_set = (warm_addr_set *)ws->warm_addresses;
   warm_addr_set_clear(wa_set);
 
-  warm_slot_set *ws_set = (warm_slot_set *)ws->warm_slots;
+  const auto ws_set = (warm_slot_set *)ws->warm_slots;
   warm_slot_set_clear(ws_set);
 
-  original_storage_map *orig_map = (original_storage_map *)ws->original_storage;
+  const auto orig_map = (original_storage_map *)ws->original_storage;
   original_storage_map_clear(orig_map);
 
-  dirty_addr_set *dirty = (dirty_addr_set *)ws->dirty_storage;
+  const auto dirty = (dirty_addr_set *)ws->dirty_storage;
   dirty_addr_set_clear(dirty);
 
-  all_accounts_set *all_accts = (all_accounts_set *)ws->all_accounts;
+  const auto all_accts = (all_accounts_set *)ws->all_accounts;
   all_accounts_set_clear(all_accts);
 
-  all_slots_set *all_slots = (all_slots_set *)ws->all_storage_slots;
+  const auto all_slots = (all_slots_set *)ws->all_storage_slots;
   all_slots_set_clear(all_slots);
 }
 
-void world_state_destroy(world_state_t *ws) {
+// NOLINTNEXTLINE(CppParameterMayBeConstPtrOrRef) - modifies ws members through casts
+void world_state_destroy(world_state_t *const ws) {
   // Clean up hash tables
-  storage_trie_map *st_map = (storage_trie_map *)ws->storage_tries;
+  const auto st_map = (storage_trie_map *)ws->storage_tries;
   storage_trie_map_drop(st_map);
 
-  code_map *c_map = (code_map *)ws->code_store;
+  const auto c_map = (code_map *)ws->code_store;
   code_map_drop(c_map);
 
-  warm_addr_set *wa_set = (warm_addr_set *)ws->warm_addresses;
+  const auto wa_set = (warm_addr_set *)ws->warm_addresses;
   warm_addr_set_drop(wa_set);
 
-  warm_slot_set *ws_set = (warm_slot_set *)ws->warm_slots;
+  const auto ws_set = (warm_slot_set *)ws->warm_slots;
   warm_slot_set_drop(ws_set);
 
-  original_storage_map *orig_map = (original_storage_map *)ws->original_storage;
+  const auto orig_map = (original_storage_map *)ws->original_storage;
   original_storage_map_drop(orig_map);
 
-  dirty_addr_set *dirty = (dirty_addr_set *)ws->dirty_storage;
+  const auto dirty = (dirty_addr_set *)ws->dirty_storage;
   dirty_addr_set_drop(dirty);
 
-  all_accounts_set *all_accts = (all_accounts_set *)ws->all_accounts;
+  const auto all_accts = (all_accounts_set *)ws->all_accounts;
   all_accounts_set_drop(all_accts);
 
-  all_slots_set *all_slots = (all_slots_set *)ws->all_storage_slots;
+  const auto all_slots = (all_slots_set *)ws->all_storage_slots;
   all_slots_set_drop(all_slots);
 
   // Note: Arena memory is not freed here (owned by caller)
@@ -835,7 +844,7 @@ void world_state_destroy(world_state_t *ws) {
 
 /// Erase all storage slots for a specific address.
 /// This is used when an account is deleted (becomes empty).
-static void erase_slots_for_address(all_slots_set *all_slots, const address_t *addr) {
+static void erase_slots_for_address(all_slots_set *const all_slots, const address_t *const addr) {
   // We cannot erase during iteration, so collect keys first
   // Use a fixed-size stack buffer for common cases, fall back to slower repeated iteration
   warm_slot_key_t to_erase[64];
@@ -865,13 +874,14 @@ static void erase_slots_for_address(all_slots_set *all_slots, const address_t *a
   }
 }
 
-bool world_state_snapshot(world_state_t *ws, div0_arena_t *arena, state_snapshot_t *out) {
-  all_accounts_set *all_accts = (all_accounts_set *)ws->all_accounts;
-  all_slots_set *all_slots = (all_slots_set *)ws->all_storage_slots;
-  code_map *c_map = (code_map *)ws->code_store;
+bool world_state_snapshot(world_state_t *const ws, div0_arena_t *const arena,
+                          state_snapshot_t *const out) {
+  const auto all_accts = (all_accounts_set *)ws->all_accounts;
+  const auto all_slots = (all_slots_set *)ws->all_storage_slots;
+  const auto c_map = (code_map *)ws->code_store;
 
   // Count accounts
-  size_t account_count = (size_t)all_accounts_set_size(all_accts);
+  const size_t account_count = (size_t)all_accounts_set_size(all_accts);
   if (account_count == 0) {
     out->accounts = nullptr;
     out->account_count = 0;
@@ -891,8 +901,8 @@ bool world_state_snapshot(world_state_t *ws, div0_arena_t *arena, state_snapshot
   for (all_accounts_set_iter it = all_accounts_set_begin(all_accts);
        it.ref != all_accounts_set_end(all_accts).ref; all_accounts_set_next(&it)) {
 
-    address_t addr = *it.ref;
-    account_snapshot_t *snap_acc = &out->accounts[valid_count];
+    const address_t addr = *it.ref;
+    account_snapshot_t *const snap_acc = &out->accounts[valid_count];
 
     // Initialize
     __builtin___memset_chk(snap_acc, 0, sizeof(*snap_acc), __builtin_object_size(snap_acc, 0));
@@ -909,7 +919,7 @@ bool world_state_snapshot(world_state_t *ws, div0_arena_t *arena, state_snapshot
     snap_acc->nonce = acc.nonce;
 
     // Get code
-    const code_map_value *code_entry = code_map_get(c_map, addr);
+    const code_map_value *const code_entry = code_map_get(c_map, addr);
     if (code_entry != nullptr && code_entry->second.size > 0) {
       snap_acc->code.size = code_entry->second.size;
       snap_acc->code.data = div0_arena_alloc(arena, code_entry->second.size);
@@ -968,14 +978,14 @@ bool world_state_snapshot(world_state_t *ws, div0_arena_t *arena, state_snapshot
     // Find account index for this slot's address
     for (size_t i = 0; i < valid_count; i++) {
       if (address_equal(&slot_it.ref->addr, &out->accounts[i].address)) {
-        uint256_t slot = slot_it.ref->slot;
-        uint256_t value = ws_get_storage(&ws->base, &out->accounts[i].address, slot);
+        const uint256_t slot = slot_it.ref->slot;
+        const uint256_t val = ws_get_storage(&ws->base, &out->accounts[i].address, slot);
 
         // Only include non-zero values
-        if (!uint256_is_zero(value)) {
-          size_t idx = slot_counts[i]++;
+        if (!uint256_is_zero(val)) {
+          const size_t idx = slot_counts[i]++;
           out->accounts[i].storage[idx].slot = slot;
-          out->accounts[i].storage[idx].value = value;
+          out->accounts[i].storage[idx].value = val;
         }
         break;
       }

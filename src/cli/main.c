@@ -68,7 +68,7 @@ int main(int argc, const char **argv) {
 
   // Dispatch to subcommand (false positive: nullptr sentinel terminates loop)
   // NOLINTNEXTLINE(clang-analyzer-security.ArrayBound)
-  for (struct cmd_struct *p = commands; p->cmd != nullptr; p++) {
+  for (const struct cmd_struct *p = commands; p->cmd != nullptr; p++) {
     if (strcmp(p->cmd, argv[0]) == 0) {
       return p->fn(argc, argv);
     }

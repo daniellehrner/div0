@@ -14,7 +14,7 @@ static uint8_t read_byte(rlp_decoder_t *decoder) {
 }
 
 /// Helper: decode length from multi-byte encoding.
-static rlp_bytes_result_t decode_length(rlp_decoder_t *decoder, int num_bytes) {
+static rlp_bytes_result_t decode_length(rlp_decoder_t *const decoder, const int num_bytes) {
   rlp_bytes_result_t result = {
       .data = nullptr, .len = 0, .bytes_consumed = 0, .error = RLP_SUCCESS};
 
@@ -39,7 +39,7 @@ static rlp_bytes_result_t decode_length(rlp_decoder_t *decoder, int num_bytes) {
   return result;
 }
 
-rlp_bytes_result_t rlp_decode_bytes(rlp_decoder_t *decoder) {
+rlp_bytes_result_t rlp_decode_bytes(rlp_decoder_t *const decoder) {
   rlp_bytes_result_t result = {
       .data = nullptr, .len = 0, .bytes_consumed = 0, .error = RLP_SUCCESS};
 
@@ -48,8 +48,8 @@ rlp_bytes_result_t rlp_decode_bytes(rlp_decoder_t *decoder) {
     return result;
   }
 
-  size_t start_pos = decoder->pos;
-  uint8_t prefix = read_byte(decoder);
+  const size_t start_pos = decoder->pos;
+  const uint8_t prefix = read_byte(decoder);
 
   // Single byte [0x00, 0x7f]
   if (prefix <= RLP_SINGLE_BYTE_MAX) {
@@ -61,7 +61,7 @@ rlp_bytes_result_t rlp_decode_bytes(rlp_decoder_t *decoder) {
 
   // Short string [0x80, 0xb7]: length = prefix - 0x80
   if (prefix <= RLP_SHORT_STRING_MAX) {
-    size_t len = prefix - RLP_EMPTY_STRING_BYTE;
+    const size_t len = prefix - RLP_EMPTY_STRING_BYTE;
 
     if (remaining(decoder) < len) {
       result.error = RLP_ERR_INPUT_TOO_SHORT;
@@ -84,15 +84,15 @@ rlp_bytes_result_t rlp_decode_bytes(rlp_decoder_t *decoder) {
 
   // Long string [0xb8, 0xbf]: length of length = prefix - 0xb7
   if (prefix <= RLP_LONG_STRING_MAX) {
-    int len_of_len = prefix - RLP_SHORT_STRING_MAX;
+    const int len_of_len = prefix - RLP_SHORT_STRING_MAX;
 
-    rlp_bytes_result_t len_result = decode_length(decoder, len_of_len);
+    const rlp_bytes_result_t len_result = decode_length(decoder, len_of_len);
     if (len_result.error != RLP_SUCCESS) {
       result.error = len_result.error;
       return result;
     }
 
-    size_t len = len_result.len;
+    const size_t len = len_result.len;
 
     // Check canonical: could this have used short string encoding?
     if (len < RLP_SMALL_PREFIX_BARRIER) {
@@ -119,10 +119,10 @@ rlp_bytes_result_t rlp_decode_bytes(rlp_decoder_t *decoder) {
   return result;
 }
 
-rlp_u64_result_t rlp_decode_u64(rlp_decoder_t *decoder) {
+rlp_u64_result_t rlp_decode_u64(rlp_decoder_t *const decoder) {
   rlp_u64_result_t result = {.value = 0, .bytes_consumed = 0, .error = RLP_SUCCESS};
 
-  rlp_bytes_result_t bytes_result = rlp_decode_bytes(decoder);
+  const rlp_bytes_result_t bytes_result = rlp_decode_bytes(decoder);
   if (bytes_result.error != RLP_SUCCESS) {
     result.error = bytes_result.error;
     return result;
@@ -157,11 +157,11 @@ rlp_u64_result_t rlp_decode_u64(rlp_decoder_t *decoder) {
   return result;
 }
 
-rlp_uint256_result_t rlp_decode_uint256(rlp_decoder_t *decoder) {
+rlp_uint256_result_t rlp_decode_uint256(rlp_decoder_t *const decoder) {
   rlp_uint256_result_t result = {
       .value = uint256_zero(), .bytes_consumed = 0, .error = RLP_SUCCESS};
 
-  rlp_bytes_result_t bytes_result = rlp_decode_bytes(decoder);
+  const rlp_bytes_result_t bytes_result = rlp_decode_bytes(decoder);
   if (bytes_result.error != RLP_SUCCESS) {
     result.error = bytes_result.error;
     return result;
@@ -191,11 +191,11 @@ rlp_uint256_result_t rlp_decode_uint256(rlp_decoder_t *decoder) {
   return result;
 }
 
-rlp_address_result_t rlp_decode_address(rlp_decoder_t *decoder) {
+rlp_address_result_t rlp_decode_address(rlp_decoder_t *const decoder) {
   rlp_address_result_t result = {
       .value = address_zero(), .bytes_consumed = 0, .error = RLP_SUCCESS};
 
-  rlp_bytes_result_t bytes_result = rlp_decode_bytes(decoder);
+  const rlp_bytes_result_t bytes_result = rlp_decode_bytes(decoder);
   if (bytes_result.error != RLP_SUCCESS) {
     result.error = bytes_result.error;
     return result;
@@ -213,7 +213,7 @@ rlp_address_result_t rlp_decode_address(rlp_decoder_t *decoder) {
   return result;
 }
 
-rlp_list_result_t rlp_decode_list_header(rlp_decoder_t *decoder) {
+rlp_list_result_t rlp_decode_list_header(rlp_decoder_t *const decoder) {
   rlp_list_result_t result = {.payload_length = 0, .bytes_consumed = 0, .error = RLP_SUCCESS};
 
   if (!rlp_decoder_has_more(decoder)) {
@@ -221,7 +221,7 @@ rlp_list_result_t rlp_decode_list_header(rlp_decoder_t *decoder) {
     return result;
   }
 
-  uint8_t prefix = read_byte(decoder);
+  const uint8_t prefix = read_byte(decoder);
 
   // Check it's actually a list
   if (prefix <= RLP_LONG_STRING_MAX) {
@@ -237,15 +237,15 @@ rlp_list_result_t rlp_decode_list_header(rlp_decoder_t *decoder) {
   }
 
   // Long list [0xf8, 0xff]: length of length = prefix - 0xf7
-  int len_of_len = prefix - RLP_SHORT_LIST_MAX;
+  const int len_of_len = prefix - RLP_SHORT_LIST_MAX;
 
-  rlp_bytes_result_t len_result = decode_length(decoder, len_of_len);
+  const rlp_bytes_result_t len_result = decode_length(decoder, len_of_len);
   if (len_result.error != RLP_SUCCESS) {
     result.error = len_result.error;
     return result;
   }
 
-  size_t payload_len = len_result.len;
+  const size_t payload_len = len_result.len;
 
   // Check canonical: could this have used short list encoding?
   if (payload_len < RLP_SMALL_PREFIX_BARRIER) {
@@ -259,12 +259,12 @@ rlp_list_result_t rlp_decode_list_header(rlp_decoder_t *decoder) {
   return result;
 }
 
-void rlp_skip_item(rlp_decoder_t *decoder) {
+void rlp_skip_item(rlp_decoder_t *const decoder) {
   if (!rlp_decoder_has_more(decoder)) {
     return;
   }
 
-  uint8_t prefix = decoder->input[decoder->pos];
+  const uint8_t prefix = decoder->input[decoder->pos];
 
   // Single byte
   if (prefix <= RLP_SINGLE_BYTE_MAX) {
@@ -274,47 +274,47 @@ void rlp_skip_item(rlp_decoder_t *decoder) {
 
   // Short string
   if (prefix <= RLP_SHORT_STRING_MAX) {
-    size_t len = prefix - RLP_EMPTY_STRING_BYTE;
-    size_t new_pos = decoder->pos + 1 + len;
+    const size_t len = prefix - RLP_EMPTY_STRING_BYTE;
+    const size_t new_pos = decoder->pos + 1 + len;
     decoder->pos = new_pos < decoder->size ? new_pos : decoder->size;
     return;
   }
 
   // Long string
   if (prefix <= RLP_LONG_STRING_MAX) {
-    int len_of_len = prefix - RLP_SHORT_STRING_MAX;
+    const int len_of_len = prefix - RLP_SHORT_STRING_MAX;
     ++decoder->pos; // consume prefix
 
     size_t len = 0;
     for (int i = 0; i < len_of_len && decoder->pos < decoder->size; ++i) {
       len = (len << 8) | decoder->input[decoder->pos++];
     }
-    size_t new_pos = decoder->pos + len;
+    const size_t new_pos = decoder->pos + len;
     decoder->pos = new_pos < decoder->size ? new_pos : decoder->size;
     return;
   }
 
   // Short list
   if (prefix <= RLP_SHORT_LIST_MAX) {
-    size_t payload_len = prefix - RLP_EMPTY_LIST_BYTE;
-    size_t new_pos = decoder->pos + 1 + payload_len;
+    const size_t payload_len = prefix - RLP_EMPTY_LIST_BYTE;
+    const size_t new_pos = decoder->pos + 1 + payload_len;
     decoder->pos = new_pos < decoder->size ? new_pos : decoder->size;
     return;
   }
 
   // Long list
-  int len_of_len = prefix - RLP_SHORT_LIST_MAX;
+  const int len_of_len = prefix - RLP_SHORT_LIST_MAX;
   ++decoder->pos; // consume prefix
 
   size_t payload_len = 0;
   for (int i = 0; i < len_of_len && decoder->pos < decoder->size; ++i) {
     payload_len = (payload_len << 8) | decoder->input[decoder->pos++];
   }
-  size_t new_pos = decoder->pos + payload_len;
+  const size_t new_pos = decoder->pos + payload_len;
   decoder->pos = new_pos < decoder->size ? new_pos : decoder->size;
 }
 
-const char *rlp_error_string(rlp_error_t error) {
+const char *rlp_error_string(const rlp_error_t error) {
   switch (error) {
   case RLP_SUCCESS:
     return "success";

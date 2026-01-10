@@ -26,7 +26,7 @@ static uint8_t empty_value_sentinel = 0;
 // MPT Initialization
 // =============================================================================
 
-void mpt_init(mpt_t *mpt, mpt_backend_t *backend, div0_arena_t *work_arena) {
+void mpt_init(mpt_t *const mpt, mpt_backend_t *const backend, div0_arena_t *const work_arena) {
   mpt->backend = backend;
   mpt->work_arena = work_arena;
 }
@@ -36,7 +36,8 @@ void mpt_init(mpt_t *mpt, mpt_backend_t *backend, div0_arena_t *work_arena) {
 // =============================================================================
 
 /// Find the position where two nibble sequences diverge.
-static size_t find_divergence(const nibbles_t *path, const nibbles_t *key, size_t offset) {
+static size_t find_divergence(const nibbles_t *const path, const nibbles_t *const key,
+                              const size_t offset) {
   size_t i = 0;
   while (i < path->len && (offset + i) < key->len) {
     if (path->data[i] != key->data[offset + i]) {
@@ -50,8 +51,8 @@ static size_t find_divergence(const nibbles_t *path, const nibbles_t *key, size_
 /// Create a value copy in the backend's arena.
 /// For empty values (value_len == 0), uses a static sentinel to distinguish
 /// from "no value" (which has data == nullptr).
-static bytes_t copy_value(mpt_backend_t *backend, const uint8_t *value, size_t value_len,
-                          div0_arena_t *arena) {
+static bytes_t copy_value(const mpt_backend_t *const backend, const uint8_t *const value,
+                          const size_t value_len, div0_arena_t *const arena) {
   (void)backend; // May be used for backend-specific allocation
   bytes_t result;
   bytes_init_arena(&result, arena);
@@ -83,19 +84,20 @@ typedef enum {
 
 /// Recursively insert a key-value pair into a subtrie.
 /// Returns the new/modified node.
-static mpt_node_t *insert_recursive(mpt_backend_t *backend, mpt_node_t *node, const nibbles_t *key,
-                                    size_t offset, const uint8_t *value, size_t value_len,
-                                    div0_arena_t *arena) {
+static mpt_node_t *insert_recursive(mpt_backend_t *const backend, mpt_node_t *node,
+                                    const nibbles_t *const key, const size_t offset,
+                                    const uint8_t *const value, const size_t value_len,
+                                    div0_arena_t *const arena) {
   // Handle empty/null node - create a new leaf
   if (node == nullptr || node->type == MPT_NODE_EMPTY) {
-    mpt_node_t *new_node = backend->vtable->alloc_node(backend);
+    mpt_node_t *const new_node = backend->vtable->alloc_node(backend);
     if (new_node == nullptr) {
       return nullptr;
     }
     if (offset >= key->len) {
       *new_node = mpt_node_leaf(NIBBLES_EMPTY, copy_value(backend, value, value_len, arena));
     } else {
-      nibbles_t remaining = nibbles_slice(key, offset, SIZE_MAX, arena);
+      const nibbles_t remaining = nibbles_slice(key, offset, SIZE_MAX, arena);
       *new_node = mpt_node_leaf(remaining, copy_value(backend, value, value_len, arena));
     }
     return new_node;
@@ -112,19 +114,19 @@ static mpt_node_t *insert_recursive(mpt_backend_t *backend, mpt_node_t *node, co
         return node;
       }
       // Need branch: new value at branch, old leaf as child
-      mpt_node_t *branch = backend->vtable->alloc_node(backend);
+      mpt_node_t *const branch = backend->vtable->alloc_node(backend);
       if (branch == nullptr) {
         return nullptr;
       }
       *branch = mpt_node_branch();
       branch->branch.value = copy_value(backend, value, value_len, arena);
 
-      uint8_t old_nibble = node->leaf.path.data[0];
-      mpt_node_t *old_leaf = backend->vtable->alloc_node(backend);
+      const uint8_t old_nibble = node->leaf.path.data[0];
+      mpt_node_t *const old_leaf = backend->vtable->alloc_node(backend);
       if (old_leaf == nullptr) {
         return nullptr;
       }
-      nibbles_t old_remaining = nibbles_slice(&node->leaf.path, 1, SIZE_MAX, arena);
+      const nibbles_t old_remaining = nibbles_slice(&node->leaf.path, 1, SIZE_MAX, arena);
       *old_leaf = mpt_node_leaf(old_remaining, node->leaf.value);
       branch->branch.children[old_nibble] = mpt_node_ref(old_leaf, arena);
 
@@ -137,21 +139,21 @@ static mpt_node_t *insert_recursive(mpt_backend_t *backend, mpt_node_t *node, co
       return node;
     case MPT_NODE_EXTENSION: {
       // Need to split extension
-      mpt_node_t *branch = backend->vtable->alloc_node(backend);
+      mpt_node_t *const branch = backend->vtable->alloc_node(backend);
       if (branch == nullptr) {
         return nullptr;
       }
       *branch = mpt_node_branch();
       branch->branch.value = copy_value(backend, value, value_len, arena);
 
-      uint8_t ext_nibble = node->extension.path.data[0];
+      const uint8_t ext_nibble = node->extension.path.data[0];
       if (node->extension.path.len > 1) {
         // Create shortened extension
-        mpt_node_t *new_ext = backend->vtable->alloc_node(backend);
+        mpt_node_t *const new_ext = backend->vtable->alloc_node(backend);
         if (new_ext == nullptr) {
           return nullptr;
         }
-        nibbles_t new_ext_path = nibbles_slice(&node->extension.path, 1, SIZE_MAX, arena);
+        const nibbles_t new_ext_path = nibbles_slice(&node->extension.path, 1, SIZE_MAX, arena);
         *new_ext = mpt_node_extension(new_ext_path, node->extension.child);
         branch->branch.children[ext_nibble] = mpt_node_ref(new_ext, arena);
       } else {
@@ -169,7 +171,7 @@ static mpt_node_t *insert_recursive(mpt_backend_t *backend, mpt_node_t *node, co
   switch (node->type) {
   case MPT_NODE_LEAF: {
     // Need to split the leaf or replace it
-    size_t match_len = find_divergence(&node->leaf.path, key, offset);
+    const size_t match_len = find_divergence(&node->leaf.path, key, offset);
 
     if (match_len == node->leaf.path.len && (offset + match_len) == key->len) {
       // Exact match - update value
@@ -179,7 +181,7 @@ static mpt_node_t *insert_recursive(mpt_backend_t *backend, mpt_node_t *node, co
     }
 
     // Need to create a branch
-    mpt_node_t *branch = backend->vtable->alloc_node(backend);
+    mpt_node_t *const branch = backend->vtable->alloc_node(backend);
     if (branch == nullptr) {
       return nullptr;
     }
@@ -187,21 +189,22 @@ static mpt_node_t *insert_recursive(mpt_backend_t *backend, mpt_node_t *node, co
 
     if (match_len > 0) {
       // Common prefix - create extension pointing to branch
-      mpt_node_t *ext = backend->vtable->alloc_node(backend);
+      mpt_node_t *const ext = backend->vtable->alloc_node(backend);
       if (ext == nullptr) {
         return nullptr;
       }
-      nibbles_t common_path = nibbles_slice(&node->leaf.path, 0, match_len, arena);
+      const nibbles_t common_path = nibbles_slice(&node->leaf.path, 0, match_len, arena);
 
       // Build the branch first
       if (match_len < node->leaf.path.len) {
         // Existing leaf becomes child of branch
-        uint8_t old_nibble = node->leaf.path.data[match_len];
-        mpt_node_t *old_leaf = backend->vtable->alloc_node(backend);
+        const uint8_t old_nibble = node->leaf.path.data[match_len];
+        mpt_node_t *const old_leaf = backend->vtable->alloc_node(backend);
         if (old_leaf == nullptr) {
           return nullptr;
         }
-        nibbles_t old_remaining = nibbles_slice(&node->leaf.path, match_len + 1, SIZE_MAX, arena);
+        const nibbles_t old_remaining =
+            nibbles_slice(&node->leaf.path, match_len + 1, SIZE_MAX, arena);
         *old_leaf = mpt_node_leaf(old_remaining, node->leaf.value);
         branch->branch.children[old_nibble] = mpt_node_ref(old_leaf, arena);
       } else {
@@ -211,9 +214,9 @@ static mpt_node_t *insert_recursive(mpt_backend_t *backend, mpt_node_t *node, co
 
       if ((offset + match_len) < key->len) {
         // New key continues - add as child
-        uint8_t new_nibble = key->data[offset + match_len];
-        nibbles_t new_remaining = nibbles_slice(key, offset + match_len + 1, SIZE_MAX, arena);
-        mpt_node_t *new_leaf = backend->vtable->alloc_node(backend);
+        const uint8_t new_nibble = key->data[offset + match_len];
+        const nibbles_t new_remaining = nibbles_slice(key, offset + match_len + 1, SIZE_MAX, arena);
+        mpt_node_t *const new_leaf = backend->vtable->alloc_node(backend);
         if (new_leaf == nullptr) {
           return nullptr;
         }
@@ -231,12 +234,12 @@ static mpt_node_t *insert_recursive(mpt_backend_t *backend, mpt_node_t *node, co
     // No common prefix - branch at current position
     if (node->leaf.path.len > 0) {
       // Existing leaf has remaining path - add as child
-      uint8_t old_nibble = node->leaf.path.data[0];
-      mpt_node_t *old_leaf = backend->vtable->alloc_node(backend);
+      const uint8_t old_nibble = node->leaf.path.data[0];
+      mpt_node_t *const old_leaf = backend->vtable->alloc_node(backend);
       if (old_leaf == nullptr) {
         return nullptr;
       }
-      nibbles_t old_remaining = nibbles_slice(&node->leaf.path, 1, SIZE_MAX, arena);
+      const nibbles_t old_remaining = nibbles_slice(&node->leaf.path, 1, SIZE_MAX, arena);
       *old_leaf = mpt_node_leaf(old_remaining, node->leaf.value);
       branch->branch.children[old_nibble] = mpt_node_ref(old_leaf, arena);
     } else {
@@ -244,9 +247,9 @@ static mpt_node_t *insert_recursive(mpt_backend_t *backend, mpt_node_t *node, co
       branch->branch.value = node->leaf.value;
     }
 
-    uint8_t new_nibble = key->data[offset];
-    nibbles_t new_remaining = nibbles_slice(key, offset + 1, SIZE_MAX, arena);
-    mpt_node_t *new_leaf = backend->vtable->alloc_node(backend);
+    const uint8_t new_nibble = key->data[offset];
+    const nibbles_t new_remaining = nibbles_slice(key, offset + 1, SIZE_MAX, arena);
+    mpt_node_t *const new_leaf = backend->vtable->alloc_node(backend);
     if (new_leaf == nullptr) {
       return nullptr;
     }
@@ -257,14 +260,14 @@ static mpt_node_t *insert_recursive(mpt_backend_t *backend, mpt_node_t *node, co
   }
 
   case MPT_NODE_EXTENSION: {
-    size_t match_len = find_divergence(&node->extension.path, key, offset);
+    const size_t match_len = find_divergence(&node->extension.path, key, offset);
 
     if (match_len == node->extension.path.len) {
       // Full path match - descend into child
       if (node->extension.child.node != nullptr) {
         // Use node pointer for in-memory traversal
-        mpt_node_t *child = insert_recursive(backend, node->extension.child.node, key,
-                                             offset + match_len, value, value_len, arena);
+        mpt_node_t *const child = insert_recursive(backend, node->extension.child.node, key,
+                                                   offset + match_len, value, value_len, arena);
         if (child == nullptr) {
           return nullptr;
         }
@@ -278,7 +281,7 @@ static mpt_node_t *insert_recursive(mpt_backend_t *backend, mpt_node_t *node, co
     }
 
     // Partial match - need to split extension
-    mpt_node_t *branch = backend->vtable->alloc_node(backend);
+    mpt_node_t *const branch = backend->vtable->alloc_node(backend);
     if (branch == nullptr) {
       return nullptr;
     }
@@ -286,14 +289,14 @@ static mpt_node_t *insert_recursive(mpt_backend_t *backend, mpt_node_t *node, co
 
     if (match_len < node->extension.path.len) {
       // Existing extension continues after branch
-      uint8_t ext_nibble = node->extension.path.data[match_len];
+      const uint8_t ext_nibble = node->extension.path.data[match_len];
       if (match_len + 1 < node->extension.path.len) {
         // Create shortened extension
-        mpt_node_t *new_ext = backend->vtable->alloc_node(backend);
+        mpt_node_t *const new_ext = backend->vtable->alloc_node(backend);
         if (new_ext == nullptr) {
           return nullptr;
         }
-        nibbles_t new_ext_path =
+        const nibbles_t new_ext_path =
             nibbles_slice(&node->extension.path, match_len + 1, SIZE_MAX, arena);
         *new_ext = mpt_node_extension(new_ext_path, node->extension.child);
         branch->branch.children[ext_nibble] = mpt_node_ref(new_ext, arena);
@@ -305,9 +308,9 @@ static mpt_node_t *insert_recursive(mpt_backend_t *backend, mpt_node_t *node, co
 
     // Add new key
     if ((offset + match_len) < key->len) {
-      uint8_t new_nibble = key->data[offset + match_len];
-      nibbles_t new_remaining = nibbles_slice(key, offset + match_len + 1, SIZE_MAX, arena);
-      mpt_node_t *new_leaf = backend->vtable->alloc_node(backend);
+      const uint8_t new_nibble = key->data[offset + match_len];
+      const nibbles_t new_remaining = nibbles_slice(key, offset + match_len + 1, SIZE_MAX, arena);
+      mpt_node_t *const new_leaf = backend->vtable->alloc_node(backend);
       if (new_leaf == nullptr) {
         return nullptr;
       }
@@ -319,11 +322,11 @@ static mpt_node_t *insert_recursive(mpt_backend_t *backend, mpt_node_t *node, co
 
     if (match_len > 0) {
       // Create new extension for common prefix
-      mpt_node_t *new_ext = backend->vtable->alloc_node(backend);
+      mpt_node_t *const new_ext = backend->vtable->alloc_node(backend);
       if (new_ext == nullptr) {
         return nullptr;
       }
-      nibbles_t common_path = nibbles_slice(&node->extension.path, 0, match_len, arena);
+      const nibbles_t common_path = nibbles_slice(&node->extension.path, 0, match_len, arena);
       *new_ext = mpt_node_extension(common_path, mpt_node_ref(branch, arena));
       return new_ext;
     }
@@ -340,21 +343,21 @@ static mpt_node_t *insert_recursive(mpt_backend_t *backend, mpt_node_t *node, co
     }
 
     // Continue down the appropriate child
-    uint8_t nibble = key->data[offset];
+    const uint8_t nibble = key->data[offset];
 
     if (node_ref_is_null(&node->branch.children[nibble])) {
       // No child - create new leaf
-      mpt_node_t *new_leaf = backend->vtable->alloc_node(backend);
+      mpt_node_t *const new_leaf = backend->vtable->alloc_node(backend);
       if (new_leaf == nullptr) {
         return nullptr;
       }
-      nibbles_t remaining = nibbles_slice(key, offset + 1, SIZE_MAX, arena);
+      const nibbles_t remaining = nibbles_slice(key, offset + 1, SIZE_MAX, arena);
       *new_leaf = mpt_node_leaf(remaining, copy_value(backend, value, value_len, arena));
       node->branch.children[nibble] = mpt_node_ref(new_leaf, arena);
     } else if (node->branch.children[nibble].node != nullptr) {
       // Existing child - descend recursively using node pointer
-      mpt_node_t *child = insert_recursive(backend, node->branch.children[nibble].node, key,
-                                           offset + 1, value, value_len, arena);
+      mpt_node_t *const child = insert_recursive(backend, node->branch.children[nibble].node, key,
+                                                 offset + 1, value, value_len, arena);
       if (child == nullptr) {
         return nullptr;
       }
@@ -378,7 +381,7 @@ static mpt_node_t *insert_recursive(mpt_backend_t *backend, mpt_node_t *node, co
 
 /// Find the single non-null child in a branch node.
 /// Returns the nibble index (0-15) or -1 if not exactly one child.
-static int find_single_child(const mpt_branch_t *branch) {
+static int find_single_child(const mpt_branch_t *const branch) {
   int found = -1;
   for (int i = 0; i < 16; i++) {
     if (!node_ref_is_null(&branch->children[i])) {
@@ -394,18 +397,18 @@ static int find_single_child(const mpt_branch_t *branch) {
 /// Collapse a branch node after one of its children was removed.
 /// If the branch has only one remaining child and no value, convert to extension.
 /// If the branch has only a value and no children, convert to leaf.
-static mpt_node_t *collapse_branch(mpt_backend_t *backend, mpt_node_t *branch,
-                                   div0_arena_t *arena) {
-  bool has_value = branch->branch.value.data != nullptr;
-  int single_child = find_single_child(&branch->branch);
+static mpt_node_t *collapse_branch(mpt_backend_t *const backend, mpt_node_t *const branch,
+                                   div0_arena_t *const arena) {
+  const bool has_value = branch->branch.value.data != nullptr;
+  const int single_child = find_single_child(&branch->branch);
 
   // Check for zero children first
   if (single_child < 0) {
-    size_t child_count = mpt_branch_child_count(&branch->branch);
+    const size_t child_count = mpt_branch_child_count(&branch->branch);
     // NOLINTNEXTLINE(readability-implicit-bool-conversion) - bool in && is intentional
     if (child_count == 0 && has_value) {
       // No children, only value - convert to leaf with empty path
-      mpt_node_t *new_leaf = backend->vtable->alloc_node(backend);
+      mpt_node_t *const new_leaf = backend->vtable->alloc_node(backend);
       if (new_leaf == nullptr) {
         return branch;
       }
@@ -424,19 +427,19 @@ static mpt_node_t *collapse_branch(mpt_backend_t *backend, mpt_node_t *branch,
   }
 
   // Only one child, no value - collapse
-  mpt_node_t *child = branch->branch.children[single_child].node;
+  mpt_node_t *const child = branch->branch.children[single_child].node;
   if (child == nullptr) {
     // Shouldn't happen for in-memory, but be safe
     mpt_node_invalidate_hash(branch);
     return branch;
   }
 
-  uint8_t nibble = (uint8_t)single_child;
+  const uint8_t nibble = (uint8_t)single_child;
 
   if (child->type == MPT_NODE_LEAF) {
     // Merge: branch -> leaf becomes leaf with extended path
-    nibbles_t new_path = nibbles_concat3(&NIBBLES_EMPTY, nibble, &child->leaf.path, arena);
-    mpt_node_t *new_leaf = backend->vtable->alloc_node(backend);
+    const nibbles_t new_path = nibbles_concat3(&NIBBLES_EMPTY, nibble, &child->leaf.path, arena);
+    mpt_node_t *const new_leaf = backend->vtable->alloc_node(backend);
     if (new_leaf == nullptr) {
       return branch;
     }
@@ -446,8 +449,9 @@ static mpt_node_t *collapse_branch(mpt_backend_t *backend, mpt_node_t *branch,
 
   if (child->type == MPT_NODE_EXTENSION) {
     // Merge: branch -> extension becomes extension with extended path
-    nibbles_t new_path = nibbles_concat3(&NIBBLES_EMPTY, nibble, &child->extension.path, arena);
-    mpt_node_t *new_ext = backend->vtable->alloc_node(backend);
+    const nibbles_t new_path =
+        nibbles_concat3(&NIBBLES_EMPTY, nibble, &child->extension.path, arena);
+    mpt_node_t *const new_ext = backend->vtable->alloc_node(backend);
     if (new_ext == nullptr) {
       return branch;
     }
@@ -464,7 +468,7 @@ static mpt_node_t *collapse_branch(mpt_backend_t *backend, mpt_node_t *branch,
   }
   path.data[0] = nibble;
 
-  mpt_node_t *new_ext = backend->vtable->alloc_node(backend);
+  mpt_node_t *const new_ext = backend->vtable->alloc_node(backend);
   if (new_ext == nullptr) {
     return branch;
   }
@@ -473,12 +477,17 @@ static mpt_node_t *collapse_branch(mpt_backend_t *backend, mpt_node_t *branch,
 }
 
 /// Recursively delete a key from the trie.
+/// @param backend The MPT backend for node operations
+/// @param node The current node to process
+/// @param key The key to delete
+/// @param offset Current offset in the key
 /// @param out_node Output: the new/modified node (nullptr if removed)
+/// @param arena Arena for memory allocation
 /// @return DELETE_NOT_FOUND if key not found, DELETE_UPDATED if node updated, DELETE_REMOVED if
 /// node removed
-static delete_result_t delete_recursive(mpt_backend_t *backend, mpt_node_t *node,
-                                        const nibbles_t *key, size_t offset, mpt_node_t **out_node,
-                                        div0_arena_t *arena) {
+static delete_result_t delete_recursive(mpt_backend_t *const backend, mpt_node_t *node,
+                                        const nibbles_t *const key, const size_t offset,
+                                        mpt_node_t **const out_node, div0_arena_t *const arena) {
   *out_node = node;
 
   if (node == nullptr || node->type == MPT_NODE_EMPTY) {
@@ -488,7 +497,7 @@ static delete_result_t delete_recursive(mpt_backend_t *backend, mpt_node_t *node
   switch (node->type) {
   case MPT_NODE_LEAF: {
     // Check if the remaining key matches the leaf path
-    size_t remaining_len = key->len - offset;
+    const size_t remaining_len = key->len - offset;
     if (remaining_len != node->leaf.path.len) {
       return DELETE_NOT_FOUND;
     }
@@ -504,15 +513,15 @@ static delete_result_t delete_recursive(mpt_backend_t *backend, mpt_node_t *node
 
   case MPT_NODE_EXTENSION: {
     // Check if the key prefix matches the extension path
-    size_t match_len = find_divergence(&node->extension.path, key, offset);
+    const size_t match_len = find_divergence(&node->extension.path, key, offset);
     if (match_len != node->extension.path.len) {
       return DELETE_NOT_FOUND;
     }
 
     // Recurse into child
     mpt_node_t *new_child = nullptr;
-    delete_result_t result = delete_recursive(backend, node->extension.child.node, key,
-                                              offset + match_len, &new_child, arena);
+    const delete_result_t result = delete_recursive(backend, node->extension.child.node, key,
+                                                    offset + match_len, &new_child, arena);
     if (result == DELETE_NOT_FOUND) {
       return DELETE_NOT_FOUND;
     }
@@ -531,8 +540,9 @@ static delete_result_t delete_recursive(mpt_backend_t *backend, mpt_node_t *node
 
     if (new_child->type == MPT_NODE_LEAF) {
       // Merge extension + leaf into new leaf
-      nibbles_t new_path = nibbles_concat(&node->extension.path, &new_child->leaf.path, arena);
-      mpt_node_t *merged = backend->vtable->alloc_node(backend);
+      const nibbles_t new_path =
+          nibbles_concat(&node->extension.path, &new_child->leaf.path, arena);
+      mpt_node_t *const merged = backend->vtable->alloc_node(backend);
       if (merged == nullptr) {
         return DELETE_NOT_FOUND;
       }
@@ -543,8 +553,9 @@ static delete_result_t delete_recursive(mpt_backend_t *backend, mpt_node_t *node
 
     if (new_child->type == MPT_NODE_EXTENSION) {
       // Merge extension + extension into single extension
-      nibbles_t new_path = nibbles_concat(&node->extension.path, &new_child->extension.path, arena);
-      mpt_node_t *merged = backend->vtable->alloc_node(backend);
+      const nibbles_t new_path =
+          nibbles_concat(&node->extension.path, &new_child->extension.path, arena);
+      mpt_node_t *const merged = backend->vtable->alloc_node(backend);
       if (merged == nullptr) {
         return DELETE_NOT_FOUND;
       }
@@ -573,18 +584,19 @@ static delete_result_t delete_recursive(mpt_backend_t *backend, mpt_node_t *node
       return DELETE_UPDATED;
     }
 
-    uint8_t nibble = key->data[offset];
+    const uint8_t nibble = key->data[offset];
     if (node_ref_is_null(&node->branch.children[nibble])) {
       return DELETE_NOT_FOUND;
     }
 
-    mpt_node_t *child = node->branch.children[nibble].node;
+    mpt_node_t *const child = node->branch.children[nibble].node;
     if (child == nullptr) {
       return DELETE_NOT_FOUND; // Can't traverse (shouldn't happen for in-memory)
     }
 
     mpt_node_t *new_child = nullptr;
-    delete_result_t result = delete_recursive(backend, child, key, offset + 1, &new_child, arena);
+    const delete_result_t result =
+        delete_recursive(backend, child, key, offset + 1, &new_child, arena);
     if (result == DELETE_NOT_FOUND) {
       return DELETE_NOT_FOUND;
     }
@@ -611,16 +623,17 @@ static delete_result_t delete_recursive(mpt_backend_t *backend, mpt_node_t *node
 // Public API
 // =============================================================================
 
-bool mpt_insert(mpt_t *mpt, const uint8_t *key, size_t key_len, const uint8_t *value,
-                size_t value_len) {
+// NOLINTNEXTLINE(CppParameterMayBeConstPtrOrRef) - modifies trie through vtable set_root
+bool mpt_insert(mpt_t *const mpt, const uint8_t *const key, const size_t key_len,
+                const uint8_t *const value, const size_t value_len) {
   if (mpt == nullptr || mpt->backend == nullptr) {
     return false;
   }
 
-  nibbles_t key_nibbles = nibbles_from_bytes(key, key_len, mpt->work_arena);
+  const nibbles_t key_nibbles = nibbles_from_bytes(key, key_len, mpt->work_arena);
 
-  mpt_node_t *root = mpt->backend->vtable->get_root(mpt->backend);
-  mpt_node_t *new_root =
+  mpt_node_t *const root = mpt->backend->vtable->get_root(mpt->backend);
+  mpt_node_t *const new_root =
       insert_recursive(mpt->backend, root, &key_nibbles, 0, value, value_len, mpt->work_arena);
 
   if (new_root == nullptr) {
@@ -631,14 +644,14 @@ bool mpt_insert(mpt_t *mpt, const uint8_t *key, size_t key_len, const uint8_t *v
   return true;
 }
 
-bytes_t mpt_get(mpt_t *mpt, const uint8_t *key, size_t key_len) {
-  bytes_t empty = {.data = nullptr, .size = 0};
+bytes_t mpt_get(const mpt_t *const mpt, const uint8_t *const key, const size_t key_len) {
+  const bytes_t empty = {.data = nullptr, .size = 0};
   if (mpt == nullptr || mpt->backend == nullptr) {
     return empty;
   }
 
-  nibbles_t key_nibbles = nibbles_from_bytes(key, key_len, mpt->work_arena);
-  mpt_node_t *node = mpt->backend->vtable->get_root(mpt->backend);
+  const nibbles_t key_nibbles = nibbles_from_bytes(key, key_len, mpt->work_arena);
+  const mpt_node_t *node = mpt->backend->vtable->get_root(mpt->backend);
   size_t offset = 0;
 
   while (node != nullptr && node->type != MPT_NODE_EMPTY) {
@@ -662,7 +675,7 @@ bytes_t mpt_get(mpt_t *mpt, const uint8_t *key, size_t key_len) {
 
     case MPT_NODE_EXTENSION: {
       // Check if path matches
-      size_t match_len = find_divergence(&node->extension.path, &key_nibbles, offset);
+      const size_t match_len = find_divergence(&node->extension.path, &key_nibbles, offset);
       if (match_len != node->extension.path.len) {
         return empty;
       }
@@ -679,7 +692,7 @@ bytes_t mpt_get(mpt_t *mpt, const uint8_t *key, size_t key_len) {
       if (offset >= key_nibbles.len) {
         return node->branch.value;
       }
-      uint8_t nibble = key_nibbles.data[offset];
+      const uint8_t nibble = key_nibbles.data[offset];
       if (node_ref_is_null(&node->branch.children[nibble])) {
         return empty;
       }
@@ -700,20 +713,20 @@ bytes_t mpt_get(mpt_t *mpt, const uint8_t *key, size_t key_len) {
   return empty;
 }
 
-bool mpt_contains(mpt_t *mpt, const uint8_t *key, size_t key_len) {
+bool mpt_contains(const mpt_t *const mpt, const uint8_t *const key, const size_t key_len) {
   if (mpt == nullptr || mpt->backend == nullptr) {
     return false;
   }
 
-  nibbles_t key_nibbles = nibbles_from_bytes(key, key_len, mpt->work_arena);
-  mpt_node_t *node = mpt->backend->vtable->get_root(mpt->backend);
+  const nibbles_t key_nibbles = nibbles_from_bytes(key, key_len, mpt->work_arena);
+  const mpt_node_t *node = mpt->backend->vtable->get_root(mpt->backend);
   size_t offset = 0;
 
   while (node != nullptr && node->type != MPT_NODE_EMPTY) {
     switch (node->type) {
     case MPT_NODE_LEAF: {
       // Check if remaining key matches the leaf path
-      size_t remaining = key_nibbles.len - offset;
+      const size_t remaining = key_nibbles.len - offset;
       if (remaining != node->leaf.path.len) {
         return false;
       }
@@ -726,7 +739,7 @@ bool mpt_contains(mpt_t *mpt, const uint8_t *key, size_t key_len) {
     }
 
     case MPT_NODE_EXTENSION: {
-      size_t match_len = find_divergence(&node->extension.path, &key_nibbles, offset);
+      const size_t match_len = find_divergence(&node->extension.path, &key_nibbles, offset);
       if (match_len != node->extension.path.len) {
         return false;
       }
@@ -744,7 +757,7 @@ bool mpt_contains(mpt_t *mpt, const uint8_t *key, size_t key_len) {
         // data != nullptr means a value was explicitly set (even if empty)
         return node->branch.value.data != nullptr;
       }
-      uint8_t nibble = key_nibbles.data[offset];
+      const uint8_t nibble = key_nibbles.data[offset];
       if (node_ref_is_null(&node->branch.children[nibble])) {
         return false;
       }
@@ -764,20 +777,21 @@ bool mpt_contains(mpt_t *mpt, const uint8_t *key, size_t key_len) {
   return false;
 }
 
-bool mpt_delete(mpt_t *mpt, const uint8_t *key, size_t key_len) {
+// NOLINTNEXTLINE(CppParameterMayBeConstPtrOrRef) - modifies trie through vtable set_root
+bool mpt_delete(mpt_t *const mpt, const uint8_t *const key, const size_t key_len) {
   if (mpt == nullptr || mpt->backend == nullptr) {
     return false;
   }
 
-  mpt_node_t *root = mpt->backend->vtable->get_root(mpt->backend);
+  mpt_node_t *const root = mpt->backend->vtable->get_root(mpt->backend);
   if (root == nullptr || root->type == MPT_NODE_EMPTY) {
     return false; // Empty trie, nothing to delete
   }
 
-  nibbles_t key_nibbles = nibbles_from_bytes(key, key_len, mpt->work_arena);
+  const nibbles_t key_nibbles = nibbles_from_bytes(key, key_len, mpt->work_arena);
 
   mpt_node_t *new_root = nullptr;
-  delete_result_t result =
+  const delete_result_t result =
       delete_recursive(mpt->backend, root, &key_nibbles, 0, &new_root, mpt->work_arena);
 
   if (result == DELETE_NOT_FOUND) {
@@ -788,12 +802,12 @@ bool mpt_delete(mpt_t *mpt, const uint8_t *key, size_t key_len) {
   return true;
 }
 
-hash_t mpt_root_hash(mpt_t *mpt) {
+hash_t mpt_root_hash(const mpt_t *const mpt) {
   if (mpt == nullptr || mpt->backend == nullptr) {
     return MPT_EMPTY_ROOT;
   }
 
-  mpt_node_t *root = mpt->backend->vtable->get_root(mpt->backend);
+  mpt_node_t *const root = mpt->backend->vtable->get_root(mpt->backend);
   if (root == nullptr || root->type == MPT_NODE_EMPTY) {
     return MPT_EMPTY_ROOT;
   }
@@ -801,23 +815,24 @@ hash_t mpt_root_hash(mpt_t *mpt) {
   return mpt_node_hash(root, mpt->work_arena);
 }
 
-bool mpt_is_empty(mpt_t *mpt) {
+bool mpt_is_empty(const mpt_t *const mpt) {
   if (mpt == nullptr || mpt->backend == nullptr) {
     return true;
   }
 
-  mpt_node_t *root = mpt->backend->vtable->get_root(mpt->backend);
+  const mpt_node_t *const root = mpt->backend->vtable->get_root(mpt->backend);
   // NOLINTNEXTLINE(readability-implicit-bool-conversion)
   return root == nullptr || root->type == MPT_NODE_EMPTY;
 }
 
-void mpt_clear(mpt_t *mpt) {
+// NOLINTNEXTLINE(CppParameterMayBeConstPtrOrRef) - modifies trie through vtable clear
+void mpt_clear(mpt_t *const mpt) {
   if (mpt != nullptr && mpt->backend != nullptr) {
     mpt->backend->vtable->clear(mpt->backend);
   }
 }
 
-void mpt_destroy(mpt_t *mpt) {
+void mpt_destroy(mpt_t *const mpt) {
   if (mpt != nullptr && mpt->backend != nullptr) {
     mpt->backend->vtable->destroy(mpt->backend);
     mpt->backend = nullptr;

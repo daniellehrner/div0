@@ -33,7 +33,7 @@ typedef struct {
 
   /// Get node by hash (for loading from persistent storage).
   /// In-memory backend may return nullptr (nodes are inline).
-  mpt_node_t *(*get_node_by_hash)(mpt_backend_t *backend, const hash_t *hash);
+  mpt_node_t *(*get_node_by_hash)(const mpt_backend_t *backend, const hash_t *hash);
 
   /// Store node (for persistent storage).
   /// Returns the hash of the stored node.
@@ -97,14 +97,14 @@ bool mpt_insert(mpt_t *mpt, const uint8_t *key, size_t key_len, const uint8_t *v
 /// @param key Key bytes
 /// @param key_len Length of key
 /// @return Value bytes (empty if not found), arena-backed
-[[nodiscard]] bytes_t mpt_get(mpt_t *mpt, const uint8_t *key, size_t key_len);
+[[nodiscard]] bytes_t mpt_get(const mpt_t *mpt, const uint8_t *key, size_t key_len);
 
 /// Check if a key exists.
 /// @param mpt The trie
 /// @param key Key bytes
 /// @param key_len Length of key
 /// @return true if key exists
-[[nodiscard]] bool mpt_contains(mpt_t *mpt, const uint8_t *key, size_t key_len);
+[[nodiscard]] bool mpt_contains(const mpt_t *mpt, const uint8_t *key, size_t key_len);
 
 /// Delete a key.
 /// @param mpt The trie
@@ -117,12 +117,12 @@ bool mpt_delete(mpt_t *mpt, const uint8_t *key, size_t key_len);
 /// Computes incrementally if any nodes are dirty.
 /// @param mpt The trie
 /// @return Root hash (MPT_EMPTY_ROOT if empty)
-[[nodiscard]] hash_t mpt_root_hash(mpt_t *mpt);
+[[nodiscard]] hash_t mpt_root_hash(const mpt_t *mpt);
 
 /// Check if the trie is empty.
 /// @param mpt The trie
 /// @return true if empty
-[[nodiscard]] bool mpt_is_empty(mpt_t *mpt);
+[[nodiscard]] bool mpt_is_empty(const mpt_t *mpt);
 
 /// Clear all entries.
 /// @param mpt The trie

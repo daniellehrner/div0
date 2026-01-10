@@ -62,14 +62,15 @@ json_result_t t8n_parse_alloc_value(yyjson_val_t *root, div0_arena_t *arena, sta
 /// @param snapshot State snapshot to serialize
 /// @param w JSON writer
 /// @return Root JSON object value, or nullptr on error
-yyjson_mut_val_t *t8n_write_alloc(const state_snapshot_t *snapshot, json_writer_t *w);
+yyjson_mut_val_t *t8n_write_alloc(const state_snapshot_t *snapshot, const json_writer_t *w);
 
 /// Serialize a single account snapshot to JSON object.
 ///
 /// @param account Account snapshot to serialize
 /// @param w JSON writer
 /// @return JSON object value, or nullptr on error
-yyjson_mut_val_t *t8n_write_alloc_account(const account_snapshot_t *account, json_writer_t *w);
+yyjson_mut_val_t *t8n_write_alloc_account(const account_snapshot_t *account,
+                                          const json_writer_t *w);
 
 #endif // DIV0_FREESTANDING
 

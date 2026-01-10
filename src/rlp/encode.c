@@ -7,8 +7,8 @@ static constexpr size_t RLP_MAX_HEADER_SIZE = 9;
 
 /// Write length as big-endian bytes into buffer.
 /// Returns number of bytes written.
-static size_t write_length_bytes(uint8_t *buf, size_t len) {
-  int num_bytes = rlp_length_of_length(len);
+static size_t write_length_bytes(uint8_t *const buf, const size_t len) {
+  const int num_bytes = rlp_length_of_length(len);
   switch (num_bytes) {
   case 1:
     buf[0] = (uint8_t)len;
@@ -37,7 +37,7 @@ static size_t write_length_bytes(uint8_t *buf, size_t len) {
   }
 }
 
-bytes_t rlp_encode_bytes(div0_arena_t *arena, const uint8_t *data, size_t len) {
+bytes_t rlp_encode_bytes(div0_arena_t *const arena, const uint8_t *const data, const size_t len) {
   bytes_t result;
   bytes_init_arena(&result, arena);
 
@@ -60,21 +60,21 @@ bytes_t rlp_encode_bytes(div0_arena_t *arena, const uint8_t *data, size_t len) {
   }
 
   // Long string: multi-byte length prefix
-  int len_bytes = rlp_length_of_length(len);
+  const int len_bytes = rlp_length_of_length(len);
   // Note: len_bytes <= 8. If len is near SIZE_MAX, this could overflow.
   // bytes_reserve handles allocation failure gracefully by returning early.
   bytes_reserve(&result, 1 + (size_t)len_bytes + len);
   bytes_append_byte(&result, (uint8_t)(RLP_SHORT_STRING_MAX + len_bytes));
 
   uint8_t len_buf[8];
-  size_t written = write_length_bytes(len_buf, len);
+  const size_t written = write_length_bytes(len_buf, len);
   bytes_append(&result, len_buf, written);
   bytes_append(&result, data, len);
 
   return result;
 }
 
-bytes_t rlp_encode_u64(div0_arena_t *arena, uint64_t value) {
+bytes_t rlp_encode_u64(div0_arena_t *const arena, const uint64_t value) {
   bytes_t result;
   bytes_init_arena(&result, arena);
 
@@ -91,7 +91,7 @@ bytes_t rlp_encode_u64(div0_arena_t *arena, uint64_t value) {
   }
 
   // Compute byte length
-  int num_bytes = rlp_byte_length_u64(value);
+  const int num_bytes = rlp_byte_length_u64(value);
   // Safe: num_bytes <= 8 for uint64, so 1 + num_bytes <= 9, no overflow possible
   bytes_reserve(&result, 1 + (size_t)num_bytes);
   bytes_append_byte(&result, (uint8_t)(RLP_EMPTY_STRING_BYTE + num_bytes));
@@ -104,7 +104,7 @@ bytes_t rlp_encode_u64(div0_arena_t *arena, uint64_t value) {
   return result;
 }
 
-bytes_t rlp_encode_uint256(div0_arena_t *arena, const uint256_t *value) {
+bytes_t rlp_encode_uint256(div0_arena_t *const arena, const uint256_t *const value) {
   bytes_t result;
   bytes_init_arena(&result, arena);
 
@@ -132,7 +132,7 @@ bytes_t rlp_encode_uint256(div0_arena_t *arena, const uint256_t *value) {
     ++start;
   }
 
-  size_t num_bytes = 32 - start;
+  const size_t num_bytes = 32 - start;
   // Safe: num_bytes <= 32 for uint256, so 1 + num_bytes <= 33, no overflow possible
   bytes_reserve(&result, 1 + num_bytes);
   bytes_append_byte(&result, (uint8_t)(RLP_EMPTY_STRING_BYTE + num_bytes));
@@ -141,7 +141,7 @@ bytes_t rlp_encode_uint256(div0_arena_t *arena, const uint256_t *value) {
   return result;
 }
 
-bytes_t rlp_encode_address(div0_arena_t *arena, const address_t *addr) {
+bytes_t rlp_encode_address(div0_arena_t *const arena, const address_t *const addr) {
   bytes_t result;
   bytes_init_arena(&result, arena);
 
@@ -153,23 +153,23 @@ bytes_t rlp_encode_address(div0_arena_t *arena, const address_t *addr) {
   return result;
 }
 
-void rlp_list_start(rlp_list_builder_t *builder, bytes_t *output) {
+void rlp_list_start(rlp_list_builder_t *const builder, bytes_t *const output) {
   builder->output = output;
   builder->header_pos = output->size;
 
   // Reserve 9 bytes for maximum possible header size
-  uint8_t placeholder[RLP_MAX_HEADER_SIZE] = {0};
+  static constexpr uint8_t placeholder[RLP_MAX_HEADER_SIZE] = {0};
   bytes_append(output, placeholder, RLP_MAX_HEADER_SIZE);
 }
 
-void rlp_list_end(rlp_list_builder_t *builder) {
-  bytes_t *output = builder->output;
-  size_t header_pos = builder->header_pos;
+void rlp_list_end(const rlp_list_builder_t *const builder) {
+  bytes_t *const output = builder->output;
+  const size_t header_pos = builder->header_pos;
 
   // Calculate payload length (everything after the reserved header space)
   // Safe: rlp_list_start() appended RLP_MAX_HEADER_SIZE bytes at header_pos,
   // so output->size >= header_pos + RLP_MAX_HEADER_SIZE by construction.
-  size_t payload_len = output->size - header_pos - RLP_MAX_HEADER_SIZE;
+  const size_t payload_len = output->size - header_pos - RLP_MAX_HEADER_SIZE;
 
   // Determine actual header size
   size_t actual_header_size;
@@ -181,7 +181,7 @@ void rlp_list_end(rlp_list_builder_t *builder) {
     actual_header_size = 1;
   } else {
     // Long list: prefix + length bytes
-    int len_bytes = rlp_length_of_length(payload_len);
+    const int len_bytes = rlp_length_of_length(payload_len);
     header[0] = (uint8_t)(RLP_SHORT_LIST_MAX + len_bytes);
     write_length_bytes(header + 1, payload_len);
     // Safe: len_bytes <= 8, so 1 + len_bytes <= 9, no overflow possible
@@ -194,8 +194,8 @@ void rlp_list_end(rlp_list_builder_t *builder) {
 
   // If header is smaller than reserved space, compact the data
   if (actual_header_size < RLP_MAX_HEADER_SIZE) {
-    size_t shift = RLP_MAX_HEADER_SIZE - actual_header_size;
-    size_t payload_start = header_pos + RLP_MAX_HEADER_SIZE;
+    const size_t shift = RLP_MAX_HEADER_SIZE - actual_header_size;
+    const size_t payload_start = header_pos + RLP_MAX_HEADER_SIZE;
 
     // Move payload left to compact
     // NOLINTNEXTLINE(clang-analyzer-security.insecureAPI.DeprecatedOrUnsafeBufferHandling)

@@ -64,7 +64,7 @@ typedef struct {
 /// @param addr Address to look up
 /// @param out Output account (filled with empty account if not found)
 /// @return true if account exists, false if not found
-[[nodiscard]] bool world_state_get_account(world_state_t *ws, const address_t *addr,
+[[nodiscard]] bool world_state_get_account(const world_state_t *ws, const address_t *addr,
                                            account_t *out);
 
 /// Set account in state trie.

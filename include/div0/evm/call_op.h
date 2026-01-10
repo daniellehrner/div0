@@ -37,8 +37,8 @@ typedef struct {
 /// @param gas_left Remaining gas after overhead costs
 /// @param requested Requested gas from stack
 /// @return Gas to allocate to child (min of 63/64 rule and requested)
-static inline uint64_t call_child_gas(uint64_t gas_left, uint64_t requested) {
-  uint64_t max_child = gas_cap_call(gas_left);
+static inline uint64_t call_child_gas(const uint64_t gas_left, const uint64_t requested) {
+  const uint64_t max_child = gas_cap_call(gas_left);
   return (requested < max_child) ? requested : max_child;
 }
 
@@ -51,15 +51,16 @@ static inline uint64_t call_child_gas(uint64_t gas_left, uint64_t requested) {
 /// @param ret_size Return data max size
 /// @param gas_cost Output: gas cost for expansion
 /// @return true on success, false on overflow
-static inline bool call_memory_cost(evm_memory_t *mem, uint64_t args_offset, uint64_t args_size,
-                                    uint64_t ret_offset, uint64_t ret_size, uint64_t *gas_cost) {
+static inline bool call_memory_cost(evm_memory_t *const mem, const uint64_t args_offset,
+                                    const uint64_t args_size, const uint64_t ret_offset,
+                                    const uint64_t ret_size, uint64_t *const gas_cost) {
   uint64_t max_end = 0;
 
   if (args_size > 0) {
     if (args_offset > UINT64_MAX - args_size) {
       return false;
     }
-    uint64_t args_end = args_offset + args_size;
+    const uint64_t args_end = args_offset + args_size;
     if (args_end > max_end) {
       max_end = args_end;
     }
@@ -69,7 +70,7 @@ static inline bool call_memory_cost(evm_memory_t *mem, uint64_t args_offset, uin
     if (ret_offset > UINT64_MAX - ret_size) {
       return false;
     }
-    uint64_t ret_end = ret_offset + ret_size;
+    const uint64_t ret_end = ret_offset + ret_size;
     if (ret_end > max_end) {
       max_end = ret_end;
     }
@@ -81,8 +82,8 @@ static inline bool call_memory_cost(evm_memory_t *mem, uint64_t args_offset, uin
   }
 
   // Calculate expansion cost
-  size_t current_words = evm_memory_size(mem) / 32;
-  size_t new_words = (max_end + 31) / 32;
+  const size_t current_words = evm_memory_size(mem) / 32;
+  const size_t new_words = (max_end + 31) / 32;
   *gas_cost = evm_memory_expansion_cost(current_words, new_words);
   return true;
 }

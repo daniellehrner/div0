@@ -16,6 +16,7 @@
 #include "opcodes/control_flow.h"
 #include "opcodes/external.h"
 #include "opcodes/keccak.h"
+#include "opcodes/logging.h"
 #include "opcodes/memory.h"
 #include "opcodes/push.h"
 #include "opcodes/stack.h"
@@ -50,6 +51,9 @@ void evm_init(evm_t *const evm, div0_arena_t *const arena, const fork_t fork) {
   call_frame_pool_init(&evm->frame_pool);
   evm_stack_pool_init(&evm->stack_pool, arena);
   evm_memory_pool_init(&evm->memory_pool, arena);
+
+  // Initialize log vector for LOG0-LOG4 opcodes
+  evm_log_vec_init(&evm->logs, arena);
 }
 
 void evm_reset(evm_t *const evm) {
@@ -74,6 +78,9 @@ void evm_reset(evm_t *const evm) {
 
   // Reset gas refund accumulator
   evm->gas_refund = 0;
+
+  // Reset log vector for next transaction
+  evm_log_vec_reset(&evm->logs);
 }
 
 /// Initializes the root frame from execution environment.
@@ -147,6 +154,8 @@ evm_execution_result_t evm_execute_env(evm_t *const evm, const execution_env_t *
         .gas_refund = 0,
         .output = nullptr,
         .output_size = 0,
+        .logs = nullptr,
+        .logs_count = 0,
     };
   }
   init_root_frame(evm, initial_frame, env);
@@ -176,9 +185,11 @@ evm_execution_result_t evm_execute_env(evm_t *const evm, const execution_env_t *
             .result = EVM_RESULT_STOP,
             .error = EVM_OK,
             .gas_used = gas_used,
-            .gas_refund = 0,
+            .gas_refund = evm->gas_refund,
             .output = evm->return_data,
             .output_size = evm->return_data_size,
+            .logs = evm_log_vec_data(&evm->logs),
+            .logs_count = evm_log_vec_size(&evm->logs),
         };
       }
       // Child frame returned successfully - handle return to parent
@@ -225,6 +236,8 @@ evm_execution_result_t evm_execute_env(evm_t *const evm, const execution_env_t *
             .gas_refund = 0, // No refund on revert
             .output = evm->return_data,
             .output_size = evm->return_data_size,
+            .logs = nullptr, // No logs on revert
+            .logs_count = 0,
         };
       }
       // Child frame reverted - handle return to parent
@@ -273,6 +286,8 @@ evm_execution_result_t evm_execute_env(evm_t *const evm, const execution_env_t *
             .gas_refund = 0,
             .output = nullptr,
             .output_size = 0,
+            .logs = nullptr,
+            .logs_count = 0,
         };
       }
       // Push current frame onto stack, switch to child
@@ -292,6 +307,8 @@ evm_execution_result_t evm_execute_env(evm_t *const evm, const execution_env_t *
             .gas_refund = 0,
             .output = nullptr,
             .output_size = 0,
+            .logs = nullptr,
+            .logs_count = 0,
         };
       }
       // Child frame error - handle return to parent (all child gas consumed)
@@ -506,6 +523,12 @@ static frame_result_t execute_frame(evm_t *evm, call_frame_t *frame) {
       [OP_CALLCODE] = &&op_callcode,
       [OP_RETURN] = &&op_return,
       [OP_REVERT] = &&op_revert,
+      // Logging opcodes
+      [OP_LOG0] = &&op_log0,
+      [OP_LOG1] = &&op_log1,
+      [OP_LOG2] = &&op_log2,
+      [OP_LOG3] = &&op_log3,
+      [OP_LOG4] = &&op_log4,
   };
 
 #define DISPATCH()                   \
@@ -1207,6 +1230,27 @@ op_revert: {
 
   return frame_result_revert(offset, size);
 }
+
+// =============================================================================
+// Logging Opcodes (LOG0-LOG4)
+// =============================================================================
+
+#define LOG_N_HANDLER(n)                                              \
+  op_log##n : {                                                       \
+    evm_status_t status = op_log_n(&evm->logs, evm->arena, frame, n); \
+    if (status != EVM_OK) {                                           \
+      return frame_result_error(status);                              \
+    }                                                                 \
+    DISPATCH();                                                       \
+  }
+
+  LOG_N_HANDLER(0)
+  LOG_N_HANDLER(1)
+  LOG_N_HANDLER(2)
+  LOG_N_HANDLER(3)
+  LOG_N_HANDLER(4)
+
+#undef LOG_N_HANDLER
 
 op_invalid:
   return frame_result_error(EVM_INVALID_OPCODE);

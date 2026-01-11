@@ -7,6 +7,7 @@
 #include "div0/evm/execution_env.h"
 #include "div0/evm/frame_result.h"
 #include "div0/evm/gas/dynamic_costs.h"
+#include "div0/evm/log_vec.h"
 #include "div0/evm/memory_pool.h"
 #include "div0/evm/stack.h"
 #include "div0/evm/stack_pool.h"
@@ -46,6 +47,8 @@ typedef struct {
   uint64_t gas_refund;   // Gas to refund
   const uint8_t *output; // Return data (points into EVM's return buffer)
   size_t output_size;    // Return data size
+  const evm_log_t *logs; // Logs emitted during execution (LOG0-LOG4)
+  size_t logs_count;     // Number of logs emitted
 } evm_execution_result_t;
 
 /// EVM instance with full call frame support.
@@ -86,6 +89,9 @@ typedef struct evm {
 
   // Gas refund accumulator (reset per transaction)
   uint64_t gas_refund;
+
+  // Log accumulator (reset per transaction)
+  evm_log_vec_t logs;
 } evm_t;
 
 /// Initializes an EVM instance with an arena allocator.

@@ -608,10 +608,9 @@ void test_opcode_log1_out_of_gas_topics(void) {
 
 void test_opcode_log0_out_of_gas_data(void) {
   // LOG0 with large data - not enough for data cost
-  uint8_t code[] = {
-      OP_PUSH2, 0x01, 0x00, // 256 bytes
-      OP_PUSH1, 0,          // offset
-      OP_LOG0, OP_STOP};
+  uint8_t code[] = {OP_PUSH2, 0x01,   0x00, // 256 bytes
+                    OP_PUSH1, 0,            // offset
+                    OP_LOG0,  OP_STOP};
 
   evm_t evm;
   evm_init(&evm, &test_arena, FORK_SHANGHAI);
@@ -627,10 +626,9 @@ void test_opcode_log0_out_of_gas_data(void) {
 
 void test_opcode_log0_out_of_gas_memory(void) {
   // LOG0 with data from high memory offset - memory expansion cost
-  uint8_t code[] = {
-      OP_PUSH1, 32,        // size
-      OP_PUSH2, 0x10, 0x00, // offset = 4096 (triggers memory expansion)
-      OP_LOG0, OP_STOP};
+  uint8_t code[] = {OP_PUSH1, 32,           // size
+                    OP_PUSH2, 0x10,   0x00, // offset = 4096 (triggers memory expansion)
+                    OP_LOG0,  OP_STOP};
 
   evm_t evm;
   evm_init(&evm, &test_arena, FORK_SHANGHAI);
@@ -851,11 +849,10 @@ void test_opcode_log0_large_data(void) {
 
 void test_opcode_log_multiple_logs(void) {
   // Emit 3 LOG0s in sequence
-  uint8_t code[] = {
-      OP_PUSH1, 0, OP_PUSH1, 0, OP_LOG0, // Log 1
-      OP_PUSH1, 0, OP_PUSH1, 0, OP_LOG0, // Log 2
-      OP_PUSH1, 0, OP_PUSH1, 0, OP_LOG0, // Log 3
-      OP_STOP};
+  uint8_t code[] = {OP_PUSH1, 0, OP_PUSH1, 0, OP_LOG0, // Log 1
+                    OP_PUSH1, 0, OP_PUSH1, 0, OP_LOG0, // Log 2
+                    OP_PUSH1, 0, OP_PUSH1, 0, OP_LOG0, // Log 3
+                    OP_STOP};
 
   evm_t evm;
   evm_init(&evm, &test_arena, FORK_SHANGHAI);

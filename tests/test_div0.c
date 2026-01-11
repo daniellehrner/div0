@@ -21,6 +21,7 @@
 #include "evm/test_opcodes_bitwise.h"
 #include "evm/test_opcodes_comparison.h"
 #include "evm/test_opcodes_context.h"
+#include "evm/test_opcodes_logging.h"
 #include "evm/test_opcodes_stack.h"
 #include "evm/test_stack.h"
 #include "evm/test_stack_pool.h"
@@ -511,6 +512,63 @@ int main(void) {
 
   // Context opcode tests - RETURNDATACOPY
   RUN_TEST(test_opcode_returndatacopy_empty);
+
+  // Logging opcode tests - Basic functionality
+  RUN_TEST(test_opcode_log0_basic);
+  RUN_TEST(test_opcode_log1_basic);
+  RUN_TEST(test_opcode_log2_basic);
+  RUN_TEST(test_opcode_log3_basic);
+  RUN_TEST(test_opcode_log4_basic);
+
+  // Logging opcode tests - Zero-size data
+  RUN_TEST(test_opcode_log0_zero_data);
+  RUN_TEST(test_opcode_log1_zero_data);
+  RUN_TEST(test_opcode_log4_zero_data);
+
+  // Logging opcode tests - Stack underflow
+  RUN_TEST(test_opcode_log0_stack_underflow);
+  RUN_TEST(test_opcode_log1_stack_underflow);
+  RUN_TEST(test_opcode_log2_stack_underflow);
+  RUN_TEST(test_opcode_log3_stack_underflow);
+  RUN_TEST(test_opcode_log4_stack_underflow);
+
+  // Logging opcode tests - Static context (write protection)
+  RUN_TEST(test_opcode_log0_static_context);
+  RUN_TEST(test_opcode_log1_static_context);
+  RUN_TEST(test_opcode_log4_static_context);
+
+  // Logging opcode tests - Gas consumption
+  RUN_TEST(test_opcode_log0_gas_exact);
+  RUN_TEST(test_opcode_log1_gas_exact);
+  RUN_TEST(test_opcode_log2_gas_exact);
+  RUN_TEST(test_opcode_log4_gas_exact);
+
+  // Logging opcode tests - Out of gas
+  RUN_TEST(test_opcode_log0_out_of_gas_base);
+  RUN_TEST(test_opcode_log1_out_of_gas_topics);
+  RUN_TEST(test_opcode_log0_out_of_gas_data);
+  RUN_TEST(test_opcode_log0_out_of_gas_memory);
+
+  // Logging opcode tests - Topic verification
+  RUN_TEST(test_opcode_log1_topic_value);
+  RUN_TEST(test_opcode_log4_all_topics);
+  RUN_TEST(test_opcode_log2_topic_order);
+
+  // Logging opcode tests - Data verification
+  RUN_TEST(test_opcode_log0_data_content);
+  RUN_TEST(test_opcode_log0_data_offset);
+  RUN_TEST(test_opcode_log0_large_data);
+
+  // Logging opcode tests - Multiple logs
+  RUN_TEST(test_opcode_log_multiple_logs);
+  RUN_TEST(test_opcode_log_mixed_types);
+
+  // Logging opcode tests - Address verification
+  RUN_TEST(test_opcode_log0_address);
+
+  // Logging opcode tests - Memory expansion
+  RUN_TEST(test_opcode_log0_memory_expansion);
+  RUN_TEST(test_opcode_log0_memory_preexisting);
 
   // keccak256 tests
   RUN_TEST(test_keccak256_empty);

@@ -331,6 +331,7 @@ if(DIV0_BUILD_TESTS)
     tests/evm/test_opcodes_bitwise.c
     tests/evm/test_opcodes_comparison.c
     tests/evm/test_opcodes_context.c
+    tests/evm/test_opcodes_logging.c
     tests/evm/test_opcodes_stack.c
     # crypto tests
     tests/crypto/test_keccak256.c

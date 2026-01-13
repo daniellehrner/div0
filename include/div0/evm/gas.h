@@ -89,6 +89,9 @@ static constexpr uint64_t GAS_CODE_DEPOSIT_PER_BYTE = 200;
 /// Keccak256 per word gas.
 static constexpr uint64_t GAS_KECCAK256_WORD = 6;
 
+/// Init code per word gas (EIP-3860, Shanghai+).
+static constexpr uint64_t GAS_INITCODE_WORD = 2;
+
 // =============================================================================
 // Transaction Gas
 // =============================================================================

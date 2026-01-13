@@ -3,6 +3,7 @@
 #include "div0/evm/gas/static_costs.h"
 #include "div0/evm/opcodes.h"
 #include "div0/evm/opcodes/call.h"
+#include "div0/evm/opcodes/create.h"
 #include "div0/evm/stack.h"
 #include "div0/evm/status.h"
 #include "div0/types/uint256.h"
@@ -199,21 +200,81 @@ evm_execution_result_t evm_execute_env(evm_t *const evm, const execution_env_t *
         // Copy return data to EVM's stable buffer (before releasing frame memory)
         copy_return_data(evm, frame->memory, result.return_offset, result.return_size);
 
-        // Copy return data to parent's memory at output location
-        size_t copy_size = parent->output_size;
-        if (copy_size > evm->return_data_size) {
-          copy_size = evm->return_data_size;
-        }
-        if (copy_size > 0 && parent->memory != nullptr) {
-          evm_memory_store_unsafe(parent->memory, parent->output_offset, evm->return_data,
-                                  copy_size);
-        }
+        // Check if this was a CREATE/CREATE2 child frame
+        const bool is_create =
+            (frame->exec_type == EXEC_CREATE || frame->exec_type == EXEC_CREATE2);
 
-        // Return unused gas to parent
-        parent->gas += frame->gas;
+        if (is_create) {
+          // CREATE/CREATE2: return data is deployed bytecode
+          // Snapshot ID stored in frame->output_offset (repurposed field)
+          const uint64_t snapshot = frame->output_offset;
+          bool create_success = true;
+          uint64_t code_deposit_gas = 0;
 
-        // Push 1 (success) onto parent's stack
-        evm_stack_push_unsafe(parent->stack, uint256_from_u64(1));
+          // EIP-170: Check max code size (24576 bytes)
+          if (evm->return_data_size > MAX_CODE_SIZE) {
+            create_success = false;
+          }
+
+          // EIP-3541: Reject code starting with 0xEF
+          if (create_success && evm->return_data_size > 0 && evm->return_data[0] == 0xEF) {
+            create_success = false;
+          }
+
+          // Calculate code deposit gas (200 per byte)
+          if (create_success && evm->return_data_size > 0) {
+            code_deposit_gas = evm->return_data_size * GAS_CODE_DEPOSIT_PER_BYTE;
+            if (frame->gas < code_deposit_gas) {
+              create_success = false;
+            }
+          }
+
+          if (create_success) {
+            // Deduct code deposit gas
+            frame->gas -= code_deposit_gas;
+
+            // Store deployed code
+            if (evm->state != nullptr && evm->return_data_size > 0) {
+              state_set_code(evm->state, &frame->address, evm->return_data, evm->return_data_size);
+            }
+
+            // Return unused gas to parent
+            parent->gas += frame->gas;
+
+            // Push contract address onto parent's stack
+            evm_stack_push_unsafe(parent->stack, address_to_uint256(&frame->address));
+          } else {
+            // CREATE failed - revert state and push 0
+            if (evm->state != nullptr) {
+              state_revert_to_snapshot(evm->state, snapshot);
+            }
+
+            // Return unused gas to parent (child gas consumed on failure)
+            // Note: on some failures gas is still returned, simplified here
+
+            // Push 0 (failure) onto parent's stack
+            evm_stack_push_unsafe(parent->stack, uint256_zero());
+          }
+
+          // Clear return data for CREATE (no returndata on success)
+          evm->return_data_size = 0;
+        } else {
+          // CALL: copy return data to parent's memory at output location
+          size_t copy_size = parent->output_size;
+          if (copy_size > evm->return_data_size) {
+            copy_size = evm->return_data_size;
+          }
+          if (copy_size > 0 && parent->memory != nullptr) {
+            evm_memory_store_unsafe(parent->memory, parent->output_offset, evm->return_data,
+                                    copy_size);
+          }
+
+          // Return unused gas to parent
+          parent->gas += frame->gas;
+
+          // Push 1 (success) onto parent's stack
+          evm_stack_push_unsafe(parent->stack, uint256_from_u64(1));
+        }
 
         // Release child frame resources and switch to parent
         evm_stack_pool_return(&evm->stack_pool, frame->stack);
@@ -244,20 +305,29 @@ evm_execution_result_t evm_execute_env(evm_t *const evm, const execution_env_t *
       {
         call_frame_t *parent = frame_stack[--stack_depth];
 
-        // Revert state changes if state is set
-        // (snapshot_id would be stored in frame, simplified here)
+        // Check if this was a CREATE/CREATE2 child frame
+        const bool is_create =
+            (frame->exec_type == EXEC_CREATE || frame->exec_type == EXEC_CREATE2);
+
+        // Revert state changes for CREATE frames (snapshot stored in output_offset)
+        if (is_create && evm->state != nullptr) {
+          const uint64_t snapshot = frame->output_offset;
+          state_revert_to_snapshot(evm->state, snapshot);
+        }
 
         // Copy revert data to EVM's stable buffer (before releasing frame memory)
         copy_return_data(evm, frame->memory, result.return_offset, result.return_size);
 
-        // Copy revert data to parent's memory at output location
-        size_t copy_size = parent->output_size;
-        if (copy_size > evm->return_data_size) {
-          copy_size = evm->return_data_size;
-        }
-        if (copy_size > 0 && parent->memory != nullptr) {
-          evm_memory_store_unsafe(parent->memory, parent->output_offset, evm->return_data,
-                                  copy_size);
+        if (!is_create) {
+          // CALL: Copy revert data to parent's memory at output location
+          size_t copy_size = parent->output_size;
+          if (copy_size > evm->return_data_size) {
+            copy_size = evm->return_data_size;
+          }
+          if (copy_size > 0 && parent->memory != nullptr) {
+            evm_memory_store_unsafe(parent->memory, parent->output_offset, evm->return_data,
+                                    copy_size);
+          }
         }
 
         // Return unused gas to parent (on revert, gas is returned)
@@ -314,6 +384,16 @@ evm_execution_result_t evm_execute_env(evm_t *const evm, const execution_env_t *
       // Child frame error - handle return to parent (all child gas consumed)
       {
         call_frame_t *parent = frame_stack[--stack_depth];
+
+        // Check if this was a CREATE/CREATE2 child frame
+        const bool is_create =
+            (frame->exec_type == EXEC_CREATE || frame->exec_type == EXEC_CREATE2);
+
+        // Revert state changes for CREATE frames (snapshot stored in output_offset)
+        if (is_create && evm->state != nullptr) {
+          const uint64_t snapshot = frame->output_offset;
+          state_revert_to_snapshot(evm->state, snapshot);
+        }
 
         // Clear return data on error
         evm->return_data_size = 0;
@@ -517,10 +597,12 @@ static frame_result_t execute_frame(evm_t *evm, call_frame_t *frame) {
       [OP_SWAP14] = &&op_swap14,
       [OP_SWAP15] = &&op_swap15,
       [OP_SWAP16] = &&op_swap16,
+      [OP_CREATE] = &&op_create,
       [OP_CALL] = &&op_call,
       [OP_STATICCALL] = &&op_staticcall,
       [OP_DELEGATECALL] = &&op_delegatecall,
       [OP_CALLCODE] = &&op_callcode,
+      [OP_CREATE2] = &&op_create2,
       [OP_RETURN] = &&op_return,
       [OP_REVERT] = &&op_revert,
       // Logging opcodes
@@ -1123,6 +1205,28 @@ op_sstore: {
   const evm_status_t status = op_sstore(frame, evm->state, &evm->gas_schedule, &evm->gas_refund);
   if (status != EVM_OK) {
     return frame_result_error(status);
+  }
+  DISPATCH();
+}
+
+op_create: {
+  const create_op_result_t result = op_create(evm, frame);
+  if (result.has_error) {
+    return frame_result_error(result.error);
+  }
+  if (result.should_create) {
+    return frame_result_create();
+  }
+  DISPATCH();
+}
+
+op_create2: {
+  const create_op_result_t result = op_create2(evm, frame);
+  if (result.has_error) {
+    return frame_result_error(result.error);
+  }
+  if (result.should_create) {
+    return frame_result_create();
   }
   DISPATCH();
 }

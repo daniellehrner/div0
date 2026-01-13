@@ -73,7 +73,10 @@ bool evm_memory_expand(evm_memory_t *const mem, const size_t offset, const size_
       new_capacity *= 2;
     }
 
-    uint8_t *const new_data = div0_arena_alloc(mem->arena, new_capacity);
+    // Use large allocation for buffers > 64KB
+    uint8_t *const new_data = new_capacity > DIV0_ARENA_BLOCK_SIZE
+                                  ? div0_arena_alloc_large(mem->arena, new_capacity, 8)
+                                  : div0_arena_alloc(mem->arena, new_capacity);
     if (new_data == nullptr) {
       return false;
     }

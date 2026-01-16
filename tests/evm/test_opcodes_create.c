@@ -487,12 +487,12 @@ void test_opcode_create_max_code_size(void) {
   // RETURN         ; return 24577 bytes of zeros
 
   uint8_t init_code[] = {
-      OP_PUSH2, 0x60, 0x01, // 24577 = 0x6001
-      OP_PUSH1, 0,          // memory offset 0
-      OP_PUSH1, 0,          // code offset 0
-      OP_CALLDATACOPY,      // fill memory (no calldata, so zeros)
-      OP_PUSH2, 0x60, 0x01, // return size 24577
-      OP_PUSH1, 0,          // return offset 0
+      OP_PUSH2,        0x60, 0x01, // 24577 = 0x6001
+      OP_PUSH1,        0,          // memory offset 0
+      OP_PUSH1,        0,          // code offset 0
+      OP_CALLDATACOPY,             // fill memory (no calldata, so zeros)
+      OP_PUSH2,        0x60, 0x01, // return size 24577
+      OP_PUSH1,        0,          // return offset 0
       OP_RETURN,
   };
 
@@ -587,11 +587,11 @@ void test_opcode_create_invalid_ef_prefix(void) {
   //   PUSH1 1, PUSH1 0, RETURN
 
   uint8_t init_code[] = {
-      OP_PUSH1, 0xEF,   // value 0xEF
-      OP_PUSH1, 0,      // offset 0
+      OP_PUSH1,   0xEF, // value 0xEF
+      OP_PUSH1,   0,    // offset 0
       OP_MSTORE8,       // store 0xEF at memory[0]
-      OP_PUSH1, 1,      // return size 1
-      OP_PUSH1, 0,      // return offset 0
+      OP_PUSH1,   1,    // return size 1
+      OP_PUSH1,   0,    // return offset 0
       OP_RETURN,        // return [0xEF]
   };
 
@@ -666,8 +666,8 @@ void test_opcode_create_insufficient_gas_deposit(void) {
 
   // Init code: return 100 bytes of zeros
   uint8_t init_code[] = {
-      OP_PUSH1, 100,  // size = 100
-      OP_PUSH1, 0,    // offset = 0
+      OP_PUSH1,  100, // size = 100
+      OP_PUSH1,  0,   // offset = 0
       OP_RETURN,      // return 100 bytes (memory is zero-initialized)
   };
 

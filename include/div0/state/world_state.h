@@ -34,14 +34,14 @@ typedef struct {
   journal_op_t op;
   address_t address;
   union {
-    uint256_t balance;   // JOURNAL_BALANCE: previous balance
-    uint64_t nonce;      // JOURNAL_NONCE: previous nonce
-    hash_t code_hash;    // JOURNAL_CODE: previous code hash
-    struct {             // JOURNAL_STORAGE
+    uint256_t balance; // JOURNAL_BALANCE: previous balance
+    uint64_t nonce;    // JOURNAL_NONCE: previous nonce
+    hash_t code_hash;  // JOURNAL_CODE: previous code hash
+    struct {           // JOURNAL_STORAGE
       uint256_t slot;
-      uint256_t value;   // previous value
+      uint256_t value; // previous value
     } storage;
-    bool existed;        // JOURNAL_ACCOUNT_CREATE: true if already existed
+    bool existed; // JOURNAL_ACCOUNT_CREATE: true if already existed
     // JOURNAL_ACCOUNT_DELETE: stores deleted account data
     struct {
       uint256_t balance;
@@ -50,7 +50,7 @@ typedef struct {
       hash_t storage_root;
     } deleted_account;
     // JOURNAL_WARM_ADDRESS/SLOT: no extra data needed (just remove from warm set)
-    uint256_t slot;      // JOURNAL_WARM_SLOT: the slot that was warmed
+    uint256_t slot; // JOURNAL_WARM_SLOT: the slot that was warmed
   } prev;
 } journal_entry_t;
 

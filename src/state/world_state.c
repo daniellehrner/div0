@@ -239,9 +239,9 @@ static void ws_set_balance(state_access_t *state, const address_t *addr, const u
   account_t acc;
   const uint256_t old_balance =
       world_state_get_account(ws, addr, &acc) ? acc.balance : uint256_zero();
-  journal_append(ws, (journal_entry_t){.op = JOURNAL_BALANCE,
-                                       .address = *addr,
-                                       .prev = {.balance = old_balance}});
+  journal_append(
+      ws,
+      (journal_entry_t){.op = JOURNAL_BALANCE, .address = *addr, .prev = {.balance = old_balance}});
 
   // Now apply the change
   ws_set_balance_internal(ws, addr, balance);
@@ -261,9 +261,9 @@ static bool ws_add_balance(state_access_t *state, const address_t *addr, const u
   }
 
   // Journal old balance before modification
-  journal_append(ws, (journal_entry_t){.op = JOURNAL_BALANCE,
-                                       .address = *addr,
-                                       .prev = {.balance = acc.balance}});
+  journal_append(
+      ws,
+      (journal_entry_t){.op = JOURNAL_BALANCE, .address = *addr, .prev = {.balance = acc.balance}});
 
   acc.balance = new_balance;
   world_state_set_account(ws, addr, &acc);
@@ -283,9 +283,9 @@ static bool ws_sub_balance(state_access_t *state, const address_t *addr, const u
   }
 
   // Journal old balance before modification
-  journal_append(ws, (journal_entry_t){.op = JOURNAL_BALANCE,
-                                       .address = *addr,
-                                       .prev = {.balance = acc.balance}});
+  journal_append(
+      ws,
+      (journal_entry_t){.op = JOURNAL_BALANCE, .address = *addr, .prev = {.balance = acc.balance}});
 
   acc.balance = uint256_sub(acc.balance, amount);
   world_state_set_account(ws, addr, &acc);
@@ -318,9 +318,8 @@ static void ws_set_nonce(state_access_t *state, const address_t *addr, const uin
 
   // Journal old nonce before modification
   const uint64_t old_nonce = world_state_get_account(ws, addr, &acc) ? acc.nonce : 0;
-  journal_append(ws, (journal_entry_t){.op = JOURNAL_NONCE,
-                                       .address = *addr,
-                                       .prev = {.nonce = old_nonce}});
+  journal_append(
+      ws, (journal_entry_t){.op = JOURNAL_NONCE, .address = *addr, .prev = {.nonce = old_nonce}});
 
   ws_set_nonce_internal(ws, addr, nonce);
 }
@@ -339,9 +338,8 @@ static uint64_t ws_increment_nonce(state_access_t *state, const address_t *addr)
   }
 
   // Journal old nonce before modification
-  journal_append(ws, (journal_entry_t){.op = JOURNAL_NONCE,
-                                       .address = *addr,
-                                       .prev = {.nonce = old_nonce}});
+  journal_append(
+      ws, (journal_entry_t){.op = JOURNAL_NONCE, .address = *addr, .prev = {.nonce = old_nonce}});
 
   acc.nonce++;
   world_state_set_account(ws, addr, &acc);
@@ -535,9 +533,8 @@ static bool ws_warm_slot(state_access_t *const state, const address_t *const add
   }
 
   // Journal that we're warming this slot (revert will remove it)
-  journal_append(ws, (journal_entry_t){.op = JOURNAL_WARM_SLOT,
-                                       .address = *addr,
-                                       .prev = {.slot = slot}});
+  journal_append(
+      ws, (journal_entry_t){.op = JOURNAL_WARM_SLOT, .address = *addr, .prev = {.slot = slot}});
 
   warm_slot_set_insert(set, key);
   return true; // Was cold (first access)
@@ -582,53 +579,54 @@ static void ws_revert_to_snapshot(state_access_t *const state, const uint64_t sn
     const journal_entry_t *const e = &ws->journal[ws->journal_len];
 
     switch (e->op) {
-      case JOURNAL_BALANCE:
-        ws_set_balance_internal(ws, &e->address, e->prev.balance);
-        break;
+    case JOURNAL_BALANCE:
+      ws_set_balance_internal(ws, &e->address, e->prev.balance);
+      break;
 
-      case JOURNAL_NONCE:
-        ws_set_nonce_internal(ws, &e->address, e->prev.nonce);
-        break;
+    case JOURNAL_NONCE:
+      ws_set_nonce_internal(ws, &e->address, e->prev.nonce);
+      break;
 
-      case JOURNAL_STORAGE:
-        ws_set_storage_internal(ws, &e->address, e->prev.storage.slot, e->prev.storage.value);
-        break;
+    case JOURNAL_STORAGE:
+      ws_set_storage_internal(ws, &e->address, e->prev.storage.slot, e->prev.storage.value);
+      break;
 
-      case JOURNAL_ACCOUNT_CREATE:
-        // If account didn't exist before, delete it
-        if (!e->prev.existed) {
-          ws_delete_account(state, &e->address);
-        }
-        break;
-
-      case JOURNAL_ACCOUNT_DELETE:
-        // Not currently used, but would restore deleted account
-        break;
-
-      case JOURNAL_WARM_ADDRESS: {
-        // Remove from warm addresses set
-        const auto set = (warm_addr_set *)ws->warm_addresses;
-        warm_addr_set_erase(set, e->address);
-        break;
+    case JOURNAL_ACCOUNT_CREATE:
+      // If account didn't exist before, delete it
+      if (!e->prev.existed) {
+        ws_delete_account(state, &e->address);
       }
+      break;
 
-      case JOURNAL_WARM_SLOT: {
-        // Remove from warm slots set
-        const auto set = (warm_slot_set *)ws->warm_slots;
-        const warm_slot_key_t key = {.addr = e->address, .slot = e->prev.slot};
-        warm_slot_set_erase(set, key);
-        break;
-      }
+    case JOURNAL_ACCOUNT_DELETE:
+      // Not currently used, but would restore deleted account
+      break;
 
-      case JOURNAL_CODE:
-        // Code changes would need code restoration - not commonly reverted
-        break;
+    case JOURNAL_WARM_ADDRESS: {
+      // Remove from warm addresses set
+      const auto set = (warm_addr_set *)ws->warm_addresses;
+      warm_addr_set_erase(set, e->address);
+      break;
+    }
+
+    case JOURNAL_WARM_SLOT: {
+      // Remove from warm slots set
+      const auto set = (warm_slot_set *)ws->warm_slots;
+      const warm_slot_key_t key = {.addr = e->address, .slot = e->prev.slot};
+      warm_slot_set_erase(set, key);
+      break;
+    }
+
+    case JOURNAL_CODE:
+      // Code changes would need code restoration - not commonly reverted
+      break;
     }
   }
 }
 
 /// Commit snapshot - no-op, entries stay in journal until transaction ends
-// NOLINTNEXTLINE(CppParameterMayBeConstPtrOrRef) - vtable semantic contract: commit may modify state
+// NOLINTNEXTLINE(CppParameterMayBeConstPtrOrRef) - vtable semantic contract: commit may modify
+// state
 static void ws_commit_snapshot(state_access_t *const state, const uint64_t snapshot_id) {
   (void)state;
   (void)snapshot_id;

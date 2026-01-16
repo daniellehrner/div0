@@ -9,6 +9,7 @@
 #include "div0/types/address.h"
 #include "div0/types/hash.h"
 #include "div0/types/uint256.h"
+#include "div0/types/withdrawal.h"
 
 #include <stdbool.h>
 #include <stddef.h>
@@ -181,5 +182,18 @@ void block_executor_init(block_executor_t *exec, state_access_t *state,
 /// @return Contract address
 [[nodiscard]] address_t compute_create2_address(const address_t *sender, const hash_t *salt,
                                                 const hash_t *init_code_hash);
+
+// =============================================================================
+// Withdrawals Processing (EIP-4895)
+// =============================================================================
+
+/// Process EIP-4895 withdrawals after transaction execution.
+/// Credits withdrawal amounts (converted from Gwei to Wei) to recipient addresses.
+/// Called after all transactions in a block have been executed.
+/// @param exec Block executor with state access
+/// @param withdrawals Array of withdrawals to process
+/// @param count Number of withdrawals
+void block_executor_process_withdrawals(const block_executor_t *exec,
+                                        const withdrawal_t *withdrawals, size_t count);
 
 #endif // DIV0_EXECUTOR_BLOCK_EXECUTOR_H

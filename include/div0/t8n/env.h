@@ -16,6 +16,7 @@
 #include "div0/types/address.h"
 #include "div0/types/hash.h"
 #include "div0/types/uint256.h"
+#include "div0/types/withdrawal.h"
 
 #include <stdbool.h>
 #include <stddef.h>
@@ -30,14 +31,6 @@ typedef struct {
   uint64_t number; ///< Block number
   hash_t hash;     ///< Block hash
 } t8n_block_hash_t;
-
-/// Withdrawal entry (EIP-4895, Shanghai+).
-typedef struct {
-  uint64_t index;           ///< Withdrawal index
-  uint64_t validator_index; ///< Validator index
-  address_t address;        ///< Withdrawal recipient
-  uint64_t amount;          ///< Amount in Gwei
-} t8n_withdrawal_t;
 
 /// Ommer (uncle) block entry.
 typedef struct {
@@ -104,7 +97,7 @@ typedef struct {
   t8n_block_hash_t *block_hashes; ///< Block hash lookup table
   size_t block_hash_count;
 
-  t8n_withdrawal_t *withdrawals; ///< Withdrawals (Shanghai+)
+  withdrawal_t *withdrawals; ///< Withdrawals (Shanghai+)
   size_t withdrawal_count;
 
   t8n_ommer_t *ommers; ///< Ommer blocks

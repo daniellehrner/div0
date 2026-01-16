@@ -32,6 +32,27 @@ static void warm_access_list(state_access_t *const state, const access_list_t *c
   }
 }
 
+/// Warm all precompile addresses (EIP-2929, Berlin+).
+/// Precompiles 0x01-0x09 are warmed for Berlin/Shanghai/Cancun.
+/// Additional precompiles (0x0a for Cancun KZG) can be added based on fork.
+static void warm_precompiles(state_access_t *const state) {
+  // Berlin/Shanghai precompiles: 0x01-0x09
+  // - 0x01: ecrecover
+  // - 0x02: sha256
+  // - 0x03: ripemd160
+  // - 0x04: identity
+  // - 0x05: modexp
+  // - 0x06: ecAdd
+  // - 0x07: ecMul
+  // - 0x08: ecPairing
+  // - 0x09: blake2f
+  for (uint8_t i = 1; i <= 9; i++) {
+    address_t precompile = address_zero();
+    precompile.bytes[19] = i;
+    (void)state_warm_address(state, &precompile);
+  }
+}
+
 /// Get blob hashes for EIP-4844 transactions.
 static void get_blob_hashes(const transaction_t *const tx, const hash_t **const hashes,
                             size_t *const count) {
@@ -94,13 +115,19 @@ static bool execute_transaction(const block_executor_t *const exec, const block_
     (void)state_warm_address(exec->state, to);
   }
 
-  // 5. Warm access list addresses/slots (EIP-2930)
+  // 5. Warm precompile addresses (EIP-2929)
+  warm_precompiles(exec->state);
+
+  // 6. Warm access list addresses/slots (EIP-2930)
   warm_access_list(exec->state, transaction_access_list(tx));
 
-  // 6. Take snapshot for potential revert
+  // 7. Warm coinbase (EIP-3651, Shanghai+)
+  (void)state_warm_address(exec->state, &exec->block->coinbase);
+
+  // 8. Take snapshot for potential revert
   const uint64_t snapshot = state_snapshot(exec->state);
 
-  // 7. Transfer value from sender to recipient/contract
+  // 9. Transfer value from sender to recipient/contract
   if (!uint256_is_zero(value)) {
     if (!state_sub_balance(exec->state, &btx->sender, value)) {
       // Insufficient balance for value transfer
@@ -113,7 +140,7 @@ static bool execute_transaction(const block_executor_t *const exec, const block_
     (void)state_add_balance(exec->state, recipient, value);
   }
 
-  // 8. Build execution environment
+  // 10. Build execution environment
   execution_env_t env;
   execution_env_init(&env);
   env.block = exec->block;
@@ -156,14 +183,14 @@ static bool execute_transaction(const block_executor_t *const exec, const block_
     return false;
   }
 
-  // 9. Execute EVM
+  // 11. Execute EVM
   evm_reset(exec->evm);
   evm_set_state(exec->evm, exec->state);
   // Note: evm_execute_env sets block and tx context from env
 
   const evm_execution_result_t result = evm_execute_env(exec->evm, &env);
 
-  // 10. Handle execution result
+  // 12. Handle execution result
   if (result.result == EVM_RESULT_STOP) {
     // Success - commit state changes
     state_commit_snapshot(exec->state, snapshot);
@@ -204,7 +231,7 @@ static bool execute_transaction(const block_executor_t *const exec, const block_
   }
 
 finalize:
-  // 11. Refund unused gas to sender
+  // 13. Refund unused gas to sender
   const uint64_t gas_remaining = gas_limit - receipt->gas_used;
   if (gas_remaining > 0) {
     const uint256_t refund_amount =
@@ -212,12 +239,12 @@ finalize:
     (void)state_add_balance(exec->state, &btx->sender, refund_amount);
   }
 
-  // 12. Pay coinbase (only priority fee, base fee is burned per EIP-1559)
+  // 14. Pay coinbase (only priority fee, base fee is burned per EIP-1559)
   const uint256_t priority_fee = uint256_sub(effective_gas_price, exec->block->base_fee);
   const uint256_t coinbase_payment = uint256_mul(priority_fee, uint256_from_u64(receipt->gas_used));
   (void)state_add_balance(exec->state, &exec->block->coinbase, coinbase_payment);
 
-  // 13. Update cumulative gas
+  // 15. Update cumulative gas
   *cumulative_gas += receipt->gas_used;
   receipt->cumulative_gas = *cumulative_gas;
 
@@ -301,4 +328,18 @@ bool block_executor_run(const block_executor_t *const exec, const block_tx_t *co
   result->state_root = state_root(exec->state);
 
   return true;
+}
+
+// =============================================================================
+// Withdrawals Processing (EIP-4895)
+// =============================================================================
+
+void block_executor_process_withdrawals(const block_executor_t *const exec,
+                                        const withdrawal_t *const withdrawals, const size_t count) {
+  for (size_t i = 0; i < count; i++) {
+    const withdrawal_t *const w = &withdrawals[i];
+    // Convert amount from Gwei to Wei and credit recipient
+    const uint256_t wei_amount = withdrawal_amount_wei(w);
+    (void)state_add_balance(exec->state, &w->address, wei_amount);
+  }
 }

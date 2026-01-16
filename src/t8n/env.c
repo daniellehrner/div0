@@ -67,7 +67,7 @@ static json_result_t parse_block_hashes(yyjson_val_t *const obj, div0_arena_t *c
 }
 
 static json_result_t parse_withdrawals(yyjson_val_t *const obj, div0_arena_t *const arena,
-                                       t8n_withdrawal_t **const out, size_t *const out_count) {
+                                       withdrawal_t **const out, size_t *const out_count) {
   yyjson_val_t *const withdrawals = json_obj_get(obj, "withdrawals");
   if (withdrawals == nullptr || !json_is_arr(withdrawals)) {
     *out = nullptr;
@@ -82,7 +82,7 @@ static json_result_t parse_withdrawals(yyjson_val_t *const obj, div0_arena_t *co
     return json_ok();
   }
 
-  *out = div0_arena_alloc(arena, count * sizeof(t8n_withdrawal_t));
+  *out = div0_arena_alloc(arena, count * sizeof(withdrawal_t));
   if (*out == nullptr) {
     return json_err(JSON_ERR_ALLOC, "failed to allocate withdrawals");
   }
@@ -96,7 +96,7 @@ static json_result_t parse_withdrawals(yyjson_val_t *const obj, div0_arena_t *co
       return json_err(JSON_ERR_INVALID_TYPE, "withdrawal must be an object");
     }
 
-    t8n_withdrawal_t *const w = &(*out)[idx];
+    withdrawal_t *const w = &(*out)[idx];
 
     if (!json_get_hex_u64(w_val, "index", &w->index)) {
       return json_err(JSON_ERR_MISSING_FIELD, "missing withdrawal index");

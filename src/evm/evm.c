@@ -206,8 +206,7 @@ evm_execution_result_t evm_execute_env(evm_t *const evm, const execution_env_t *
 
         if (is_create) {
           // CREATE/CREATE2: return data is deployed bytecode
-          // Snapshot ID stored in frame->output_offset (repurposed field)
-          const uint64_t snapshot = frame->output_offset;
+          const uint64_t snapshot = frame->snapshot_id;
           bool create_success = true;
           uint64_t code_deposit_gas = 0;
 
@@ -310,9 +309,9 @@ evm_execution_result_t evm_execute_env(evm_t *const evm, const execution_env_t *
         const bool is_create =
             (frame->exec_type == EXEC_CREATE || frame->exec_type == EXEC_CREATE2);
 
-        // Revert state changes for CREATE frames (snapshot stored in output_offset)
+        // Revert state changes for CREATE frames
         if (is_create && evm->state != nullptr) {
-          const uint64_t snapshot = frame->output_offset;
+          const uint64_t snapshot = frame->snapshot_id;
           state_revert_to_snapshot(evm->state, snapshot);
         }
 
@@ -390,9 +389,9 @@ evm_execution_result_t evm_execute_env(evm_t *const evm, const execution_env_t *
         const bool is_create =
             (frame->exec_type == EXEC_CREATE || frame->exec_type == EXEC_CREATE2);
 
-        // Revert state changes for CREATE frames (snapshot stored in output_offset)
+        // Revert state changes for CREATE frames
         if (is_create && evm->state != nullptr) {
-          const uint64_t snapshot = frame->output_offset;
+          const uint64_t snapshot = frame->snapshot_id;
           state_revert_to_snapshot(evm->state, snapshot);
         }
 

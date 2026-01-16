@@ -127,7 +127,7 @@ create_op_result_t op_create(evm_t *const evm, call_frame_t *const frame) {
 
   // Store snapshot for potential rollback after child execution
   // Note: The main loop will handle rollback if child fails
-  child->output_offset = snapshot; // Repurpose output_offset to store snapshot ID
+  child->snapshot_id = snapshot;
 
   evm->pending_frame = child;
   return create_op_create();
@@ -186,7 +186,7 @@ create_op_result_t op_create2(evm_t *const evm, call_frame_t *const frame) {
   }
 
   // Store snapshot for potential rollback after child execution
-  child->output_offset = snapshot; // Repurpose output_offset to store snapshot ID
+  child->snapshot_id = snapshot;
 
   evm->pending_frame = child;
   return create_op_create();

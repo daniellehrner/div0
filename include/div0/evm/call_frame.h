@@ -33,11 +33,14 @@ struct call_frame {
   evm_memory_t *memory;    // Linear memory (from pool)
   const uint8_t *code;     // Bytecode pointer
   size_t code_size;        // Bytecode length
-  uint64_t output_offset;  // Parent's return data offset
-  uint32_t output_size;    // Max return size parent accepts
-  uint16_t depth;          // Call depth (max 1024)
-  exec_type_t exec_type;   // Execution type
-  bool is_static;          // Static context flag (no state modifications)
+  union {
+    uint64_t output_offset; // CALL: Parent's return data offset
+    uint64_t snapshot_id;   // CREATE: State snapshot for revert on failure
+  };
+  uint32_t output_size;  // Max return size parent accepts (CALL only)
+  uint16_t depth;        // Call depth (max 1024)
+  exec_type_t exec_type; // Execution type
+  bool is_static;        // Static context flag (no state modifications)
 
   // === Cold data (second cache line) ===
   address_t caller;     // CALLER opcode - msg.sender

@@ -708,6 +708,14 @@ int cmd_t8n(int argc, const char **argv) {
     }
   }
 
+  // Process withdrawals (EIP-4895, Shanghai+)
+  if (env.withdrawal_count > 0) {
+    block_executor_process_withdrawals(&executor, env.withdrawals, env.withdrawal_count);
+    if (opts.verbose) {
+      fprintf(stderr, "  processed %zu withdrawals\n", env.withdrawal_count);
+    }
+  }
+
   if (opts.verbose) {
     fprintf(stderr, "  executed: %zu successful, %zu rejected, %" PRIu64 " gas used\n",
             exec_result.receipt_count, exec_result.rejected_count, exec_result.gas_used);
@@ -783,11 +791,9 @@ int cmd_t8n(int argc, const char **argv) {
   }
 
   // Withdrawals root is required for Shanghai+ forks (EIP-4895)
-  // All currently supported forks require withdrawals root
-  // TODO: Compute actual root from withdrawals list when implemented
-  // For now, use empty trie root (keccak256(RLP([])))
   t8n_result.has_withdrawals_root = true;
-  t8n_result.withdrawals_root = MPT_EMPTY_ROOT;
+  t8n_result.withdrawals_root =
+      compute_withdrawals_root(env.withdrawals, env.withdrawal_count, &arena);
 
   // Write outputs
   if (opts.verbose) {

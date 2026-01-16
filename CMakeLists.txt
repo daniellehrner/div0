@@ -221,18 +221,19 @@ target_include_directories(div0_ethereum PUBLIC
 target_link_libraries(div0_ethereum PUBLIC div0_types div0_crypto div0_rlp)
 div0_target_options(div0_ethereum)
 
-# Block Executor library - depends on types, evm, state, ethereum, crypto, rlp
+# Block Executor library - depends on types, evm, state, ethereum, crypto, rlp, trie
 add_library(div0_executor STATIC
   src/executor/address.c
   src/executor/block_executor.c
   src/executor/intrinsic_gas.c
   src/executor/validation.c
+  src/executor/withdrawal.c
 )
 target_include_directories(div0_executor PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
   $<INSTALL_INTERFACE:include>
 )
-target_link_libraries(div0_executor PUBLIC div0_types div0_evm div0_state div0_ethereum div0_crypto div0_rlp)
+target_link_libraries(div0_executor PUBLIC div0_types div0_evm div0_state div0_ethereum div0_crypto div0_rlp div0_trie)
 div0_target_options(div0_executor)
 
 # ============================================================================

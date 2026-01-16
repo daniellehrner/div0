@@ -577,6 +577,11 @@ void test_opcode_create_max_code_size(void) {
   // But the result should be 0 pushed on stack (soft failure due to max code size)
   TEST_ASSERT_EQUAL(EVM_RESULT_STOP, result.result);
 
+  // Verify 0 was pushed to stack (CREATE failure)
+  TEST_ASSERT_NOT_NULL(evm.current_frame);
+  TEST_ASSERT_EQUAL_UINT16(1, evm_stack_size(evm.current_frame->stack));
+  TEST_ASSERT_TRUE(uint256_is_zero(evm_stack_peek_unsafe(evm.current_frame->stack, 0)));
+
   world_state_destroy(ws);
 }
 
@@ -655,6 +660,11 @@ void test_opcode_create_invalid_ef_prefix(void) {
   // CREATE should fail (soft failure) because code starts with 0xEF
   // Result is STOP with 0 pushed on stack
   TEST_ASSERT_EQUAL(EVM_RESULT_STOP, result.result);
+
+  // Verify 0 was pushed to stack (CREATE failure due to EF prefix)
+  TEST_ASSERT_NOT_NULL(evm.current_frame);
+  TEST_ASSERT_EQUAL_UINT16(1, evm_stack_size(evm.current_frame->stack));
+  TEST_ASSERT_TRUE(uint256_is_zero(evm_stack_peek_unsafe(evm.current_frame->stack, 0)));
 
   world_state_destroy(ws);
 }
@@ -737,6 +747,11 @@ void test_opcode_create_insufficient_gas_deposit(void) {
   // This manifests as either OUT_OF_GAS error or soft failure (0 pushed)
   // depending on implementation - in div0, it should be a soft failure
   TEST_ASSERT_EQUAL(EVM_RESULT_STOP, result.result);
+
+  // Verify 0 was pushed to stack (CREATE failure due to insufficient gas for deposit)
+  TEST_ASSERT_NOT_NULL(evm.current_frame);
+  TEST_ASSERT_EQUAL_UINT16(1, evm_stack_size(evm.current_frame->stack));
+  TEST_ASSERT_TRUE(uint256_is_zero(evm_stack_peek_unsafe(evm.current_frame->stack, 0)));
 
   world_state_destroy(ws);
 }

@@ -135,8 +135,8 @@ static bool journal_append(world_state_t *const ws, const journal_entry_t entry)
       return false;
     }
     if (ws->journal != nullptr && ws->journal_len > 0) {
-      __builtin___memcpy_chk(new_journal, ws->journal, ws->journal_len * sizeof(journal_entry_t),
-                             new_cap * sizeof(journal_entry_t));
+      // NOLINTNEXTLINE(clang-analyzer-security.insecureAPI.DeprecatedOrUnsafeBufferHandling)
+      memcpy(new_journal, ws->journal, ws->journal_len * sizeof(journal_entry_t));
     }
     ws->journal = new_journal;
     ws->journal_cap = new_cap;
@@ -378,6 +378,16 @@ static void ws_set_code(state_access_t *state, const address_t *addr, const uint
                         const size_t code_len) {
   const auto ws = (world_state_t *)state;
 
+  // Get old code_hash for journaling
+  account_t acc;
+  const bool existed = world_state_get_account(ws, addr, &acc);
+  const hash_t old_code_hash = existed ? acc.code_hash : EMPTY_CODE_HASH;
+
+  // Journal old code_hash before modification
+  journal_append(ws, (journal_entry_t){.op = JOURNAL_CODE,
+                                       .address = *addr,
+                                       .prev = {.code_hash = old_code_hash}});
+
   // Store code in code map
   const auto c_map = (code_map *)ws->code_store;
   bytes_t code_bytes;
@@ -388,8 +398,7 @@ static void ws_set_code(state_access_t *state, const address_t *addr, const uint
   code_map_insert(c_map, *addr, code_bytes);
 
   // Update account code_hash
-  account_t acc;
-  if (!world_state_get_account(ws, addr, &acc)) {
+  if (!existed) {
     acc = account_empty();
   }
 
@@ -533,8 +542,9 @@ static bool ws_warm_slot(state_access_t *const state, const address_t *const add
   }
 
   // Journal that we're warming this slot (revert will remove it)
-  journal_append(
-      ws, (journal_entry_t){.op = JOURNAL_WARM_SLOT, .address = *addr, .prev = {.slot = slot}});
+  journal_append(ws, (journal_entry_t){.op = JOURNAL_WARM_SLOT,
+                                       .address = *addr,
+                                       .prev = {.warm_slot = {.slot = slot}}});
 
   warm_slot_set_insert(set, key);
   return true; // Was cold (first access)
@@ -612,14 +622,28 @@ static void ws_revert_to_snapshot(state_access_t *const state, const uint64_t sn
     case JOURNAL_WARM_SLOT: {
       // Remove from warm slots set
       const auto set = (warm_slot_set *)ws->warm_slots;
-      const warm_slot_key_t key = {.addr = e->address, .slot = e->prev.slot};
+      const warm_slot_key_t key = {.addr = e->address, .slot = e->prev.warm_slot.slot};
       warm_slot_set_erase(set, key);
       break;
     }
 
-    case JOURNAL_CODE:
-      // Code changes would need code restoration - not commonly reverted
+    case JOURNAL_CODE: {
+      // Restore code_hash in account
+      account_t acc;
+      if (world_state_get_account(ws, &e->address, &acc)) {
+        acc.code_hash = e->prev.code_hash;
+        world_state_set_account(ws, &e->address, &acc);
+      }
+
+      // If old code was empty, remove from code map
+      // Note: if old code was non-empty, we can't restore the actual bytes
+      // (they weren't journaled), but this case is rare in practice
+      if (hash_equal(&e->prev.code_hash, &EMPTY_CODE_HASH)) {
+        const auto c_map = (code_map *)ws->code_store;
+        code_map_erase(c_map, e->address);
+      }
       break;
+    }
     }
   }
 }

@@ -49,8 +49,10 @@ typedef struct {
       hash_t code_hash;
       hash_t storage_root;
     } deleted_account;
-    // JOURNAL_WARM_ADDRESS/SLOT: no extra data needed (just remove from warm set)
-    uint256_t slot; // JOURNAL_WARM_SLOT: the slot that was warmed
+    // JOURNAL_WARM_ADDRESS: no extra data needed (just remove from warm set)
+    struct {          // JOURNAL_WARM_SLOT
+      uint256_t slot; // the slot that was warmed
+    } warm_slot;
   } prev;
 } journal_entry_t;
 

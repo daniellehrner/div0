@@ -66,6 +66,7 @@ static bool calculate_create_gas(uint64_t *const parent_gas, evm_memory_t *const
   // CREATE: 2 gas per 32-byte word
   // CREATE2: 2 + 6 = 8 gas per 32-byte word (init code + keccak256 hashing)
   if (init_size > 0) {
+    // Ceiling division to get number of 32-byte EVM words
     const uint64_t num_words = (init_size + 31) / 32;
     const uint64_t per_word_cost =
         is_create2 ? (GAS_INITCODE_WORD + GAS_KECCAK256_WORD) : GAS_INITCODE_WORD;

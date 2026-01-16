@@ -249,8 +249,9 @@ evm_execution_result_t evm_execute_env(evm_t *const evm, const execution_env_t *
               state_revert_to_snapshot(evm->state, snapshot);
             }
 
-            // Return unused gas to parent (child gas consumed on failure)
-            // Note: on some failures gas is still returned, simplified here
+            // Return unused gas to parent for validation failures (EIP-170, EIP-3541,
+            // insufficient gas for code deposit), per EVM spec.
+            parent->gas += frame->gas;
 
             // Push 0 (failure) onto parent's stack
             evm_stack_push_unsafe(parent->stack, uint256_zero());

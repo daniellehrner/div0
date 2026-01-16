@@ -38,6 +38,15 @@ static call_frame_t *init_create_child_frame(evm_t *const evm, const call_frame_
   child->gas = setup->child_gas;
   child->stack = evm_stack_pool_borrow(&evm->stack_pool);
   child->memory = evm_memory_pool_borrow(&evm->memory_pool);
+  if (child->stack == nullptr || child->memory == nullptr) {
+    // Return in LIFO order: memory first (if borrowed), then frame
+    // Stack is arena-allocated and return is a no-op
+    if (child->memory != nullptr) {
+      evm_memory_pool_return(&evm->memory_pool);
+    }
+    call_frame_pool_return(&evm->frame_pool);
+    return nullptr;
+  }
   child->code = init_code;
   child->code_size = setup->init_size;
   child->output_offset = 0; // CREATE has no output location in parent memory
@@ -73,7 +82,10 @@ create_op_result_t op_create(evm_t *const evm, call_frame_t *const frame) {
   const create_setup_t setup = prepare_create(frame->stack, &frame->gas, frame->memory, state,
                                               &frame->address, frame->is_static, frame->depth);
 
-  if (setup.status == EVM_CALL_DEPTH_EXCEEDED) {
+  // Soft failures: depth exceeded, nonce overflow, or address collision
+  // These push 0 and continue execution (not fatal errors)
+  if (setup.status == EVM_CALL_DEPTH_EXCEEDED || setup.status == EVM_NONCE_OVERFLOW ||
+      setup.status == EVM_CREATE_COLLISION) {
     evm_stack_push_unsafe(frame->stack, uint256_zero());
     return create_op_continue();
   }
@@ -130,7 +142,10 @@ create_op_result_t op_create2(evm_t *const evm, call_frame_t *const frame) {
   const create_setup_t setup = prepare_create2(frame->stack, &frame->gas, frame->memory, state,
                                                &frame->address, frame->is_static, frame->depth);
 
-  if (setup.status == EVM_CALL_DEPTH_EXCEEDED) {
+  // Soft failures: depth exceeded, nonce overflow, or address collision
+  // These push 0 and continue execution (not fatal errors)
+  if (setup.status == EVM_CALL_DEPTH_EXCEEDED || setup.status == EVM_NONCE_OVERFLOW ||
+      setup.status == EVM_CREATE_COLLISION) {
     evm_stack_push_unsafe(frame->stack, uint256_zero());
     return create_op_continue();
   }

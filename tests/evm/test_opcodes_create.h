@@ -42,4 +42,16 @@ void test_opcode_create_insufficient_balance(void);
 // =============================================================================
 void test_opcode_create_initcode_size_exceeded(void);
 
+// =============================================================================
+// Code Validation Tests
+// =============================================================================
+// EIP-170: Max deployed code size (24576 bytes)
+void test_opcode_create_max_code_size(void);
+
+// EIP-3541: Code starting with 0xEF is invalid
+void test_opcode_create_invalid_ef_prefix(void);
+
+// Insufficient gas for code deposit
+void test_opcode_create_insufficient_gas_deposit(void);
+
 #endif // TEST_OPCODES_CREATE_H

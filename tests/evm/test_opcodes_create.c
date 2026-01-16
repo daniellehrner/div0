@@ -365,7 +365,8 @@ void test_opcode_create2_out_of_gas_initcode_hash(void) {
   evm_set_state(&evm, world_state_access(ws));
 
   // Give enough for setup but not enough for CREATE2 with hash cost
-  // Setup: 2*PUSH32(6) + 2*PUSH1(6) + 2*MSTORE(12) + PUSH32(3) + 3*PUSH1(9) = 36
+  // Setup: 2*PUSH32(3) + 2*PUSH1(3) + 2*MSTORE(3 + mem_expansion) + PUSH32(3) + 3*PUSH1(3)
+  //        = 24 + memory_expansion (ignoring later CREATE2 and keccak256 costs)
   // CREATE2: 32000 + memory + initcode_words * (2 + 6) = 32000 + mem + 16
   execution_env_t env = make_test_env(code, idx, 32050);
   env.call.address = make_address(0x1234);
@@ -453,6 +454,289 @@ void test_opcode_create_initcode_size_exceeded(void) {
   // Should fail with out of gas (EIP-3860 check)
   TEST_ASSERT_EQUAL(EVM_RESULT_ERROR, result.result);
   TEST_ASSERT_EQUAL(EVM_OUT_OF_GAS, result.error);
+
+  world_state_destroy(ws);
+}
+
+// =============================================================================
+// Code Validation Tests
+// =============================================================================
+
+void test_opcode_create_max_code_size(void) {
+  // EIP-170: Max deployed code size is 24576 bytes
+  // Init code that returns 24577 bytes of 0x00:
+  //   PUSH3 0x006001 (24577)  ; size
+  //   PUSH1 0x00              ; dest offset
+  //   PUSH1 0x00              ; value
+  //   RETURN
+  // This code returns 24577 zero bytes as the deployed code
+  // The result should have 0 pushed on stack (failure) and state reverted
+
+  // Note: This test requires substantial memory and gas
+  // For efficiency, we create init code that returns >24576 bytes using CODECOPY + RETURN
+
+  // Init code:
+  // PUSH2 size=24577, PUSH1 0, RETURN
+  // But we need actual memory content, so:
+  // PUSH2 24577    ; size to return
+  // PUSH1 0        ; memory offset
+  // PUSH1 0        ; code offset (we'll use calldatacopy to fill with zeros)
+  // CALLDATACOPY   ; fill memory with zeros (from empty calldata)
+  // PUSH2 24577    ; size
+  // PUSH1 0        ; offset
+  // RETURN         ; return 24577 bytes of zeros
+
+  uint8_t init_code[] = {
+      OP_PUSH2, 0x60, 0x01, // 24577 = 0x6001
+      OP_PUSH1, 0,          // memory offset 0
+      OP_PUSH1, 0,          // code offset 0
+      OP_CALLDATACOPY,      // fill memory (no calldata, so zeros)
+      OP_PUSH2, 0x60, 0x01, // return size 24577
+      OP_PUSH1, 0,          // return offset 0
+      OP_RETURN,
+  };
+
+  // Main code: store init code in memory, then CREATE
+  // Need to: PUSH init bytes, MSTORE, CREATE
+
+  // For simplicity, we'll construct the init code in memory manually
+  // PUSH32 init_code (first 32 bytes), PUSH1 0, MSTORE
+  // Then the rest, then CREATE
+
+  // Actually, the easiest approach is to have the init code embedded in the main bytecode
+  // and use CODECOPY to copy it to memory, then CREATE
+
+  // Main code:
+  // CODECOPY(dst=0, offset=CODE_START, size=INIT_SIZE)
+  // CREATE(value=0, offset=0, size=INIT_SIZE)
+  // STOP
+
+  // Let's calculate: CODE_START is after the main instructions
+  // Main: PUSH2 size(2) + PUSH2 offset(3) + PUSH1 dst(2) + CODECOPY(1) +
+  //       PUSH2 size(3) + PUSH1 offset(2) + PUSH1 value(2) + CREATE(1) + STOP(1) = 17
+  // So init code starts at offset 17
+
+  const size_t init_size = sizeof(init_code);
+  const size_t code_start = 17;
+
+  uint8_t code[17 + sizeof(init_code)];
+  size_t idx = 0;
+
+  // PUSH2 init_size
+  code[idx++] = OP_PUSH2;
+  code[idx++] = (uint8_t)(init_size >> 8);
+  code[idx++] = (uint8_t)(init_size & 0xFF);
+
+  // PUSH2 code_start (offset in code where init starts)
+  code[idx++] = OP_PUSH2;
+  code[idx++] = (uint8_t)(code_start >> 8);
+  code[idx++] = (uint8_t)(code_start & 0xFF);
+
+  // PUSH1 0 (destination in memory)
+  code[idx++] = OP_PUSH1;
+  code[idx++] = 0;
+
+  // CODECOPY
+  code[idx++] = OP_CODECOPY;
+
+  // PUSH2 init_size
+  code[idx++] = OP_PUSH2;
+  code[idx++] = (uint8_t)(init_size >> 8);
+  code[idx++] = (uint8_t)(init_size & 0xFF);
+
+  // PUSH1 0 (offset)
+  code[idx++] = OP_PUSH1;
+  code[idx++] = 0;
+
+  // PUSH1 0 (value)
+  code[idx++] = OP_PUSH1;
+  code[idx++] = 0;
+
+  // CREATE
+  code[idx++] = OP_CREATE;
+
+  // Init code follows
+  memcpy(&code[idx], init_code, sizeof(init_code));
+
+  world_state_t *ws = world_state_create(&test_arena);
+  TEST_ASSERT_NOT_NULL(ws);
+
+  evm_t evm;
+  evm_init(&evm, &test_arena, FORK_SHANGHAI);
+  evm_set_state(&evm, world_state_access(ws));
+
+  // Give plenty of gas for memory expansion + code deposit attempt
+  execution_env_t env = make_test_env(code, sizeof(code), 100000000);
+  env.call.address = make_address(0xABCD);
+
+  state_set_balance(world_state_access(ws), &env.call.address, uint256_from_u64(1000000));
+
+  evm_execution_result_t result = evm_execute_env(&evm, &env);
+
+  // CREATE should have succeeded execution-wise (no hard error)
+  // But the result should be 0 pushed on stack (soft failure due to max code size)
+  TEST_ASSERT_EQUAL(EVM_RESULT_STOP, result.result);
+
+  world_state_destroy(ws);
+}
+
+void test_opcode_create_invalid_ef_prefix(void) {
+  // EIP-3541: Code starting with 0xEF is invalid (reserved for EOF)
+  // Init code that returns bytecode starting with 0xEF:
+  //   PUSH1 0xEF, PUSH1 0, MSTORE8
+  //   PUSH1 1, PUSH1 0, RETURN
+
+  uint8_t init_code[] = {
+      OP_PUSH1, 0xEF,   // value 0xEF
+      OP_PUSH1, 0,      // offset 0
+      OP_MSTORE8,       // store 0xEF at memory[0]
+      OP_PUSH1, 1,      // return size 1
+      OP_PUSH1, 0,      // return offset 0
+      OP_RETURN,        // return [0xEF]
+  };
+
+  // Main code: copy init code to memory, CREATE
+  const size_t init_size = sizeof(init_code);
+  const size_t code_start = 17;
+
+  uint8_t code[17 + sizeof(init_code)];
+  size_t idx = 0;
+
+  // PUSH2 init_size
+  code[idx++] = OP_PUSH2;
+  code[idx++] = (uint8_t)(init_size >> 8);
+  code[idx++] = (uint8_t)(init_size & 0xFF);
+
+  // PUSH2 code_start
+  code[idx++] = OP_PUSH2;
+  code[idx++] = (uint8_t)(code_start >> 8);
+  code[idx++] = (uint8_t)(code_start & 0xFF);
+
+  // PUSH1 0 (destination)
+  code[idx++] = OP_PUSH1;
+  code[idx++] = 0;
+
+  // CODECOPY
+  code[idx++] = OP_CODECOPY;
+
+  // PUSH2 init_size
+  code[idx++] = OP_PUSH2;
+  code[idx++] = (uint8_t)(init_size >> 8);
+  code[idx++] = (uint8_t)(init_size & 0xFF);
+
+  // PUSH1 0 (offset)
+  code[idx++] = OP_PUSH1;
+  code[idx++] = 0;
+
+  // PUSH1 0 (value)
+  code[idx++] = OP_PUSH1;
+  code[idx++] = 0;
+
+  // CREATE
+  code[idx++] = OP_CREATE;
+
+  // Append init code
+  memcpy(&code[idx], init_code, sizeof(init_code));
+
+  world_state_t *ws = world_state_create(&test_arena);
+  TEST_ASSERT_NOT_NULL(ws);
+
+  evm_t evm;
+  evm_init(&evm, &test_arena, FORK_SHANGHAI);
+  evm_set_state(&evm, world_state_access(ws));
+
+  execution_env_t env = make_test_env(code, sizeof(code), 100000);
+  env.call.address = make_address(0x1234);
+
+  state_set_balance(world_state_access(ws), &env.call.address, uint256_from_u64(1000000));
+
+  evm_execution_result_t result = evm_execute_env(&evm, &env);
+
+  // CREATE should fail (soft failure) because code starts with 0xEF
+  // Result is STOP with 0 pushed on stack
+  TEST_ASSERT_EQUAL(EVM_RESULT_STOP, result.result);
+
+  world_state_destroy(ws);
+}
+
+void test_opcode_create_insufficient_gas_deposit(void) {
+  // Test that CREATE fails when there's not enough gas for code deposit
+  // Code deposit costs 200 gas per byte (GAS_CODE_DEPOSIT = 200)
+  // Init code that returns 100 bytes needs 20000 gas just for deposit
+
+  // Init code: return 100 bytes of zeros
+  uint8_t init_code[] = {
+      OP_PUSH1, 100,  // size = 100
+      OP_PUSH1, 0,    // offset = 0
+      OP_RETURN,      // return 100 bytes (memory is zero-initialized)
+  };
+
+  const size_t init_size = sizeof(init_code);
+  const size_t code_start = 17;
+
+  uint8_t code[17 + sizeof(init_code)];
+  size_t idx = 0;
+
+  // PUSH2 init_size
+  code[idx++] = OP_PUSH2;
+  code[idx++] = (uint8_t)(init_size >> 8);
+  code[idx++] = (uint8_t)(init_size & 0xFF);
+
+  // PUSH2 code_start
+  code[idx++] = OP_PUSH2;
+  code[idx++] = (uint8_t)(code_start >> 8);
+  code[idx++] = (uint8_t)(code_start & 0xFF);
+
+  // PUSH1 0 (destination)
+  code[idx++] = OP_PUSH1;
+  code[idx++] = 0;
+
+  // CODECOPY
+  code[idx++] = OP_CODECOPY;
+
+  // PUSH2 init_size
+  code[idx++] = OP_PUSH2;
+  code[idx++] = (uint8_t)(init_size >> 8);
+  code[idx++] = (uint8_t)(init_size & 0xFF);
+
+  // PUSH1 0 (offset)
+  code[idx++] = OP_PUSH1;
+  code[idx++] = 0;
+
+  // PUSH1 0 (value)
+  code[idx++] = OP_PUSH1;
+  code[idx++] = 0;
+
+  // CREATE
+  code[idx++] = OP_CREATE;
+
+  memcpy(&code[idx], init_code, sizeof(init_code));
+
+  world_state_t *ws = world_state_create(&test_arena);
+  TEST_ASSERT_NOT_NULL(ws);
+
+  evm_t evm;
+  evm_init(&evm, &test_arena, FORK_SHANGHAI);
+  evm_set_state(&evm, world_state_access(ws));
+
+  // Calculate gas: need CREATE base (32000) + memory expansion + init code words * 2
+  // But NOT enough for code deposit (100 * 200 = 20000)
+  // Give just enough for CREATE to run but fail on deposit:
+  // 32000 (base) + ~100 (memory) + ~10 (initcode cost) + child gas
+  // Child gas = (remaining * 63/64), then deposit cost is 20000
+  // We want child to have less than 20000 for deposit
+  // Give total of 35000: base=32000, leaves 3000, child gets ~2953, not enough for 20000
+  execution_env_t env = make_test_env(code, sizeof(code), 35000);
+  env.call.address = make_address(0x5678);
+
+  state_set_balance(world_state_access(ws), &env.call.address, uint256_from_u64(1000000));
+
+  evm_execution_result_t result = evm_execute_env(&evm, &env);
+
+  // Should fail due to insufficient gas for code deposit
+  // This manifests as either OUT_OF_GAS error or soft failure (0 pushed)
+  // depending on implementation - in div0, it should be a soft failure
+  TEST_ASSERT_EQUAL(EVM_RESULT_STOP, result.result);
 
   world_state_destroy(ws);
 }

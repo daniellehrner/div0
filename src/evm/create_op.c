@@ -155,7 +155,7 @@ create_setup_t prepare_create(evm_stack_t *const stack, uint64_t *const gas,
   // 7. Get sender nonce and check for overflow
   const uint64_t sender_nonce = state_get_nonce(state, sender);
   if (sender_nonce == UINT64_MAX) {
-    result.status = EVM_CALL_DEPTH_EXCEEDED; // Nonce overflow (soft failure)
+    result.status = EVM_NONCE_OVERFLOW; // Nonce overflow (soft failure)
     return result;
   }
 
@@ -166,7 +166,7 @@ create_setup_t prepare_create(evm_stack_t *const stack, uint64_t *const gas,
   const size_t existing_code_size = state_get_code_size(state, &result.target);
   const uint64_t existing_nonce = state_get_nonce(state, &result.target);
   if (existing_code_size > 0 || existing_nonce > 0) {
-    result.status = EVM_CALL_DEPTH_EXCEEDED; // Collision (soft failure)
+    result.status = EVM_CREATE_COLLISION; // Collision (soft failure)
     return result;
   }
 
@@ -255,7 +255,7 @@ create_setup_t prepare_create2(evm_stack_t *const stack, uint64_t *const gas,
   const size_t existing_code_size = state_get_code_size(state, &result.target);
   const uint64_t existing_nonce = state_get_nonce(state, &result.target);
   if (existing_code_size > 0 || existing_nonce > 0) {
-    result.status = EVM_CALL_DEPTH_EXCEEDED; // Collision (soft failure)
+    result.status = EVM_CREATE_COLLISION; // Collision (soft failure)
     return result;
   }
 

@@ -13,6 +13,47 @@
 #include <stdbool.h>
 #include <stddef.h>
 
+// =============================================================================
+// Journal Types (for snapshot/revert support)
+// =============================================================================
+
+/// Journal operation types.
+typedef enum {
+  JOURNAL_BALANCE,        // Balance change
+  JOURNAL_NONCE,          // Nonce change
+  JOURNAL_CODE,           // Code change
+  JOURNAL_STORAGE,        // Storage slot change
+  JOURNAL_ACCOUNT_CREATE, // Account creation
+  JOURNAL_ACCOUNT_DELETE, // Account deletion
+  JOURNAL_WARM_ADDRESS,   // Address warmed (EIP-2929)
+  JOURNAL_WARM_SLOT,      // Slot warmed (EIP-2929)
+} journal_op_t;
+
+/// Journal entry storing previous state before modification.
+typedef struct {
+  journal_op_t op;
+  address_t address;
+  union {
+    uint256_t balance;   // JOURNAL_BALANCE: previous balance
+    uint64_t nonce;      // JOURNAL_NONCE: previous nonce
+    hash_t code_hash;    // JOURNAL_CODE: previous code hash
+    struct {             // JOURNAL_STORAGE
+      uint256_t slot;
+      uint256_t value;   // previous value
+    } storage;
+    bool existed;        // JOURNAL_ACCOUNT_CREATE: true if already existed
+    // JOURNAL_ACCOUNT_DELETE: stores deleted account data
+    struct {
+      uint256_t balance;
+      uint64_t nonce;
+      hash_t code_hash;
+      hash_t storage_root;
+    } deleted_account;
+    // JOURNAL_WARM_ADDRESS/SLOT: no extra data needed (just remove from warm set)
+    uint256_t slot;      // JOURNAL_WARM_SLOT: the slot that was warmed
+  } prev;
+} journal_entry_t;
+
 /// World state - manages account state trie and per-account storage.
 /// Implements the state_access_t interface.
 typedef struct {
@@ -41,8 +82,10 @@ typedef struct {
   // All storage slots tracking for post-state export
   void *all_storage_slots; // Map of (address, slot) -> slot for all written slots
 
-  // Snapshot support
-  uint64_t snapshot_counter; // Per-instance snapshot ID counter
+  // Snapshot/revert support (geth-style journaling)
+  journal_entry_t *journal; // Array of journal entries
+  size_t journal_len;       // Current number of entries
+  size_t journal_cap;       // Capacity of journal array
 
   div0_arena_t *arena; // Arena for all allocations
 } world_state_t;

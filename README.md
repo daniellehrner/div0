@@ -84,16 +84,16 @@ make release
 | Target             | Description                                        |
 |--------------------|----------------------------------------------------|
 | `make debug`       | Debug build with ASan + UBSan (default)            |
-| `make release`     | Optimized release build with LTO                   |
+| `make release`     | Release build with LTO                             |
 | `make threadsan`   | Build with ThreadSanitizer                         |
 | `make bare-metal-riscv` | RISC-V 64-bit bare-metal build (requires PICOLIBC_ROOT) |
-| `make test`        | Run unit tests (debug build)                       |
+| `make test`        | Run tests (debug build)                            |
 | `make test-threadsan` | Run tests with ThreadSanitizer                  |
 | `make coverage`    | Generate code coverage report (requires lcov)      |
 | `make bench`       | Run benchmarks (release build)                     |
 | `make clean`       | Clean project artifacts (preserves external deps)  |
 | `make distclean`   | Remove everything including external dependencies  |
-| `make format`      | Format code with clang-format                      |
+| `make format`      | Format source code with clang-format               |
 | `make format-check` | Check formatting without modifying                |
 | `make clang-tidy`  | Run clang-tidy static analysis                     |
 | `make semgrep`     | Run semgrep C23 checks                             |

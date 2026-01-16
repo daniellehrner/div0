@@ -119,6 +119,33 @@ static bool warm_slot_key_eq(const warm_slot_key_t *const a, const warm_slot_key
 static void erase_slots_for_address(all_slots_set *all_slots, const address_t *addr);
 
 // =============================================================================
+// Journal Helpers
+// =============================================================================
+
+enum { JOURNAL_INITIAL_CAPACITY = 64 };
+
+/// Append an entry to the journal, growing if needed.
+static bool journal_append(world_state_t *const ws, const journal_entry_t entry) {
+  if (ws->journal_len >= ws->journal_cap) {
+    // Grow journal
+    const size_t new_cap = ws->journal_cap == 0 ? JOURNAL_INITIAL_CAPACITY : ws->journal_cap * 2;
+    journal_entry_t *const new_journal =
+        div0_arena_alloc(ws->arena, new_cap * sizeof(journal_entry_t));
+    if (new_journal == nullptr) {
+      return false;
+    }
+    if (ws->journal != nullptr && ws->journal_len > 0) {
+      // NOLINTNEXTLINE(clang-analyzer-security.insecureAPI.DeprecatedOrUnsafeBufferHandling)
+      memcpy(new_journal, ws->journal, ws->journal_len * sizeof(journal_entry_t));
+    }
+    ws->journal = new_journal;
+    ws->journal_cap = new_cap;
+  }
+  ws->journal[ws->journal_len++] = entry;
+  return true;
+}
+
+// =============================================================================
 // Helper Functions
 // =============================================================================
 
@@ -156,7 +183,14 @@ static bool ws_account_is_empty(state_access_t *state, const address_t *addr) {
 
 static void ws_create_contract(state_access_t *const state, const address_t *const addr) {
   const auto ws = (world_state_t *)state;
-  if (ws_account_exists(state, addr)) {
+  const bool existed = ws_account_exists(state, addr);
+
+  // Journal account creation (revert will delete if didn't exist before)
+  journal_append(ws, (journal_entry_t){.op = JOURNAL_ACCOUNT_CREATE,
+                                       .address = *addr,
+                                       .prev = {.existed = existed}});
+
+  if (existed) {
     return; // Already exists
   }
   // Create with nonce=1 per EIP-161 (ensures non-empty account)
@@ -187,14 +221,30 @@ static uint256_t ws_get_balance(state_access_t *state, const address_t *addr) {
   return acc.balance;
 }
 
-static void ws_set_balance(state_access_t *state, const address_t *addr, const uint256_t balance) {
-  const auto ws = (world_state_t *)state;
+/// Internal: set balance without journaling (used by revert)
+static void ws_set_balance_internal(world_state_t *const ws, const address_t *const addr,
+                                    const uint256_t balance) {
   account_t acc;
   if (!world_state_get_account(ws, addr, &acc)) {
     acc = account_empty();
   }
   acc.balance = balance;
   world_state_set_account(ws, addr, &acc);
+}
+
+static void ws_set_balance(state_access_t *state, const address_t *addr, const uint256_t balance) {
+  const auto ws = (world_state_t *)state;
+
+  // Journal old balance before modification
+  account_t acc;
+  const uint256_t old_balance =
+      world_state_get_account(ws, addr, &acc) ? acc.balance : uint256_zero();
+  journal_append(
+      ws,
+      (journal_entry_t){.op = JOURNAL_BALANCE, .address = *addr, .prev = {.balance = old_balance}});
+
+  // Now apply the change
+  ws_set_balance_internal(ws, addr, balance);
 }
 
 static bool ws_add_balance(state_access_t *state, const address_t *addr, const uint256_t amount) {
@@ -209,6 +259,11 @@ static bool ws_add_balance(state_access_t *state, const address_t *addr, const u
   if (uint256_lt(new_balance, acc.balance)) {
     return false; // Overflow
   }
+
+  // Journal old balance before modification
+  journal_append(
+      ws,
+      (journal_entry_t){.op = JOURNAL_BALANCE, .address = *addr, .prev = {.balance = acc.balance}});
 
   acc.balance = new_balance;
   world_state_set_account(ws, addr, &acc);
@@ -227,6 +282,11 @@ static bool ws_sub_balance(state_access_t *state, const address_t *addr, const u
     return false; // Insufficient balance
   }
 
+  // Journal old balance before modification
+  journal_append(
+      ws,
+      (journal_entry_t){.op = JOURNAL_BALANCE, .address = *addr, .prev = {.balance = acc.balance}});
+
   acc.balance = uint256_sub(acc.balance, amount);
   world_state_set_account(ws, addr, &acc);
   return true;
@@ -241,14 +301,27 @@ static uint64_t ws_get_nonce(state_access_t *state, const address_t *addr) {
   return acc.nonce;
 }
 
-static void ws_set_nonce(state_access_t *state, const address_t *addr, const uint64_t nonce) {
-  const auto ws = (world_state_t *)state;
+/// Internal: set nonce without journaling (used by revert)
+static void ws_set_nonce_internal(world_state_t *const ws, const address_t *const addr,
+                                  const uint64_t nonce) {
   account_t acc;
   if (!world_state_get_account(ws, addr, &acc)) {
     acc = account_empty();
   }
   acc.nonce = nonce;
   world_state_set_account(ws, addr, &acc);
+}
+
+static void ws_set_nonce(state_access_t *state, const address_t *addr, const uint64_t nonce) {
+  const auto ws = (world_state_t *)state;
+  account_t acc;
+
+  // Journal old nonce before modification
+  const uint64_t old_nonce = world_state_get_account(ws, addr, &acc) ? acc.nonce : 0;
+  journal_append(
+      ws, (journal_entry_t){.op = JOURNAL_NONCE, .address = *addr, .prev = {.nonce = old_nonce}});
+
+  ws_set_nonce_internal(ws, addr, nonce);
 }
 
 static uint64_t ws_increment_nonce(state_access_t *state, const address_t *addr) {
@@ -263,6 +336,10 @@ static uint64_t ws_increment_nonce(state_access_t *state, const address_t *addr)
   if (acc.nonce >= UINT64_MAX - 1) {
     return old_nonce; // Saturate at max, don't increment
   }
+
+  // Journal old nonce before modification
+  journal_append(
+      ws, (journal_entry_t){.op = JOURNAL_NONCE, .address = *addr, .prev = {.nonce = old_nonce}});
 
   acc.nonce++;
   world_state_set_account(ws, addr, &acc);
@@ -301,6 +378,16 @@ static void ws_set_code(state_access_t *state, const address_t *addr, const uint
                         const size_t code_len) {
   const auto ws = (world_state_t *)state;
 
+  // Get old code_hash for journaling
+  account_t acc;
+  const bool existed = world_state_get_account(ws, addr, &acc);
+  const hash_t old_code_hash = existed ? acc.code_hash : EMPTY_CODE_HASH;
+
+  // Journal old code_hash before modification
+  journal_append(ws, (journal_entry_t){.op = JOURNAL_CODE,
+                                       .address = *addr,
+                                       .prev = {.code_hash = old_code_hash}});
+
   // Store code in code map
   const auto c_map = (code_map *)ws->code_store;
   bytes_t code_bytes;
@@ -311,8 +398,7 @@ static void ws_set_code(state_access_t *state, const address_t *addr, const uint
   code_map_insert(c_map, *addr, code_bytes);
 
   // Update account code_hash
-  account_t acc;
-  if (!world_state_get_account(ws, addr, &acc)) {
+  if (!existed) {
     acc = account_empty();
   }
 
@@ -362,29 +448,19 @@ static uint256_t ws_get_original_storage(state_access_t *const state, const addr
   return ws_get_storage(state, addr, slot);
 }
 
-static void ws_set_storage(state_access_t *const state, const address_t *const addr,
-                           const uint256_t slot, const uint256_t value) {
-  const auto ws = (world_state_t *)state;
-
-  // Record original value on first write (for EIP-2200 gas calculation)
-  const auto orig_map = (original_storage_map *)ws->original_storage;
-  const warm_slot_key_t slot_key = {.addr = *addr, .slot = slot};
-  if (!original_storage_map_contains(orig_map, slot_key)) {
-    const uint256_t original = ws_get_storage(state, addr, slot);
-    original_storage_map_insert(orig_map, slot_key, original);
-  }
-
+/// Internal: set storage without journaling (used by revert)
+static void ws_set_storage_internal(world_state_t *const ws, const address_t *const addr,
+                                    const uint256_t slot, const uint256_t value) {
   // Mark address as having dirty storage for efficient state root computation
   const auto dirty = (dirty_addr_set *)ws->dirty_storage;
   dirty_addr_set_insert(dirty, *addr);
 
   // Track slot for post-state export
   const auto all_slots = (all_slots_set *)ws->all_storage_slots;
+  const warm_slot_key_t slot_key = {.addr = *addr, .slot = slot};
   if (uint256_is_zero(value)) {
-    // Remove slot from tracking on deletion
     all_slots_set_erase(all_slots, slot_key);
   } else {
-    // Track non-zero slots
     all_slots_set_insert(all_slots, slot_key);
   }
 
@@ -392,20 +468,38 @@ static void ws_set_storage(state_access_t *const state, const address_t *const a
   const hash_t key = slot_to_key(slot);
 
   if (uint256_is_zero(value)) {
-    // Delete the slot
     mpt_delete(storage, key.bytes, HASH_SIZE);
   } else {
-    // Encode value as minimal bytes (strip leading zeros)
     uint8_t be_bytes[32];
     uint256_to_bytes_be(value, be_bytes);
-
     size_t start = 0;
     while (start < 32 && be_bytes[start] == 0) {
       start++;
     }
-
     mpt_insert(storage, key.bytes, HASH_SIZE, be_bytes + start, 32 - start);
   }
+}
+
+static void ws_set_storage(state_access_t *const state, const address_t *const addr,
+                           const uint256_t slot, const uint256_t value) {
+  const auto ws = (world_state_t *)state;
+
+  // Get old value for journaling
+  const uint256_t old_value = ws_get_storage(state, addr, slot);
+
+  // Journal old value before modification
+  journal_append(ws, (journal_entry_t){.op = JOURNAL_STORAGE,
+                                       .address = *addr,
+                                       .prev = {.storage = {.slot = slot, .value = old_value}}});
+
+  // Record original value on first write (for EIP-2200 gas calculation)
+  const auto orig_map = (original_storage_map *)ws->original_storage;
+  const warm_slot_key_t slot_key = {.addr = *addr, .slot = slot};
+  if (!original_storage_map_contains(orig_map, slot_key)) {
+    original_storage_map_insert(orig_map, slot_key, old_value);
+  }
+
+  ws_set_storage_internal(ws, addr, slot, value);
 }
 
 static bool ws_is_address_warm(state_access_t *state, const address_t *addr) {
@@ -421,6 +515,9 @@ static bool ws_warm_address(state_access_t *state, const address_t *addr) {
   if (warm_addr_set_contains(set, *addr)) {
     return false; // Already warm, not cold
   }
+
+  // Journal that we're warming this address (revert will remove it)
+  journal_append(ws, (journal_entry_t){.op = JOURNAL_WARM_ADDRESS, .address = *addr});
 
   warm_addr_set_insert(set, *addr);
   return true; // Was cold (first access)
@@ -444,6 +541,11 @@ static bool ws_warm_slot(state_access_t *const state, const address_t *const add
     return false; // Already warm, not cold
   }
 
+  // Journal that we're warming this slot (revert will remove it)
+  journal_append(ws, (journal_entry_t){.op = JOURNAL_WARM_SLOT,
+                                       .address = *addr,
+                                       .prev = {.warm_slot = {.slot = slot}}});
+
   warm_slot_set_insert(set, key);
   return true; // Was cold (first access)
 }
@@ -461,31 +563,99 @@ static void ws_begin_transaction(state_access_t *state) {
   // Clear original storage tracking
   const auto orig_map = (original_storage_map *)ws->original_storage;
   original_storage_map_clear(orig_map);
+
+  // Reset journal for new transaction (keep capacity, just reset length)
+  ws->journal_len = 0;
 }
 
-// FIXME: Snapshot/revert is not yet implemented. These are stubs that return
-// valid IDs but do NOT actually track or revert state changes. Full journaling
-// support is required for proper CALL/CREATE revert semantics.
-// See: https://github.com/daniellehrner/div0/issues/XX
+// =============================================================================
+// Snapshot/Revert Implementation (geth-style journaling)
+// =============================================================================
 
+/// Take a snapshot - returns current journal position
 static uint64_t ws_snapshot(state_access_t *state) {
   const auto ws = (world_state_t *)state;
-  // Returns incrementing ID for API compatibility, but no journaling occurs
-  return ++ws->snapshot_counter;
+  return ws->journal_len;
 }
 
-// NOLINTNEXTLINE(CppParameterMayBeConstPtrOrRef) - vtable semantic contract: revert modifies state
+/// Revert to snapshot - walk backwards through journal, restoring previous values
 static void ws_revert_to_snapshot(state_access_t *const state, const uint64_t snapshot_id) {
-  (void)state;
-  (void)snapshot_id;
-  // FIXME: No-op - requires journaling all state changes since snapshot
+  const auto ws = (world_state_t *)state;
+  const size_t target = snapshot_id;
+
+  // Walk backwards from current position to snapshot
+  while (ws->journal_len > target) {
+    ws->journal_len--;
+    const journal_entry_t *const e = &ws->journal[ws->journal_len];
+
+    switch (e->op) {
+    case JOURNAL_BALANCE:
+      ws_set_balance_internal(ws, &e->address, e->prev.balance);
+      break;
+
+    case JOURNAL_NONCE:
+      ws_set_nonce_internal(ws, &e->address, e->prev.nonce);
+      break;
+
+    case JOURNAL_STORAGE:
+      ws_set_storage_internal(ws, &e->address, e->prev.storage.slot, e->prev.storage.value);
+      break;
+
+    case JOURNAL_ACCOUNT_CREATE:
+      // If account didn't exist before, delete it
+      if (!e->prev.existed) {
+        ws_delete_account(state, &e->address);
+      }
+      break;
+
+    case JOURNAL_ACCOUNT_DELETE:
+      // Not currently used, but would restore deleted account
+      break;
+
+    case JOURNAL_WARM_ADDRESS: {
+      // Remove from warm addresses set
+      const auto set = (warm_addr_set *)ws->warm_addresses;
+      warm_addr_set_erase(set, e->address);
+      break;
+    }
+
+    case JOURNAL_WARM_SLOT: {
+      // Remove from warm slots set
+      const auto set = (warm_slot_set *)ws->warm_slots;
+      const warm_slot_key_t key = {.addr = e->address, .slot = e->prev.warm_slot.slot};
+      warm_slot_set_erase(set, key);
+      break;
+    }
+
+    case JOURNAL_CODE: {
+      // Restore code_hash in account
+      account_t acc;
+      if (world_state_get_account(ws, &e->address, &acc)) {
+        acc.code_hash = e->prev.code_hash;
+        world_state_set_account(ws, &e->address, &acc);
+      }
+
+      // If old code was empty, remove from code map
+      // Note: if old code was non-empty, we can't restore the actual bytes
+      // (they weren't journaled), but this case is rare in practice
+      if (hash_equal(&e->prev.code_hash, &EMPTY_CODE_HASH)) {
+        const auto c_map = (code_map *)ws->code_store;
+        code_map_erase(c_map, e->address);
+      }
+      break;
+    }
+    }
+  }
 }
 
-// NOLINTNEXTLINE(CppParameterMayBeConstPtrOrRef) - vtable semantic contract: commit modifies state
+/// Commit snapshot - no-op, entries stay in journal until transaction ends
+// NOLINTNEXTLINE(CppParameterMayBeConstPtrOrRef) - vtable semantic contract: commit may modify
+// state
 static void ws_commit_snapshot(state_access_t *const state, const uint64_t snapshot_id) {
   (void)state;
   (void)snapshot_id;
-  // FIXME: No-op - would discard journal entries for the snapshot
+  // In geth-style journaling, commit is a no-op - journal entries
+  // become part of the parent snapshot's entries
 }
 
 static hash_t ws_state_root(state_access_t *state) {
@@ -632,8 +802,10 @@ world_state_t *world_state_create(div0_arena_t *const arena) {
   *all_slots = all_slots_set_init();
   ws->all_storage_slots = all_slots;
 
-  // Initialize snapshot counter
-  ws->snapshot_counter = 0;
+  // Initialize journal (lazily allocated on first use)
+  ws->journal = nullptr;
+  ws->journal_len = 0;
+  ws->journal_cap = 0;
 
   return ws;
 

@@ -21,6 +21,7 @@
 #include "evm/test_opcodes_bitwise.h"
 #include "evm/test_opcodes_comparison.h"
 #include "evm/test_opcodes_context.h"
+#include "evm/test_opcodes_create.h"
 #include "evm/test_opcodes_logging.h"
 #include "evm/test_opcodes_stack.h"
 #include "evm/test_stack.h"
@@ -569,6 +570,23 @@ int main(void) {
   // Logging opcode tests - Memory expansion
   RUN_TEST(test_opcode_log0_memory_expansion);
   RUN_TEST(test_opcode_log0_memory_preexisting);
+
+  // CREATE/CREATE2 opcode tests
+  RUN_TEST(test_opcode_create_basic);
+  RUN_TEST(test_opcode_create2_basic);
+  RUN_TEST(test_opcode_create_with_value);
+  RUN_TEST(test_opcode_create2_with_salt);
+  RUN_TEST(test_opcode_create_stack_underflow);
+  RUN_TEST(test_opcode_create2_stack_underflow);
+  RUN_TEST(test_opcode_create_static_context);
+  RUN_TEST(test_opcode_create2_static_context);
+  RUN_TEST(test_opcode_create_out_of_gas_base);
+  RUN_TEST(test_opcode_create2_out_of_gas_initcode_hash);
+  RUN_TEST(test_opcode_create_insufficient_balance);
+  RUN_TEST(test_opcode_create_initcode_size_exceeded);
+  RUN_TEST(test_opcode_create_max_code_size);
+  RUN_TEST(test_opcode_create_invalid_ef_prefix);
+  RUN_TEST(test_opcode_create_insufficient_gas_deposit);
 
   // keccak256 tests
   RUN_TEST(test_keccak256_empty);

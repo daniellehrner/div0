@@ -142,7 +142,9 @@ add_library(div0_evm STATIC
   src/evm/log_vec.c
   src/evm/memory.c
   src/evm/call_op.c
+  src/evm/create_op.c
   src/evm/opcodes/call.c
+  src/evm/opcodes/create.c
 )
 target_link_libraries(div0_evm PUBLIC div0_types div0_mem)
 div0_target_options(div0_evm)
@@ -331,6 +333,7 @@ if(DIV0_BUILD_TESTS)
     tests/evm/test_opcodes_bitwise.c
     tests/evm/test_opcodes_comparison.c
     tests/evm/test_opcodes_context.c
+    tests/evm/test_opcodes_create.c
     tests/evm/test_opcodes_logging.c
     tests/evm/test_opcodes_stack.c
     # crypto tests
